@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Racha</title>
+  <meta name="description" content="Tracker de hábitos minimalista">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F4F4F1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E0F11" media="(prefers-color-scheme: dark)">
+
+  <!-- PWA e iPhone: abrir a pantalla completa al añadir a la pantalla de inicio -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Racha">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <!-- Pantalla: Hoy -->
+    <section id="view-today" class="view">
+      <header class="topbar">
+        <button type="button" class="text-btn" id="edit-toggle">Editar</button>
+        <button type="button" class="add-btn" id="add-btn" aria-label="Añadir hábito">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </header>
+
+      <div class="title-row">
+        <div class="title-text">
+          <h1 id="day-title">Hoy</h1>
+          <p class="subtitle" id="day-subtitle"></p>
+        </div>
+        <div class="day-nav">
+          <button type="button" id="prev-day" aria-label="Día anterior">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button type="button" id="next-day" aria-label="Día siguiente">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="progress" id="progress">
+        <div class="progress-track"><span id="progress-fill"></span></div>
+        <p id="progress-text"></p>
+      </div>
+
+      <ul class="habit-list" id="habit-list"></ul>
+
+      <div class="empty" id="empty-today" hidden>
+        <div class="empty-emoji" aria-hidden="true">🌱</div>
+        <h2>Aún no tienes hábitos</h2>
+        <p>Crea el primero y empieza tu racha hoy.</p>
+        <button type="button" class="primary-btn" data-add>Crear mi primer hábito</button>
+      </div>
+    </section>
+
+    <!-- Pantalla: Historial -->
+    <section id="view-history" class="view" hidden>
+      <header class="topbar"></header>
+      <div class="title-row">
+        <div class="title-text">
+          <h1>Historial</h1>
+          <p class="subtitle">Últimos 12 meses</p>
+        </div>
+      </div>
+      <div id="history"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Secciones">
+    <button type="button" class="tab" data-view="today" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>
+      <span>Hoy</span>
+    </button>
+    <button type="button" class="tab" data-view="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/></svg>
+      <span>Historial</span>
+    </button>
+  </nav>
+
+  <!-- Hoja para crear / editar un hábito -->
+  <dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+    <form id="habit-form" autocomplete="off">
+      <div class="sheet-head">
+        <button type="button" class="text-btn" data-close>Cancelar</button>
+        <h2 id="sheet-title">Nuevo hábito</h2>
+        <button type="submit" class="text-btn strong" id="save-btn">Guardar</button>
+      </div>
+
+      <div class="sheet-body">
+        <input class="emoji-input" id="habit-emoji" aria-label="Emoji del hábito" inputmode="text" enterkeyhint="done">
+        <p class="hint">Toca el emoji para escribir otro, o elige uno abajo.</p>
+
+        <label class="field">
+          <span>Nombre</span>
+          <input id="habit-name" type="text" maxlength="40" placeholder="Ej. Beber 2 litros de agua" enterkeyhint="done" required>
+        </label>
+
+        <div class="emoji-grid" id="emoji-grid" role="group" aria-label="Emojis sugeridos"></div>
+
+        <button type="button" class="danger-btn" id="delete-btn">Eliminar hábito</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
