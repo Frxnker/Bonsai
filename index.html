@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Racha</title>
-  <meta name="description" content="Tracker de hábitos minimalista con rachas, niveles y logros">
+  <meta name="description" content="Tracker de hábitos con rachas, niveles y logros">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#F4F4F1" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0E0F11" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F4F1FF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F0C1D" media="(prefers-color-scheme: dark)">
 
   <!-- PWA e iPhone: abrir a pantalla completa al añadir a la pantalla de inicio -->
   <link rel="manifest" href="manifest.json">
@@ -26,15 +26,18 @@
     <!-- Pantalla: Hoy -->
     <section id="view-today" class="view">
       <header class="topbar">
-        <button type="button" class="text-btn" id="edit-toggle">Editar</button>
-        <button type="button" class="add-btn" id="add-btn" aria-label="Añadir hábito">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
+        <button type="button" class="avatar-bubble" id="greeting-avatar" data-goto-view="settings" aria-label="Tu perfil">🙂</button>
+        <p class="greeting" id="greeting"></p>
+        <div class="topbar-actions">
+          <button type="button" class="pill-btn" id="edit-toggle">Editar</button>
+          <button type="button" class="add-btn" id="add-btn" aria-label="Añadir hábito">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
       </header>
 
       <div class="title-row">
         <div class="title-text">
-          <p class="greeting" id="greeting"></p>
           <h1 id="day-title">Hoy</h1>
           <p class="subtitle" id="day-subtitle"></p>
         </div>
@@ -53,35 +56,35 @@
         Volver a hoy
       </button>
 
-      <!-- Nivel actual (toca para ver tu progreso) -->
-      <button type="button" class="level-card" id="level-card" data-goto-view="progress" aria-label="Ver tu nivel y logros">
-        <span class="level-emoji" id="level-emoji" aria-hidden="true">🌱</span>
-        <span class="level-info">
-          <span class="level-line">
-            <span><b id="level-name">Nivel 1</b> · <span id="level-title">Semilla</span></span>
+      <!-- Resumen: progreso del día + nivel (toca para ver tu progreso) -->
+      <button type="button" class="hero-card" id="level-card" data-goto-view="progress" aria-label="Ver tu nivel y logros">
+        <span class="day-ring" id="day-ring">
+          <span class="day-ring-count" id="progress-count">0/0</span>
+          <span class="day-ring-label" id="day-ring-label">hoy</span>
+        </span>
+        <span class="hero-info">
+          <span class="hero-kicker">
+            <span><span id="level-emoji" aria-hidden="true">🌱</span> <b id="level-name">Nivel 1</b></span>
             <span class="level-xp" id="level-xp"></span>
           </span>
+          <span class="hero-level-title" id="level-title">Semilla</span>
           <span class="xp-track"><span class="xp-fill" id="level-fill"></span></span>
           <span class="level-next" id="level-next"></span>
         </span>
-        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
       </button>
 
-      <div class="progress" id="progress">
-        <div class="progress-head">
-          <span id="progress-text">Progreso de hoy</span>
-          <b id="progress-count"></b>
-        </div>
-        <div class="progress-track"><span id="progress-fill"></span></div>
-      </div>
-
       <p class="coach" id="coach" hidden></p>
+
+      <div class="list-head" id="progress">
+        <h2 id="progress-text">Tus hábitos de hoy</h2>
+        <span class="list-note" id="progress-note"></span>
+      </div>
 
       <ul class="habit-list" id="habit-list"></ul>
 
       <!-- Bienvenida (solo cuando no hay hábitos) -->
       <div class="welcome" id="welcome" hidden>
-        <div class="welcome-emoji" aria-hidden="true">🌱</div>
+        <div class="welcome-badge" aria-hidden="true">🌱</div>
         <h2>Bienvenido a Racha</h2>
         <ol class="steps">
           <li><span class="step-n">1</span><span>Elige los hábitos que quieres cumplir.</span></li>
@@ -200,7 +203,7 @@
       <div class="sheet-head">
         <button type="button" class="text-btn" data-close>Cancelar</button>
         <h2 id="sheet-title">Nuevo hábito</h2>
-        <button type="submit" class="text-btn strong" id="save-btn">Guardar</button>
+        <button type="submit" class="save-btn" id="save-btn">Guardar</button>
       </div>
 
       <div class="sheet-body">
@@ -217,6 +220,9 @@
           <div class="ideas-row" id="ideas-row"></div>
         </div>
 
+        <p class="section-label spaced">Color</p>
+        <div class="color-row" id="color-row" role="radiogroup" aria-label="Color del hábito"></div>
+
         <p class="section-label spaced">Elige un emoji</p>
         <div class="emoji-grid" id="emoji-grid" role="group" aria-label="Emojis sugeridos"></div>
 
@@ -230,7 +236,7 @@
 
   <!-- Celebración al subir de nivel -->
   <dialog class="modal" id="levelup" aria-labelledby="levelup-title">
-    <div class="modal-card">
+    <div class="modal-card levelup-card">
       <div class="levelup-emoji" id="levelup-emoji" aria-hidden="true">🌿</div>
       <p class="levelup-kicker">¡Has subido de nivel!</p>
       <h2 id="levelup-title">Nivel 2</h2>

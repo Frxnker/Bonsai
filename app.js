@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.3 beta';
+const APP_VERSION = '0.4 beta';
 const STORAGE_KEY = 'racha:v1';
 const HEATMAP_WEEKS = 53; // un año
 
@@ -65,6 +65,23 @@ const SUGGESTED_EMOJIS = [
   '✍️', '🎸', '🚶', '💪', '🧹', '🌱', '☀️', '🙏',
   '📵', '🍎', '🚭', '💰', '🧠', '🎨', '🛏️', '📝',
 ];
+
+// Cada hábito tiene su color (se usa en su tarjeta, su casilla y su mapa de calor).
+const COLORS = [
+  { id: 'violeta', name: 'Violeta', hex: '#7C5CFF' },
+  { id: 'rosa', name: 'Rosa', hex: '#FF4F9A' },
+  { id: 'naranja', name: 'Naranja', hex: '#FF7A2F' },
+  { id: 'amarillo', name: 'Amarillo', hex: '#E9A800' },
+  { id: 'verde', name: 'Verde', hex: '#1FB866' },
+  { id: 'turquesa', name: 'Turquesa', hex: '#12B3A6' },
+  { id: 'azul', name: 'Azul', hex: '#3B82F6' },
+  { id: 'rojo', name: 'Rojo', hex: '#F43F5E' },
+];
+const colorHex = (id) => (COLORS.find((c) => c.id === id) || COLORS[0]).hex;
+// El primer color que aún no use ningún hábito (o el siguiente en la rueda).
+const nextColor = (habits) => (
+  COLORS.find((c) => !habits.some((h) => h.color === c.id)) || COLORS[habits.length % COLORS.length]
+).id;
 
 const DEFAULT_AVATAR = '🙂';
 const AVATARS = [
@@ -131,10 +148,12 @@ function normalize(data) {
   const clean = emptyState();
   clean.habits = data.habits
     .filter((h) => h && typeof h.name === 'string' && h.name.trim())
-    .map((h) => ({
+    .map((h, i) => ({
       id: String(h.id || uid()),
       name: h.name.trim().slice(0, 40),
       emoji: typeof h.emoji === 'string' && h.emoji ? h.emoji : '⭐',
+      // Los hábitos de versiones anteriores reciben un color según su posición.
+      color: COLORS.some((c) => c.id === h.color) ? h.color : COLORS[i % COLORS.length].id,
       created: isDateKey(h.created) ? h.created : todayKey(),
       done: Object.fromEntries(Object.keys(h.done || {}).filter(isDateKey).map((k) => [k, 1])),
     }));
@@ -293,10 +312,12 @@ function renderToday() {
     : day === shiftKey(today, -1) ? 'Ayer'
     : capitalize(fmtWeekday.format(parseKey(day)));
   $('#day-subtitle').textContent = capitalize(fmtLong.format(parseKey(day)));
-  $('#greeting').textContent = greetingText();
+  $('#greeting-avatar').textContent = state.profile.avatar;
+  $('#greeting').innerHTML = greetingHTML();
   $('#next-day').disabled = isToday;
   $('#back-today').hidden = isToday || !hasHabits;
   $('#edit-toggle').textContent = ui.editing ? 'Listo' : 'Editar';
+  $('#edit-toggle').classList.toggle('active', ui.editing);
   $('#edit-toggle').hidden = !hasHabits;
   $('#add-btn').hidden = ui.editing;
   $('#day-nav').hidden = !hasHabits;
@@ -308,11 +329,13 @@ function renderToday() {
 
   const doneCount = habits.filter((h) => h.done[day]).length;
   const allDone = hasHabits && doneCount === habits.length;
-  $('#progress-fill').style.width = hasHabits ? `${(doneCount / habits.length) * 100}%` : '0';
+  $('#day-ring').style.setProperty('--p', hasHabits ? doneCount / habits.length : 0);
   $('#progress-count').textContent = `${doneCount}/${habits.length}`;
-  $('#progress-text').textContent = allDone
-    ? (isToday ? '¡Todo hecho hoy! 🎉' : '¡Día completo! 🎉')
-    : (isToday ? 'Progreso de hoy' : 'Progreso de ese día');
+  $('#day-ring-label').textContent = allDone ? '¡hecho!' : isToday ? 'hoy' : 'ese día';
+  $('#progress-text').textContent = isToday ? 'Tus hábitos de hoy' : 'Hábitos de ese día';
+  const note = $('#progress-note');
+  note.textContent = allDone ? (isToday ? '¡Todo hecho! 🎉' : '¡Día completo! 🎉') : `${doneCount} de ${habits.length} hechos`;
+  note.classList.toggle('all-done', allDone);
 
   let coach = '';
   if (ui.editing) coach = 'Toca un hábito para editarlo, o arrástralo desde ☰ para cambiar el orden.';
@@ -324,13 +347,15 @@ function renderToday() {
   if (!hasHabits) renderWelcome();
 }
 
-function greetingText() {
+// "Buenos días," en pequeño y el nombre en grande (o solo el saludo si no hay nombre).
+function greetingHTML() {
   const hour = new Date().getHours();
   const hello = hour >= 6 && hour < 13 ? 'Buenos días'
     : hour >= 13 && hour < 21 ? 'Buenas tardes'
     : 'Buenas noches';
-  const { name, avatar } = state.profile;
-  return `${avatar} ${hello}${name ? `, ${name}` : ''}`;
+  const { name } = state.profile;
+  if (!name) return `<b class="greeting-name">${hello}</b>`;
+  return `<span class="greeting-hello">${hello},</span> <b class="greeting-name">${escapeHTML(name)}</b>`;
 }
 
 function renderLevelCard(stats) {
@@ -357,9 +382,10 @@ function streakMeta(habit) {
 function habitRow(habit) {
   const emoji = `<span class="emoji" aria-hidden="true">${escapeHTML(habit.emoji)}</span>`;
   const name = `<span class="name">${escapeHTML(habit.name)}</span>`;
+  const color = `style="--c:${colorHex(habit.color)}"`;
 
   if (ui.editing) {
-    return `<li><button type="button" class="habit" data-id="${habit.id}">
+    return `<li><button type="button" class="habit" data-id="${habit.id}" ${color}>
       ${emoji}
       <span class="info">${name}<span class="meta">Toca para editar</span></span>
       <span class="grip-space"></span>
@@ -371,7 +397,7 @@ function habitRow(habit) {
   if (done) classes.push('done');
   if (ui.pop === habit.id) classes.push('pop');
 
-  return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}">
+  return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" ${color}>
     ${emoji}
     <span class="info">${name}<span class="meta">${streakMeta(habit)}</span></span>
     <span class="check">${ICONS.check}</span>
@@ -419,7 +445,7 @@ const pickedTemplates = new Set();
 
 function renderWelcome() {
   $('#template-grid').innerHTML = TEMPLATES.slice(0, 8).map((t, i) => `
-    <button type="button" class="template" data-template="${i}" aria-pressed="${pickedTemplates.has(i)}">
+    <button type="button" class="template" data-template="${i}" aria-pressed="${pickedTemplates.has(i)}" style="--c:${COLORS[i % COLORS.length].hex}">
       <span class="t-emoji" aria-hidden="true">${t.emoji}</span><span>${escapeHTML(t.name)}</span>
     </button>`).join('');
   updateStartButton();
@@ -444,7 +470,7 @@ $('#template-grid').addEventListener('click', (e) => {
 $('#start-btn').addEventListener('click', () => {
   [...pickedTemplates].sort((a, b) => a - b).forEach((i) => {
     const t = TEMPLATES[i];
-    state.habits.push({ id: uid(), name: t.name, emoji: t.emoji, created: ui.today, done: {} });
+    state.habits.push({ id: uid(), name: t.name, emoji: t.emoji, color: nextColor(state.habits), created: ui.today, done: {} });
   });
   pickedTemplates.clear();
   save();
@@ -568,7 +594,7 @@ function renderHistory() {
 
   const cards = state.habits.map((h) => {
     const p = habitProgress(h);
-    return `<article class="card">
+    return `<article class="card" style="--c:${colorHex(h.color)}">
       <div class="card-head">
         <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
         <h2>${escapeHTML(h.name)}</h2>
@@ -832,6 +858,26 @@ function updateSaveButton() {
   saveBtn.disabled = nameInput.value.trim() === '';
 }
 
+$('#color-row').innerHTML = COLORS.map((c) => (
+  `<button type="button" class="color-swatch" role="radio" data-color="${c.id}" aria-label="${c.name}" style="--sw:${c.hex}"></button>`
+)).join('');
+
+// Marca el color elegido y tiñe el emoji grande con él.
+function setSheetColor(id) {
+  ui.sheetColor = id;
+  document.querySelectorAll('#color-row .color-swatch').forEach((btn) => {
+    btn.setAttribute('aria-checked', String(btn.dataset.color === id));
+  });
+  emojiInput.style.setProperty('--c', colorHex(id));
+}
+
+$('#color-row').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-color]');
+  if (!btn) return;
+  setSheetColor(btn.dataset.color);
+  haptic();
+});
+
 function renderIdeas() {
   const used = new Set(state.habits.map((h) => h.name.toLowerCase()));
   const ideas = TEMPLATES.filter((t) => !used.has(t.name.toLowerCase()));
@@ -851,6 +897,7 @@ function openSheet(id = null) {
     ? habit.emoji
     : SUGGESTED_EMOJIS.find((e) => !state.habits.some((h) => h.emoji === e)) || '⭐';
   $('#delete-block').hidden = !habit;
+  setSheetColor(habit ? habit.color : nextColor(state.habits));
   renderIdeas();
   syncEmojiGrid();
   updateSaveButton();
@@ -912,8 +959,9 @@ form.addEventListener('submit', (e) => {
   if (habit) {
     habit.name = name;
     habit.emoji = emoji;
+    habit.color = ui.sheetColor;
   } else {
-    state.habits.push({ id: uid(), name, emoji, created: ui.today, done: {} });
+    state.habits.push({ id: uid(), name, emoji, color: ui.sheetColor, created: ui.today, done: {} });
   }
   save();
   closeSheet();
@@ -1045,7 +1093,7 @@ function confetti(container = document.body, amount = 120) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  const colors = ['#36C170', '#FBBF24', '#FB923C', '#4DA3FF', '#B37FEB', '#FF5C8A'];
+  const colors = ['#6C47FF', '#FF4F9A', '#FFD23F', '#1FB866', '#3B82F6', '#FF7A2F'];
   const pieces = Array.from({ length: amount }, (_, i) => ({
     x: w / 2 + (Math.random() - 0.5) * w * 0.4,
     y: h * 0.38,

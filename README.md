@@ -7,8 +7,9 @@ Tracker de hábitos minimalista para usar en el iPhone como una app normal (PWA)
 - **Bienvenida:** la primera vez eliges con un toque los hábitos con los que empezar (beber agua, leer, meditar…), o creas uno a tu medida.
 - **Pantalla Hoy:** tocas un hábito y se marca como hecho, con vibración y un «+10 XP» que sube. Cada hábito muestra su racha y su próxima meta, por ejemplo «🔥 5 días · próxima meta: 7». Si hoy aún no lo has hecho, verás «¡no la pierdas!».
 - **Niveles y logros:** ganas XP, subes de nivel (con celebración y confeti) y desbloqueas logros. Más abajo tienes cómo funciona.
-- **Botón +** para crear hábitos, con «ideas rápidas» para rellenarlos de un toque.
-- **Editar:** toca un hábito para cambiar su nombre o emoji, o arrástralo desde ☰ para cambiar el orden. Si borras uno, puedes **deshacerlo** durante unos segundos.
+- **Botón +** para crear hábitos, con «ideas rápidas» para rellenarlos de un toque. Cada hábito tiene **su propio color** (a elegir entre 8), que se usa en su tarjeta, en su casilla y en su mapa de calor.
+- **Tarjeta principal:** el anillo muestra cuántos hábitos llevas hoy y, a su lado, tu nivel y tu barra de XP.
+- **Editar:** toca un hábito para cambiar su nombre, emoji o color, o arrástralo desde ☰ para cambiar el orden. Si borras uno, puedes **deshacerlo** durante unos segundos.
 - **Flechas ‹ ›** para ir a días anteriores, por si se te olvidó marcar algo. El botón «Volver a hoy» te trae de vuelta.
 - **Pestaña Progreso:** tu nivel, cómo ganar XP, el camino de niveles y los logros.
 - **Pestaña Historial:** un mapa de calor de 12 meses con todos los hábitos y otro por cada hábito. Si tocas un cuadrito, te dice qué pasó ese día, y con «Ver día» puedes ir a él para corregirlo.
