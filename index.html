@@ -162,6 +162,13 @@
         <p class="backup-date" id="backup-date"></p>
       </article>
 
+      <div id="archived-section" hidden>
+        <p class="section-label group">Hábitos archivados</p>
+        <article class="card">
+          <ul class="archived-list" id="archived-list"></ul>
+        </article>
+      </div>
+
       <p class="section-label group">Zona beta <span class="beta-pill">BETA</span></p>
       <article class="card">
         <div class="setting-row">
@@ -220,6 +227,21 @@
           <div class="ideas-row" id="ideas-row"></div>
         </div>
 
+        <p class="section-label spaced">Frecuencia</p>
+        <div class="segmented" id="freq-type" role="radiogroup" aria-label="Frecuencia">
+          <button type="button" role="radio" data-freq="daily">Cada día</button>
+          <button type="button" role="radio" data-freq="days">Algunos días</button>
+          <button type="button" role="radio" data-freq="weekly">Por semana</button>
+        </div>
+        <div class="weekday-row" id="freq-days" role="group" aria-label="Días de la semana" hidden></div>
+        <div class="stepper" id="freq-times" hidden>
+          <button type="button" data-step="-1" aria-label="Una vez menos por semana">−</button>
+          <output id="freq-times-value" aria-live="polite">3</output>
+          <span>veces por semana</span>
+          <button type="button" data-step="1" aria-label="Una vez más por semana">+</button>
+        </div>
+        <p class="hint left" id="freq-hint"></p>
+
         <p class="section-label spaced">Color</p>
         <div class="color-row" id="color-row" role="radiogroup" aria-label="Color del hábito"></div>
 
@@ -227,6 +249,23 @@
         <div class="emoji-grid" id="emoji-grid" role="group" aria-label="Emojis sugeridos"></div>
 
         <div id="delete-block">
+          <p class="section-label spaced">Pausa</p>
+          <div class="pause-box" id="pause-off">
+            <p class="pause-text">¿Vacaciones, un viaje o una lesión? Mientras esté en pausa, no romperás la racha.</p>
+            <label class="field">
+              <span>Hasta el (opcional)</span>
+              <input id="pause-until" type="date" aria-label="Fecha de fin de la pausa (opcional)">
+            </label>
+            <button type="button" class="secondary-btn wide" id="pause-btn">⏸️ Pausar</button>
+          </div>
+          <div class="pause-box" id="pause-on" hidden>
+            <p class="pause-text" id="pause-status"></p>
+            <button type="button" class="secondary-btn wide" id="resume-btn">▶️ Reanudar ahora</button>
+          </div>
+
+          <button type="button" class="secondary-btn wide spaced" id="archive-btn">🗄️ Archivar hábito</button>
+          <p class="danger-hint">Desaparece de Hoy y del Historial, pero conservas su XP. Puedes restaurarlo desde Ajustes.</p>
+
           <button type="button" class="danger-btn" id="delete-btn">Eliminar hábito</button>
           <p class="danger-hint">Podrás deshacerlo durante unos segundos. La XP ganada no se pierde.</p>
         </div>

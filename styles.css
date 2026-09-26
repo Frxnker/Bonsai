@@ -53,6 +53,7 @@
   --danger-ink: #FFFFFF;
 
   --heat-0: #EAE6DB;
+  --paused: #D3CEC2;            /* días en pausa en los mapas */
   --backdrop: rgba(40, 46, 42, 0.4);
   --dock-bg: rgba(255, 253, 248, 0.9);
   --dock-shadow: 0 16px 34px rgba(45, 54, 48, 0.12);
@@ -115,6 +116,7 @@
     --danger-ink: #2A0F0C;
 
     --heat-0: #212A24;
+    --paused: #3A423C;
     --backdrop: rgba(0, 0, 0, 0.55);
     --dock-bg: rgba(25, 33, 28, 0.9);
     --dock-shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
@@ -1618,6 +1620,166 @@ h1 {
   line-height: 1.5;
   text-align: center;
 }
+
+/* ---------- Frecuencia (en la hoja) ---------- */
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+.segmented button {
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 13px;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 800;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.segmented button[aria-checked="true"] {
+  background: var(--surface);
+  box-shadow: 0 2px 0 var(--edge);
+  color: var(--text);
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.weekday-row button {
+  min-height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--edge);
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 900;
+  transition: transform 0.08s ease;
+}
+.weekday-row button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 3px 0 var(--accent-edge);
+  color: var(--accent-ink);
+}
+.weekday-row button:active { transform: translateY(2px); }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 8px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.stepper button {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 24px;
+  font-weight: 900;
+}
+.stepper output {
+  min-width: 26px;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  text-align: center;
+}
+.stepper span { flex: 1; color: var(--text-2); font-size: 15px; font-weight: 700; }
+.stepper button:last-child { margin-left: auto; }
+
+/* ---------- Pausa y archivo (en la hoja) ---------- */
+.pause-box {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.pause-text { margin: 0; color: var(--text-2); font-size: 14px; font-weight: 600; }
+.pause-box .field input { background: var(--surface-2); border-color: transparent; }
+.secondary-btn.wide { width: 100%; }
+.secondary-btn.spaced { margin-top: 18px; }
+.pause-box .secondary-btn { box-shadow: 0 4px 0 var(--edge); }
+
+/* ---------- Hoy: descanso y pausa ---------- */
+.habit.resting:not(.done) { opacity: 0.62; }
+.habit.paused {
+  border-style: dashed;
+  box-shadow: none;
+  opacity: 0.6;
+}
+.habit.paused .emoji { filter: grayscale(0.8); }
+.habit .meta u { text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.check.pause-mark { border-style: dashed; color: var(--text-2); }
+.check.pause-mark svg { width: 18px; height: 18px; stroke-width: 3; }
+
+/* ---------- Historial: descanso, pausa y frecuencia ---------- */
+.hm-grid .rest { background: transparent; box-shadow: inset 0 0 0 1.5px var(--heat-0); }
+.hm-grid .paused { background: var(--paused); }
+.hm-grid .rest.today { box-shadow: inset 0 0 0 2px var(--text-2); }
+.card-title { display: grid; flex: 1; min-width: 0; }
+.card-title h2 { flex: none; }
+.card-sub {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Ajustes: hábitos archivados ---------- */
+.archived-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.archived-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.archived-list .emoji { width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0; font-size: 22px; }
+.archived-info { display: grid; flex: 1; min-width: 0; }
+.archived-info b {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.archived-info span { color: var(--text-2); font-size: 12px; font-weight: 700; }
+.pill-btn.small { flex-shrink: 0; min-height: 40px; padding: 0 12px; font-size: 13px; }
+.icon-btn {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-size: 18px;
+}
+.icon-btn:active { transform: translateY(2px); }
 
 /* ---------- Aviso flotante ---------- */
 .toast {
