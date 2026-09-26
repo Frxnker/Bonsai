@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Racha · Hábitos",
   "short_name": "Racha",
-  "description": "Tracker de hábitos minimalista",
+  "description": "Tracker de hábitos minimalista con rachas, niveles y logros",
   "lang": "es",
   "dir": "ltr",
   "start_url": "./",

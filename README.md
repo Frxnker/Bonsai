@@ -4,11 +4,39 @@ Tracker de hábitos minimalista para usar en el iPhone como una app normal (PWA)
 
 ## Qué hace
 
-- **Pantalla Hoy:** tocas un hábito y se marca como hecho, con una barra de progreso («2 de 3 hechos»). Cada hábito muestra su racha, por ejemplo «🔥 5 días». Si hoy aún no lo has hecho, añade «· hazlo hoy», porque la racha sigue viva hasta que acaba el día.
-- **Botón +** para crear hábitos. **Editar** activa el modo edición: al tocar un hábito puedes cambiar su nombre y su emoji, o borrarlo. Para borrar hay que tocar dos veces, así no lo borras sin querer.
-- **Flechas ‹ ›** para ir a días anteriores, por si se te olvidó marcar algo ayer.
-- **Pestaña Historial:** un mapa de calor de 12 meses con todos los hábitos y otro por cada hábito, con racha actual, mejor racha y días hechos. Si tocas un cuadrito, te dice qué pasó ese día.
-- Los datos se guardan en el móvil (localStorage), la app funciona sin conexión y el modo claro/oscuro va solo.
+- **Bienvenida:** la primera vez eliges con un toque los hábitos con los que empezar (beber agua, leer, meditar…), o creas uno a tu medida.
+- **Pantalla Hoy:** tocas un hábito y se marca como hecho, con vibración y un «+10 XP» que sube. Cada hábito muestra su racha y su próxima meta, por ejemplo «🔥 5 días · próxima meta: 7». Si hoy aún no lo has hecho, verás «¡no la pierdas!».
+- **Niveles y logros:** ganas XP, subes de nivel (con celebración y confeti) y desbloqueas logros. Más abajo tienes cómo funciona.
+- **Botón +** para crear hábitos, con «ideas rápidas» para rellenarlos de un toque.
+- **Editar:** toca un hábito para cambiar su nombre o emoji, o arrástralo desde ☰ para cambiar el orden. Si borras uno, puedes **deshacerlo** durante unos segundos.
+- **Flechas ‹ ›** para ir a días anteriores, por si se te olvidó marcar algo. El botón «Volver a hoy» te trae de vuelta.
+- **Pestaña Progreso:** tu nivel, cómo ganar XP, el camino de niveles y los logros.
+- **Pestaña Historial:** un mapa de calor de 12 meses con todos los hábitos y otro por cada hábito. Si tocas un cuadrito, te dice qué pasó ese día, y con «Ver día» puedes ir a él para corregirlo.
+- **Pestaña Ajustes:** tu perfil (nombre y avatar), la copia de seguridad y la opción de restablecer tu progreso.
+- Funciona sin conexión y el modo claro/oscuro va solo.
+
+## Ajustes
+
+- **Tu perfil:** escribe tu nombre y elige un avatar de la lista, o toca el avatar grande y escribe cualquier emoji. Se guarda al momento y aparece en el saludo de la pantalla Hoy («🦊 Buenos días, Fran»).
+- **Copia de seguridad:** exporta o importa todos tus datos (más abajo tienes cómo).
+- **Zona beta → Restablecer progreso y logros:** mientras la app está en fase beta, puedes volver a empezar desde cero.
+  - Se borra: tu XP, tu nivel (vuelves al 1), los logros, el historial de días y las rachas.
+  - Se mantiene: tus hábitos y tu perfil.
+  - Antes te pide confirmación, con la opción de exportar una copia. Después, durante unos segundos, puedes pulsar **Deshacer**.
+
+## Cómo funcionan los niveles
+
+| Qué haces | XP |
+| --- | --- |
+| ✅ Marcar un hábito como hecho | +10 |
+| 🔥 Bonus de racha: +1 por cada día seguido | hasta +10 |
+| 🌟 Día perfecto: todos tus hábitos del día hechos | +25 |
+
+- Cada nivel pide 100 XP más que el anterior: el nivel 2 está en 100 XP, el 3 en 300, el 4 en 600…
+- Hay 15 títulos: 🌱 Semilla, 🌿 Brote, 🪴 Planta, 🌳 Árbol, 🔥 Constante, ⚡ Enfocado, 💪 Disciplinado, 🧭 Explorador, 🏔️ Escalador, 🦅 Imparable, 🧠 Sabio, 🛡️ Guardián, 👑 Maestro, 🌟 Estrella y 🐉 Leyenda.
+- Hay 14 logros: rachas de 3, 7, 14, 30, 100 y 365 días; días perfectos; total de hábitos marcados; y llegar a los niveles 5 y 10.
+- Si desmarcas un hábito, la XP se resta. Si **borras** un hábito, conservas la XP que ganaste con él.
+- Si añades un hábito nuevo a mitad del día, ese día deja de ser «perfecto» hasta que también lo completes.
 
 ## Archivos
 
@@ -16,7 +44,7 @@ Tracker de hábitos minimalista para usar en el iPhone como una app normal (PWA)
 | --- | --- |
 | `index.html` | Estructura de la app y etiquetas para el iPhone |
 | `styles.css` | Diseño, modo claro/oscuro y zonas seguras del iPhone |
-| `app.js` | Toda la lógica: hábitos, rachas, historial |
+| `app.js` | Toda la lógica: hábitos, rachas, XP, niveles, logros, historial, perfil y copias |
 | `sw.js` | Service worker, para que funcione sin conexión |
 | `manifest.json` | Nombre, colores e iconos de la app instalada |
 | `icons/` | Iconos de la app |
@@ -50,8 +78,26 @@ Haz doble clic en `index.html` y se abrirá en tu navegador. Así funciona todo 
 4. Toca **Añadir**. Aparecerá el icono verde de Racha junto a tus otras apps.
 5. Ábrela siempre **desde ese icono**. Se verá a pantalla completa, sin las barras de Safari.
 
+## Actualizar la app ya publicada
+
+Si cambias algún archivo y ya tenías la app en GitHub:
+
+1. Entra en tu repositorio en github.com y pulsa **Add file → Upload files**.
+2. Arrastra los archivos que hayan cambiado. Los que tengan el mismo nombre se sustituyen.
+3. Pulsa **Commit changes** y espera 1–2 minutos.
+4. En el iPhone, abre la app, ciérrala del todo (desliza hacia arriba en el selector de apps) y vuelve a abrirla. La primera vez aún verás la versión anterior; la siguiente, ya la nueva.
+
+Tus hábitos, tu XP, tu nivel y tu perfil no se pierden al actualizar.
+
+## Copia de seguridad
+
+En **Ajustes → Copia de seguridad**:
+
+- **Exportar copia** abre el menú Compartir del iPhone. Elige **«Guardar en Archivos»** (por ejemplo, en iCloud Drive).
+- **Importar copia** te deja elegir ese archivo para recuperar todos tus datos, por ejemplo en un iPhone nuevo.
+
 ## ⚠️ Tres cosas importantes
 
 - **Los datos del icono y los de Safari están separados.** Lo que marques en la pestaña de Safari no aparece en la app instalada, así que usa siempre el icono.
-- **Si borras el icono de la pantalla de inicio, se borran tus datos.** No hay copia de seguridad porque no hay servidor.
-- **Si cambias algo y vuelves a subir los archivos,** la primera vez que abras la app verás la versión anterior. Ciérrala del todo (desliza hacia arriba en el selector de apps), vuelve a abrirla y ya tendrás la nueva.
+- **Si borras el icono de la pantalla de inicio, se borran tus datos.** Haz una copia de seguridad de vez en cuando para poder recuperarlos.
+- **La vibración al marcar** solo funciona en iPhone con iOS 18 o posterior. En versiones anteriores, la app funciona igual, pero sin vibrar.
