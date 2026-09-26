@@ -69,8 +69,21 @@
           </span>
           <span class="hero-level-title" id="level-title">Semilla</span>
           <span class="xp-track"><span class="xp-fill" id="level-fill"></span></span>
-          <span class="level-next" id="level-next"></span>
+          <span class="hero-foot">
+            <span class="level-next" id="level-next"></span>
+            <span class="shield-chip" id="shield-chip"></span>
+          </span>
         </span>
+      </button>
+
+      <!-- Retos de la semana (resumen; el detalle está en Progreso) -->
+      <button type="button" class="challenge-strip" id="challenge-strip" data-goto-view="progress" hidden>
+        <span class="cs-icon" aria-hidden="true">🏆</span>
+        <span class="cs-body">
+          <span class="cs-title">Retos de la semana <b id="cs-count"></b></span>
+          <span class="cs-bars" id="cs-bars" aria-hidden="true"></span>
+        </span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
       </button>
 
       <p class="coach" id="coach" hidden></p>

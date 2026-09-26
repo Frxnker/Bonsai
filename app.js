@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.7 beta';
+const APP_VERSION = '0.8 beta';
 const STORAGE_KEY = 'racha:v1';
 const HEATMAP_WEEKS = 53; // un año
 const LONG_PRESS_MS = 500; // mantener pulsado resta 1 en los hábitos con cantidad
@@ -10,6 +10,9 @@ const LONG_PRESS_MS = 500; // mantener pulsado resta 1 en los hábitos con canti
 const XP_PER_CHECK = 10;   // cada hábito hecho
 const XP_STREAK_CAP = 10;  // bonus de racha: +1 por día seguido, hasta +10
 const XP_PERFECT_DAY = 25; // todos los hábitos del día hechos
+const SHIELD_EVERY = 7;      // 1 protector por cada 7 días seguidos de racha
+const SHIELD_MAX = 3;        // como mucho 3 guardados
+const SHIELD_MIN_STREAK = 3; // solo se gastan para salvar rachas de 3 días o más
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
 const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52]; // metas para los hábitos de "X veces por semana"
 
@@ -51,6 +54,9 @@ const ACHIEVEMENTS = [
   { emoji: '💯', name: 'Centenario', desc: 'Racha de 100 días', stat: 'best', goal: 100 },
   { emoji: '💎', name: 'Diamante', desc: '50 días perfectos', stat: 'perfectDays', goal: 50 },
   { emoji: '👑', name: 'Un año', desc: 'Racha de 365 días', stat: 'best', goal: 365 },
+  { emoji: '🛡️', name: 'Escudo', desc: 'Usa tu primer protector', stat: 'shieldsUsed', goal: 1 },
+  { emoji: '🕊️', name: 'Libre', desc: '30 días sin recaer', stat: 'bestClean', goal: 30 },
+  { emoji: '🏆', name: 'Retador', desc: 'Completa 10 retos semanales', stat: 'challenges', goal: 10 },
 ];
 
 // Plantillas: las 8 primeras salen en la bienvenida. Los campos que faltan usan los valores por defecto.
@@ -173,12 +179,14 @@ const uid = () => (crypto.randomUUID
   ? crypto.randomUUID()
   : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
-// "bank" guarda la XP y los récords de los hábitos borrados, para que borrar no cambie tu XP.
+// "bank" guarda la XP y los récords de los hábitos borrados, para que borrar no cambie tu XP ni tus logros.
+const emptyBank = () => ({ xp: 0, checkins: 0, best: 0, clean: 0, shields: 0, challenges: 0 });
 const emptyState = () => ({
   profile: { name: '', avatar: DEFAULT_AVATAR, since: todayKey() },
   habits: [],
-  bank: { xp: 0, checkins: 0, best: 0 },
+  bank: emptyBank(),
   lastBackup: null,
+  challengesSince: null, // lunes de la primera semana con retos (se fija al abrir la 0.8 por primera vez)
 });
 
 // Frecuencia: diario (por defecto), días concretos (0 = lunes) o X veces por semana (1–6).
@@ -208,6 +216,9 @@ const normalizeDone = (done) => Object.fromEntries(Object.entries(done || {})
   .filter(([k, v]) => isDateKey(k) && Number(v) > 0)
   .map(([k, v]) => [k, Math.min(999, Math.round(Number(v)) || 1)]));
 
+// { 'AAAA-MM-DD': 1 } con solo fechas válidas (recaídas y protectores).
+const dayFlags = (obj) => Object.fromEntries(Object.keys(obj || {}).filter(isDateKey).map((k) => [k, 1]));
+
 // Limpia y valida los datos (sirve para lo guardado y para copias importadas).
 function normalize(data) {
   if (!data || !Array.isArray(data.habits)) return null;
@@ -230,15 +241,21 @@ function normalize(data) {
       archived: isDateKey(h.archived) ? h.archived : null,
       created: isDateKey(h.created) ? h.created : todayKey(),
       done: normalizeDone(h.done),
-      slips: Object.fromEntries(Object.keys(h.slips || {}).filter(isDateKey).map((k) => [k, 1])),
+      slips: dayFlags(h.slips),
+      shields: dayFlags(h.shields), // días salvados con un protector
     }));
   const bank = data.bank || {};
+  const count = (v) => Math.max(0, Number(v) || 0);
   clean.bank = {
     xp: Number(bank.xp) || 0, // puede ser negativo: compensa los días que pasan a ser perfectos al borrar
-    checkins: Math.max(0, Number(bank.checkins) || 0),
-    best: Math.max(0, Number(bank.best) || 0),
+    checkins: count(bank.checkins),
+    best: count(bank.best),
+    clean: count(bank.clean),
+    shields: count(bank.shields),
+    challenges: count(bank.challenges),
   };
   clean.lastBackup = isDateKey(data.lastBackup) ? data.lastBackup : null;
+  clean.challengesSince = isDateKey(data.challengesSince) ? weekStartOf(data.challengesSince) : null;
 
   // Perfil. Si no hay fecha de inicio (datos de versiones anteriores), usamos el día más antiguo que conste.
   const profile = data.profile || {};
@@ -264,7 +281,7 @@ function load() {
 }
 
 function save() {
-  calcCache = new WeakMap(); // los datos han cambiado: hay que recalcular
+  invalidate(); // los datos han cambiado: hay que recalcular
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
@@ -277,6 +294,7 @@ function replaceState(data) {
   state.habits = data.habits;
   state.bank = data.bank;
   state.lastBackup = data.lastBackup;
+  state.challengesSince = data.challengesSince || state.challengesSince || weekStartOf(ui.today);
   save();
   render();
 }
@@ -295,20 +313,35 @@ const newHabit = (fields) => ({
   created: ui.today,
   done: {},
   slips: {},
+  shields: {},
   ...fields,
 });
 
 // Hábitos que se ven en Hoy e Historial (los archivados solo aparecen en Ajustes).
 const visibleHabits = () => state.habits.filter((h) => !h.archived);
 
-// Caché de cálculos por hábito. Se vacía en cada save() y al cambiar de día.
+// Caché de cálculos por hábito (y de los que mezclan varios, como protectores y retos).
+// Se vacía en cada save() y al cambiar de día.
 let calcCache = new WeakMap();
+const globalCache = new Map();
 let cacheDay = null;
-function cached(habit, name, compute) {
+function invalidate() {
+  calcCache = new WeakMap();
+  globalCache.clear();
+}
+function checkCacheDay() {
   if (cacheDay !== ui.today) {
-    calcCache = new WeakMap();
+    invalidate();
     cacheDay = ui.today;
   }
+}
+function cachedGlobal(name, compute) {
+  checkCacheDay();
+  if (!globalCache.has(name)) globalCache.set(name, compute());
+  return globalCache.get(name);
+}
+function cached(habit, name, compute) {
+  checkCacheDay();
   let entry = calcCache.get(habit);
   if (!entry) {
     entry = {};
@@ -350,6 +383,8 @@ function isDone(habit, key) {
 // Cuánto se lleva ese día (sin pasar de la meta, por si se bajó después).
 const amountOn = (habit, key) => Math.min(habit.done[key] || 0, habit.goal);
 const hasSlip = (habit, key) => habit.kind === 'quit' && Boolean(habit.slips[key]) && isActive(habit, key);
+// Día salvado por un protector: tocaba, no se hizo y hay un protector apuntado. Si luego se marca, deja de contar.
+const isShielded = (habit, key) => Boolean(habit.shields[key]) && habit.kind !== 'quit' && isDue(habit, key) && !isDone(habit, key);
 // "Dejar de fumar" → "fumar", "Sin azúcar" → "azúcar", "Menos redes" → "redes"
 const quitWhat = (habit) => {
   const rest = habit.name.replace(/^(dejar\s+(de|el|la|los|las)\s+|dejar\s+|sin\s+|menos\s+|no\s+)/i, '').trim() || habit.name;
@@ -392,12 +427,16 @@ const streakInfo = (habit) => cached(habit, 'streak', () => (
   habit.schedule.type === 'weekly' ? weeklyTimeline(habit) : dailyTimeline(habit)
 ));
 
+// Además de la racha, apunta los días en que llega a un múltiplo de 7 (ahí se gana un protector)
+// y la racha de cada día (para los retos).
 function dailyTimeline(habit) {
   const today = ui.today;
   let run = 0;
   let best = 0;
   let xp = 0;
   let checkins = 0;
+  const earns = [];
+  const runOn = {};
   forEachDay(habitStart(habit), today, (key, weekday) => {
     const done = isDone(habit, key);
     if (done) checkins++;
@@ -406,14 +445,18 @@ function dailyTimeline(habit) {
         xp += XP_PER_CHECK + Math.min(run, XP_STREAK_CAP);
         run++;
         best = Math.max(best, run);
+        if (run % SHIELD_EVERY === 0) earns.push(key);
+      } else if (isShielded(habit, key)) {
+        // protegido: la racha sigue viva, pero ese día no suma ni da XP
       } else if (key !== today || hasSlip(habit, key)) {
         run = 0; // hoy aún se puede hacer… salvo si ya se apuntó una recaída
       }
     } else if (done) {
       xp += XP_PER_CHECK; // día extra: da XP sin tocar la racha
     }
+    runOn[key] = run;
   });
-  return { unit: 'day', current: run, best, xp, checkins };
+  return { unit: 'day', current: run, best, xp, checkins, earns, runOn };
 }
 
 // Semanales: la racha son semanas cumplidas. Una semana sin cumplir no rompe la racha si es
@@ -444,7 +487,7 @@ function weeklyTimeline(habit) {
     }
     if (ws === thisWeek) weekDone = count;
   }
-  return { unit: 'week', current: run, best, xp, checkins, weekDone };
+  return { unit: 'week', current: run, best, xp, checkins, weekDone, earns: [], runOn: {} };
 }
 
 // Hábitos que tocaban ese día y cuántos se hicieron (para el día perfecto).
@@ -494,13 +537,16 @@ function levelInfo(level) {
 
 // Todo se calcula a partir del historial, así marcar o desmarcar siempre cuadra.
 function computeStats() {
-  let { xp, checkins, best } = state.bank;
+  const { bank } = state;
+  let { xp, checkins, best } = bank;
+  let bestClean = bank.clean;
   const days = new Set();
   for (const habit of state.habits) {
     const s = streakInfo(habit);
     xp += s.xp;
     checkins += s.checkins;
     if (s.unit === 'day') best = Math.max(best, s.best); // los logros de racha se miden en días
+    if (habit.kind === 'quit') bestClean = Math.max(bestClean, s.best);
     // Días que pueden ser perfectos: los marcados y, en los de dejar algo, todos desde que empezó.
     if (habit.kind === 'quit') forEachDay(habitStart(habit), ui.today, (d) => days.add(d));
     else for (const d in habit.done) days.add(d);
@@ -509,16 +555,270 @@ function computeStats() {
   days.forEach((d) => { if (isPerfectDay(d)) perfectDays++; });
   xp += perfectDays * XP_PERFECT_DAY;
 
+  const shields = shieldInfo();
+  const challenges = challengeTotals();
+  xp += challenges.xp;
+
   xp = Math.max(0, xp);
   const level = levelForXp(xp);
   return {
-    xp, checkins, best, perfectDays, level,
+    xp, checkins, best, perfectDays, level, bestClean,
+    shields: shields.available,
+    shieldsEarned: shields.earned,
+    shieldsUsed: shields.used + bank.shields,
+    challenges: challenges.done + bank.challenges,
+    challengeXp: challenges.xp,
     levelStart: xpForLevel(level),
     levelEnd: xpForLevel(level + 1),
   };
 }
 
 const isUnlocked = (achievement, stats) => stats[achievement.stat] >= achievement.goal;
+
+// ---------- Protectores de racha ----------
+
+// Recorre el historial de todos los hábitos en orden: +1 protector cada vez que una racha llega a
+// un múltiplo de 7 (sin pasar de 3 guardados) y −1 por cada día salvado.
+function shieldInfo() {
+  return cachedGlobal('shields', () => {
+    const events = new Map(); // día → { earn, use }
+    const at = (day) => {
+      if (!events.has(day)) events.set(day, { earn: 0, use: 0 });
+      return events.get(day);
+    };
+    for (const habit of state.habits) {
+      streakInfo(habit).earns.forEach((d) => { at(d).earn++; });
+      for (const d in habit.shields) if (isShielded(habit, d)) at(d).use++;
+    }
+    let stock = 0;
+    let earned = 0;
+    let used = 0;
+    [...events.keys()].sort().forEach((day) => {
+      const e = events.get(day);
+      earned += e.earn;
+      stock = Math.min(SHIELD_MAX, stock + e.earn);
+      stock -= e.use;
+      used += e.use;
+    });
+    return { available: Math.max(0, stock), earned, used };
+  });
+}
+
+// Al abrir la app (y al cambiar de día): si un hábito diario o de días concretos con racha de 3 o más
+// se quedó sin hacer ayer (o varios días seguidos, sin pasar de los protectores que tienes), se gastan solos.
+function useShields() {
+  let available = shieldInfo().available;
+  if (!available) return;
+  const saved = [];
+  const yesterday = shiftKey(ui.today, -1);
+  for (const habit of visibleHabits()) {
+    if (!available) break;
+    if (habit.kind === 'quit' || habit.schedule.type === 'weekly') continue;
+    const start = habitStart(habit);
+    const gap = [];
+    let day = yesterday;
+    let found = false; // ¿hay un día hecho (o protegido) antes del hueco?
+    while (day >= start) {
+      if (isDue(habit, day)) {
+        if (isDone(habit, day) || isShielded(habit, day)) {
+          found = true;
+          break;
+        }
+        gap.push(day);
+        if (gap.length > available) break;
+      }
+      day = shiftKey(day, -1);
+    }
+    if (!found || !gap.length || gap.length > available) continue;
+    // Probamos a proteger el hueco y miramos si la racha que salva llega al mínimo.
+    gap.forEach((d) => { habit.shields[d] = 1; });
+    invalidate();
+    const streak = streakInfo(habit).current;
+    if (streak < SHIELD_MIN_STREAK) {
+      gap.forEach((d) => { delete habit.shields[d]; });
+      invalidate();
+      continue;
+    }
+    available -= gap.length;
+    saved.push({ habit, streak, days: gap.length });
+  }
+  if (!saved.length) return;
+  save();
+  const total = saved.reduce((n, x) => n + x.days, 0);
+  const what = total === 1 ? '🛡️ Protector usado' : `🛡️ ${total} protectores usados`;
+  toast(saved.length === 1
+    ? `${what}: tu racha de ${plural(saved[0].streak, 'día', 'días')} sigue viva`
+    : `${what}: tus rachas siguen vivas`);
+}
+
+// ---------- Retos semanales ----------
+
+// Generador pseudoaleatorio con semilla: misma semana → mismos retos.
+function seededRandom(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h = (h + 0x6D2B79F5) | 0;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const weekKeys = (ws) => Array.from({ length: 7 }, (_, i) => shiftKey(ws, i));
+const isBuildDaily = (h) => h.kind === 'build' && h.schedule.type !== 'weekly';
+
+// Hábitos con los que se eligen los retos de una semana: los que ya existían al empezarla
+// (o, en la primera semana, los del primer día que hubo alguno). Así añadir uno a mitad de semana no los cambia.
+function weekHabits(ws) {
+  const we = shiftKey(ws, 6);
+  const all = state.habits.filter((h) => habitStart(h) <= we && (!h.archived || h.archived > ws));
+  if (!all.length) return [];
+  const firstDay = all.reduce((min, h) => (habitStart(h) < min ? habitStart(h) : min), we);
+  const cutoff = firstDay > ws ? firstDay : ws;
+  return all.filter((h) => habitStart(h) <= cutoff).sort((a, b) => (a.id < b.id ? -1 : 1));
+}
+
+// Lo que pasó en una semana (solo hasta hoy).
+function weekData(ws) {
+  return cachedGlobal(`week:${ws}`, () => {
+    const days = weekKeys(ws);
+    const past = days.filter((d) => d <= ui.today);
+    const perfect = days.map((d) => d <= ui.today && isPerfectDay(d));
+    let row = 0;
+    let perfectRow = 0;
+    perfect.forEach((p) => { row = p ? row + 1 : 0; perfectRow = Math.max(perfectRow, row); });
+    let marks = 0;
+    let shieldsUsed = 0;
+    let maxRun = 0;
+    for (const h of state.habits) {
+      const s = streakInfo(h);
+      for (const d of past) {
+        if (h.kind === 'build' && isDone(h, d)) marks++;
+        if (isShielded(h, d)) shieldsUsed++;
+        if (s.runOn[d] > maxRun) maxRun = s.runOn[d];
+      }
+    }
+    return {
+      days, past, perfect, perfectRow, marks, shieldsUsed, maxRun,
+      perfectCount: perfect.filter(Boolean).length,
+      ended: days[6] < ui.today,
+    };
+  });
+}
+
+const countDays = (days, fn) => days.reduce((n, d) => n + (fn(d) ? 1 : 0), 0);
+
+// Plantillas de retos. `habit` elige a qué hábito se refiere (si hace falta); `final` = solo se sabe al acabar la semana.
+const CHALLENGES = [
+  { id: 'perfect3', emoji: '🌟', reward: 40, needs: (hs) => hs.some(isBuildDaily),
+    text: () => 'Consigue 3 días perfectos', target: () => 3, value: (w) => w.perfectCount },
+  { id: 'perfect5', emoji: '✨', reward: 60, needs: (hs) => hs.some(isBuildDaily),
+    text: () => 'Consigue 5 días perfectos', target: () => 5, value: (w) => w.perfectCount },
+  { id: 'perfectRow', emoji: '🔗', reward: 60, needs: (hs) => hs.some(isBuildDaily),
+    text: () => 'Encadena 3 días perfectos seguidos', target: () => 3, value: (w) => w.perfectRow },
+  { id: 'weekend', emoji: '🏖️', reward: 40, needs: (hs) => hs.some(isBuildDaily),
+    text: () => 'Consigue un día perfecto en fin de semana', target: () => 1, value: (w) => (w.perfect[5] || w.perfect[6] ? 1 : 0) },
+  { id: 'marks', emoji: '🎯', reward: 40, needs: (hs) => hs.some((h) => h.kind === 'build'),
+    // 80 % de lo que toca en la semana (entre 2 y 40)
+    target: (h, hs, ws) => {
+      const expected = hs.filter((x) => x.kind === 'build').reduce((n, x) => n + (x.schedule.type === 'weekly'
+        ? x.schedule.times : countDays(weekKeys(ws), (d) => isDue(x, d))), 0);
+      return expected < 3 ? 0 : Math.max(2, Math.min(40, Math.round(expected * 0.8)));
+    },
+    text: (h, n) => `Marca ${n} hábitos esta semana`, value: (w) => w.marks },
+  { id: 'allDue', emoji: '📅', reward: 50, habit: isBuildDaily,
+    text: (h) => `Completa «${h.name}» todos los días que toca`,
+    target: (h, hs, ws) => countDays(weekKeys(ws), (d) => isDue(h, d)),
+    value: (w, h) => countDays(w.past, (d) => isDue(h, d) && isDone(h, d)) },
+  { id: 'weekly', emoji: '💪', reward: 40, habit: (h) => h.kind === 'build' && h.schedule.type === 'weekly',
+    text: (h) => `Cumple «${h.name}» ${plural(h.schedule.times, 'vez', 'veces')} esta semana`,
+    target: (h) => h.schedule.times, value: (w, h) => countDays(w.past, (d) => isDone(h, d)) },
+  { id: 'qty', emoji: '💧', reward: 40, habit: (h) => isBuildDaily(h) && h.goal > 1,
+    text: (h, n) => `Llega a tu meta de «${h.name}» ${plural(n, 'día', 'días')}`,
+    target: (h, hs, ws) => Math.min(5, countDays(weekKeys(ws), (d) => isDue(h, d))),
+    value: (w, h) => countDays(w.past, (d) => isDone(h, d)) },
+  { id: 'extra', emoji: '⭐', reward: 30, habit: (h) => h.kind === 'build' && h.schedule.type === 'days',
+    text: (h) => `Haz un día extra de «${h.name}» (en un día de descanso)`, target: () => 1,
+    value: (w, h) => countDays(w.past, (d) => isDone(h, d) && dayStatus(h, d) === 'rest') },
+  { id: 'clean', emoji: '🕊️', reward: 50, habit: (h) => h.kind === 'quit',
+    text: (h) => `Semana entera sin recaídas en «${h.name}»`, target: () => 7,
+    value: (w, h) => countDays(w.past, (d) => isDone(h, d)),
+    failed: (w, h) => w.past.some((d) => hasSlip(h, d)) },
+  { id: 'variety', emoji: '🌈', reward: 40, needs: (hs) => hs.filter((h) => h.kind === 'build').length >= 2,
+    text: () => 'Marca cada hábito al menos una vez', target: (h, hs) => hs.filter((x) => x.kind === 'build').length,
+    value: (w, h, hs) => hs.filter((x) => x.kind === 'build' && w.past.some((d) => isDone(x, d))).length },
+  { id: 'streak7', emoji: '🔥', reward: 50, needs: (hs) => hs.some((h) => h.schedule.type !== 'weekly'),
+    text: () => 'Llega a una racha de 7 días en algún hábito', target: () => 7, value: (w) => w.maxRun },
+  { id: 'noShield', emoji: '🛡️', reward: 30, final: true, needs: (hs) => hs.some(isBuildDaily),
+    text: () => 'No gastes ningún protector esta semana', target: () => 1,
+    value: (w) => (w.ended && !w.shieldsUsed ? 1 : 0), failed: (w) => w.shieldsUsed > 0 },
+];
+
+// Los 3 retos de la semana que empieza en `ws`, con su avance.
+function weekChallenges(ws) {
+  return cachedGlobal(`challenges:${ws}`, () => {
+    const habits = weekHabits(ws);
+    if (!habits.length) return [];
+    const pool = [];
+    for (const c of CHALLENGES) {
+      let habit = null;
+      if (c.habit) {
+        const options = habits.filter(c.habit);
+        if (!options.length) continue;
+        habit = options[Math.floor(seededRandom(`${ws}:${c.id}`)() * options.length)];
+      } else if (!c.needs(habits)) {
+        continue;
+      }
+      const target = c.target(habit, habits, ws);
+      if (target > 0) pool.push({ c, habit, target });
+    }
+    // Barajar de forma estable y quedarse con 3.
+    const rnd = seededRandom(`retos:${ws}`);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const w = weekData(ws);
+    return pool.slice(0, 3).map(({ c, habit, target }) => {
+      const value = c.value(w, habit, habits);
+      const failed = Boolean(c.failed && c.failed(w, habit, habits));
+      const done = !failed && value >= target;
+      return {
+        id: c.id,
+        emoji: c.emoji,
+        text: c.text(habit, target),
+        reward: c.reward,
+        target,
+        value: Math.min(value, target),
+        done,
+        failed,
+        pending: Boolean(c.final) && !done && !failed, // solo se sabe al acabar la semana
+      };
+    });
+  });
+}
+
+// XP y retos completados desde que existen los retos (no se regala XP de semanas anteriores).
+function challengeTotals() {
+  return cachedGlobal('challengeTotals', () => {
+    let xp = 0;
+    let done = 0;
+    if (!state.challengesSince) return { xp, done };
+    for (let ws = state.challengesSince; ws <= weekStartOf(ui.today); ws = shiftKey(ws, 7)) {
+      weekChallenges(ws).forEach((ch) => {
+        if (!ch.done) return;
+        xp += ch.reward;
+        done++;
+      });
+    }
+    return { xp, done };
+  });
+}
 
 // ---------- Pantalla "Hoy" ----------
 
@@ -549,6 +849,7 @@ function renderToday() {
   $('#welcome').hidden = hasHabits;
 
   renderLevelCard(stats);
+  renderChallengeStrip(hasHabits);
 
   // El anillo solo cuenta lo que toca ese día (los que descansan o están en pausa, no).
   const ring = ringTotals(day, habits);
@@ -598,7 +899,25 @@ function renderLevelCard(stats) {
   $('#level-title').textContent = meta.title;
   $('#level-xp').textContent = `${fmtNumber.format(inLevel)}/${fmtNumber.format(span)} XP`;
   $('#level-fill').style.width = `${(inLevel / span) * 100}%`;
-  $('#level-next').textContent = `Faltan ${fmtNumber.format(stats.levelEnd - stats.xp)} XP para el nivel ${stats.level + 1}`;
+  $('#level-next').textContent = `${fmtNumber.format(stats.levelEnd - stats.xp)} XP para el nivel ${stats.level + 1}`;
+  const chip = $('#shield-chip');
+  chip.textContent = `🛡️ ${stats.shields}`;
+  chip.setAttribute('aria-label', `${plural(stats.shields, 'protector de racha', 'protectores de racha')} de ${SHIELD_MAX}`);
+}
+
+// Tira compacta en Hoy: "Retos de la semana · 1/3" con una barrita por reto.
+function renderChallengeStrip(hasHabits) {
+  const list = weekChallenges(weekStartOf(ui.today));
+  const strip = $('#challenge-strip');
+  strip.hidden = !hasHabits || !list.length;
+  if (strip.hidden) return;
+  const done = list.filter((c) => c.done).length;
+  $('#cs-count').textContent = `${done}/${list.length}`;
+  strip.setAttribute('aria-label', `Retos de la semana: ${done} de ${list.length} completados. Ver detalle`);
+  $('#cs-bars').innerHTML = list.map((c) => {
+    const cls = c.done ? ' done' : c.failed ? ' failed' : '';
+    return `<span class="cs-bar${cls}"><span style="width:${(c.value / c.target) * 100}%"></span></span>`;
+  }).join('');
 }
 
 const flameHTML = (text) => `<span class="flame">🔥 ${text}</span>`;
@@ -698,6 +1017,11 @@ function habitRow(habit) {
     meta = rest ? (done ? '✨ Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
   }
   if (rest) classes.push('resting');
+  // Día pasado salvado por un protector (si lo marcas, el protector vuelve).
+  if (isShielded(habit, day)) {
+    classes.push('shielded');
+    meta = '🛡️ Protegido · tu racha siguió viva';
+  }
 
   return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" style="${style}"${label ? ` aria-label="${label}"` : ''}>
     ${emoji}
@@ -736,6 +1060,9 @@ function changeHabit(habit, button, mutate) {
   const anchor = button && button.querySelector('.check');
 
   mutate();
+  // Si marcas a mano un día que salvó un protector, el protector vuelve a tu reserva.
+  const shieldBack = Boolean(habit.shields[day]) && isDone(habit, day);
+  if (shieldBack) delete habit.shields[day];
   save();
 
   const nowDone = isDone(habit, day);
@@ -752,17 +1079,21 @@ function changeHabit(habit, button, mutate) {
   // Con teclado, el foco sigue en el mismo hábito tras volver a pintar la lista.
   if (hadFocus) $(`.habit[data-id="${habit.id}"]`)?.focus();
 
-  if (!nowDone || wasDone) return;
-  const unlocked = ACHIEVEMENTS.filter((a) => isUnlocked(a, after) && !isUnlocked(a, before));
-  if (after.level > before.level) {
+  // El aviso del protector se suma al de la celebración, si la hay, para que no se pierda.
+  const shieldNote = shieldBack ? ' · 🛡️ el protector vuelve' : '';
+  const unlocked = nowDone && !wasDone ? ACHIEVEMENTS.filter((a) => isUnlocked(a, after) && !isUnlocked(a, before)) : [];
+  if (nowDone && !wasDone && after.level > before.level) {
     showLevelUp(after, unlocked);
+    if (shieldBack) toast('🛡️ El protector vuelve a tu reserva');
   } else if (unlocked.length) {
     confetti();
     const extra = unlocked.length > 1 ? ` (+${unlocked.length - 1})` : '';
-    toast(`${unlocked[0].emoji} Logro desbloqueado: ${unlocked[0].name}${extra}`);
-  } else if (!wasPerfect && isPerfectDay(day)) {
+    toast(`${unlocked[0].emoji} Logro desbloqueado: ${unlocked[0].name}${extra}${shieldNote}`);
+  } else if (nowDone && !wasDone && !wasPerfect && isPerfectDay(day)) {
     confetti(document.body, 90);
-    toast(`🌟 ¡Día perfecto! +${XP_PERFECT_DAY} XP extra`);
+    toast(`🌟 ¡Día perfecto! +${XP_PERFECT_DAY} XP extra${shieldNote}`);
+  } else if (shieldBack) {
+    toast('🛡️ El protector vuelve a tu reserva');
   }
 }
 
@@ -899,8 +1230,49 @@ function renderProgress() {
       <li><span class="rule-emoji" aria-hidden="true">🌟</span>
         <span class="rule-text"><b>Día perfecto</b><span>Todos los hábitos que tocaban ese día</span></span>
         <span class="rule-xp">+${XP_PERFECT_DAY}</span></li>
+      <li><span class="rule-emoji" aria-hidden="true">🏆</span>
+        <span class="rule-text"><b>Retos semanales</b><span>3 cada semana, según tus hábitos</span></span>
+        <span class="rule-xp">+30 a +60</span></li>
+      <li><span class="rule-emoji" aria-hidden="true">✨</span>
+        <span class="rule-text"><b>Día extra</b><span>Marcar un hábito en su día de descanso</span></span>
+        <span class="rule-xp">+${XP_PER_CHECK}</span></li>
+      <li><span class="rule-emoji" aria-hidden="true">🛡️</span>
+        <span class="rule-text"><b>Día protegido</b><span>Salva la racha, pero no da XP</span></span>
+        <span class="rule-xp">0</span></li>
     </ul>
-    <p class="rules-note">Los días de descanso y en pausa no rompen la racha; si marcas un hábito en su día de descanso, suma +${XP_PER_CHECK} como día extra. Cada nivel pide un poco más de XP que el anterior. Si borras un hábito, conservas la XP que ganaste con él.</p>
+    <p class="rules-note">Los días de descanso y en pausa no rompen la racha. En los hábitos para dejar algo, cada día sin recaer cuenta como hecho. Cada nivel pide un poco más de XP que el anterior. Si borras un hábito, conservas la XP que ganaste con él.</p>
+  </article>`;
+
+  const challenges = weekChallenges(weekStartOf(ui.today));
+  const challengeItems = challenges.map((c) => {
+    const cls = c.done ? 'done' : c.failed ? 'failed' : '';
+    const status = c.done ? `✓ +${c.reward} XP`
+      : c.failed ? 'No conseguido'
+      : c.pending ? `Se decide el domingo · +${c.reward} XP`
+      : `${c.value}/${c.target} · +${c.reward} XP`;
+    return `<li class="challenge ${cls}">
+      <span class="ch-emoji" aria-hidden="true">${c.emoji}</span>
+      <span class="ch-body">
+        <b>${escapeHTML(c.text)}</b>
+        <span class="ch-bar"><span style="width:${(c.value / c.target) * 100}%"></span></span>
+        <span class="ch-meta">${status}</span>
+      </span>
+    </li>`;
+  }).join('');
+  const challengesCard = challenges.length ? `<article class="card" id="challenges-card">
+    <div class="card-head"><h2>Retos de la semana</h2><span class="card-count">${challenges.filter((c) => c.done).length} de ${challenges.length}</span></div>
+    <ul class="challenge-list">${challengeItems}</ul>
+    <p class="rules-note">Se renuevan cada lunes y se eligen según tus hábitos. Llevas ${plural(stats.challenges, 'reto completado', 'retos completados')}.</p>
+  </article>` : '';
+
+  const slots = Array.from({ length: SHIELD_MAX }, (_, i) => (
+    `<span class="shield-slot${i < stats.shields ? ' full' : ''}" aria-hidden="true">🛡️</span>`
+  )).join('');
+  const shieldsCard = `<article class="card">
+    <div class="card-head"><h2>Protectores de racha</h2><span class="card-count">${stats.shields} de ${SHIELD_MAX}</span></div>
+    <div class="shield-row" role="img" aria-label="${plural(stats.shields, 'protector disponible', 'protectores disponibles')}">${slots}</div>
+    <p class="card-text">Ganas 1 cada vez que un hábito llega a 7, 14, 21… días seguidos (como mucho guardas ${SHIELD_MAX}). Si un día se te olvida un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta solo y tu racha sigue viva. Ese día no da XP ni cuenta como día perfecto, y si luego lo marcas, el protector vuelve.</p>
+    <p class="shield-stats">Ganados: ${stats.shieldsEarned} · Usados: ${stats.shieldsUsed}</p>
   </article>`;
 
   const roadLength = Math.max(LEVELS.length, stats.level + 1);
@@ -945,7 +1317,7 @@ function renderProgress() {
     <div class="badges">${badges}</div>
   </article>`;
 
-  $('#progress-view').innerHTML = hero + rules + roadCard + badgesCard;
+  $('#progress-view').innerHTML = hero + challengesCard + shieldsCard + rules + roadCard + badgesCard;
 
   // Centrar el nivel actual en el camino.
   const roadEl = $('#road');
@@ -1034,6 +1406,7 @@ function renderHistory() {
 function habitCellClass(habit, key) {
   if (hasSlip(habit, key)) return 'slip';
   if (isDone(habit, key)) return 'l4';
+  if (isShielded(habit, key)) return 'shield';
   const status = dayStatus(habit, key);
   if (status === 'paused' || status === 'rest') return status;
   const amount = habit.kind === 'quit' ? 0 : amountOn(habit, key);
@@ -1093,6 +1466,7 @@ function dayCaption(habitId, key) {
   const amount = habit.kind !== 'quit' && habit.goal > 1
     ? `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${habit.unit}` : ''}` : '';
   if (hasSlip(habit, key)) return `${label} · Recaída`;
+  if (isShielded(habit, key)) return `${label} · Protegido 🛡️`;
   if (isDone(habit, key)) {
     if (habit.kind === 'quit') return `${label} · Sin recaer ✓`;
     return `${label} · ${status === 'active' ? 'Hecho ✓' : 'Hecho ✓ (día extra)'}${amount ? ` · ${amount}` : ''}`;
@@ -1200,11 +1574,15 @@ function deleteHabit(habit) {
   const before = computeStats();
   const s = streakInfo(habit);
   state.habits = state.habits.filter((h) => h !== habit);
+  invalidate(); // los retos y protectores dependen de todos los hábitos
   const after = computeStats();
   // Borrar no cambia la XP total: ni se pierde la que dio, ni se gana por los días que ahora serían perfectos.
   state.bank.xp += before.xp - after.xp;
   state.bank.checkins += s.checkins;
   if (s.unit === 'day') state.bank.best = Math.max(state.bank.best, s.best);
+  if (habit.kind === 'quit') state.bank.clean = Math.max(state.bank.clean, s.best);
+  state.bank.shields += Math.max(0, before.shieldsUsed - after.shieldsUsed);
+  state.bank.challenges += Math.max(0, before.challenges - after.challenges);
   save();
   render();
   toast(`«${habit.name}» eliminado`, { action: 'Deshacer', onAction: undoTo(snapshot) });
@@ -1272,9 +1650,10 @@ $('#reset-btn').addEventListener('click', async () => {
   state.habits.forEach((h) => {
     h.done = {};
     h.slips = {};
+    h.shields = {};
     h.created = ui.today;
   });
-  state.bank = { xp: 0, checkins: 0, best: 0 };
+  state.bank = emptyBank();
   save();
   render();
   haptic();
@@ -1342,6 +1721,7 @@ function checkDateChange() {
   if (now === ui.today) return;
   if (ui.day === ui.today) ui.day = now;
   ui.today = now;
+  useShields();
   render();
 }
 
@@ -2096,6 +2476,12 @@ setInterval(checkDateChange, 60 * 1000);
 
 // ---------- Arranque ----------
 
+// La primera vez que se abre esta versión, los retos empiezan a contar desde esta semana.
+if (!state.challengesSince) {
+  state.challengesSince = weekStartOf(ui.today);
+  save();
+}
+useShields();
 render();
 
 // Pide al navegador que no borre nuestros datos si le falta espacio.

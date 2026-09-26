@@ -1789,6 +1789,129 @@ h1 {
   background: color-mix(in srgb, var(--danger) 60%, var(--heat-0));
 }
 
+/* ---------- Protectores ---------- */
+.hero-foot .level-next { min-width: 0; }
+.hero-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.shield-chip {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--hero-chip);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+.shield-row { display: flex; gap: 10px; margin-top: 12px; }
+.shield-stats { margin: 12px 0 0; color: var(--text-2); font-size: 13px; font-weight: 600; }
+.shield-slot {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 2px dashed var(--line-strong);
+  border-radius: 16px;
+  font-size: 26px;
+  filter: grayscale(1);
+  opacity: 0.35;
+}
+.shield-slot.full {
+  border: 2px solid var(--xp);
+  background: var(--gold-soft);
+  box-shadow: 0 3px 0 var(--xp-edge);
+  filter: none;
+  opacity: 1;
+}
+.habit.shielded { border-style: dashed; border-color: var(--xp); }
+.habit.shielded .meta { color: var(--xp-text); }
+.hm-grid .shield { background: var(--xp); box-shadow: inset 0 0 0 2px var(--xp-edge); }
+
+/* ---------- Retos de la semana ---------- */
+.challenge-strip {
+  display: grid;
+  grid-template-columns: 40px 1fr 18px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 4px 0 var(--edge);
+  text-align: left;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.challenge-strip:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
+.cs-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--gold-soft);
+  font-size: 20px;
+}
+.cs-body { display: grid; gap: 6px; min-width: 0; }
+.cs-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.cs-title b { color: var(--xp-text); font-variant-numeric: tabular-nums; font-weight: 900; }
+.cs-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cs-bar, .ch-bar {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.cs-bar > span, .ch-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.cs-bar.done > span, .challenge.done .ch-bar > span { background: var(--xp); }
+.cs-bar.failed > span, .challenge.failed .ch-bar > span { background: var(--line-strong); }
+
+.challenge-list {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.challenge {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.ch-emoji {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  font-size: 20px;
+}
+.challenge.done .ch-emoji { background: var(--gold-soft); box-shadow: inset 0 0 0 2px var(--xp); }
+.challenge.failed .ch-emoji { filter: grayscale(1); opacity: 0.5; }
+.ch-body { display: grid; gap: 6px; min-width: 0; }
+.ch-body b { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.ch-meta { color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 800; }
+.challenge.done .ch-meta { color: var(--xp-text); }
+
 /* ---------- Ajustes: hábitos archivados ---------- */
 .archived-list {
   display: grid;
