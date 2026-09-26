@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.8 beta';
+const APP_VERSION = '0.9 beta';
 const STORAGE_KEY = 'racha:v1';
 const HEATMAP_WEEKS = 53; // un año
 const LONG_PRESS_MS = 500; // mantener pulsado resta 1 en los hábitos con cantidad
@@ -13,6 +13,11 @@ const XP_PERFECT_DAY = 25; // todos los hábitos del día hechos
 const SHIELD_EVERY = 7;      // 1 protector por cada 7 días seguidos de racha
 const SHIELD_MAX = 3;        // como mucho 3 guardados
 const SHIELD_MIN_STREAK = 3; // solo se gastan para salvar rachas de 3 días o más
+
+// Ánimo del día (1–5) y nota corta
+const MOODS = ['😞', '😕', '😐', '🙂', '😄'];
+const MOOD_NAMES = ['Mal', 'Regular', 'Normal', 'Bien', 'Genial'];
+const NOTE_MAX = 200;
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
 const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52]; // metas para los hábitos de "X veces por semana"
 
@@ -187,7 +192,23 @@ const emptyState = () => ({
   bank: emptyBank(),
   lastBackup: null,
   challengesSince: null, // lunes de la primera semana con retos (se fija al abrir la 0.8 por primera vez)
+  days: {},              // diario: { 'AAAA-MM-DD': { mood: 1–5, note } }
+  lastSummary: null,     // lunes de la última semana en la que se enseñó el resumen
 });
+
+// Diario: solo días válidos con ánimo (1–5) y/o nota (hasta 200 caracteres).
+function normalizeDays(days) {
+  const clean = {};
+  Object.entries(days || {}).forEach(([k, v]) => {
+    if (!isDateKey(k) || !v) return;
+    const entry = {};
+    const mood = Math.round(Number(v.mood));
+    if (mood >= 1 && mood <= 5) entry.mood = mood;
+    if (typeof v.note === 'string' && v.note.trim()) entry.note = v.note.trim().slice(0, NOTE_MAX);
+    if (entry.mood || entry.note) clean[k] = entry;
+  });
+  return clean;
+}
 
 // Frecuencia: diario (por defecto), días concretos (0 = lunes) o X veces por semana (1–6).
 function normalizeSchedule(s) {
@@ -256,6 +277,8 @@ function normalize(data) {
   };
   clean.lastBackup = isDateKey(data.lastBackup) ? data.lastBackup : null;
   clean.challengesSince = isDateKey(data.challengesSince) ? weekStartOf(data.challengesSince) : null;
+  clean.days = normalizeDays(data.days);
+  clean.lastSummary = isDateKey(data.lastSummary) ? weekStartOf(data.lastSummary) : null;
 
   // Perfil. Si no hay fecha de inicio (datos de versiones anteriores), usamos el día más antiguo que conste.
   const profile = data.profile || {};
@@ -295,6 +318,8 @@ function replaceState(data) {
   state.bank = data.bank;
   state.lastBackup = data.lastBackup;
   state.challengesSince = data.challengesSince || state.challengesSince || weekStartOf(ui.today);
+  state.days = data.days;
+  state.lastSummary = data.lastSummary || state.lastSummary;
   save();
   render();
 }
@@ -437,12 +462,14 @@ function dailyTimeline(habit) {
   let checkins = 0;
   const earns = [];
   const runOn = {};
+  const xpOn = {};
   forEachDay(habitStart(habit), today, (key, weekday) => {
     const done = isDone(habit, key);
     if (done) checkins++;
     if (isDue(habit, key, weekday)) {
       if (done) {
-        xp += XP_PER_CHECK + Math.min(run, XP_STREAK_CAP);
+        xpOn[key] = XP_PER_CHECK + Math.min(run, XP_STREAK_CAP);
+        xp += xpOn[key];
         run++;
         best = Math.max(best, run);
         if (run % SHIELD_EVERY === 0) earns.push(key);
@@ -452,11 +479,12 @@ function dailyTimeline(habit) {
         run = 0; // hoy aún se puede hacer… salvo si ya se apuntó una recaída
       }
     } else if (done) {
-      xp += XP_PER_CHECK; // día extra: da XP sin tocar la racha
+      xpOn[key] = XP_PER_CHECK; // día extra: da XP sin tocar la racha
+      xp += XP_PER_CHECK;
     }
     runOn[key] = run;
   });
-  return { unit: 'day', current: run, best, xp, checkins, earns, runOn };
+  return { unit: 'day', current: run, best, xp, checkins, earns, runOn, xpOn };
 }
 
 // Semanales: la racha son semanas cumplidas. Una semana sin cumplir no rompe la racha si es
@@ -470,14 +498,19 @@ function weeklyTimeline(habit) {
   let xp = 0;
   let checkins = 0;
   let weekDone = 0;
+  const xpOn = {};
   for (let ws = weekStartOf(habitStart(habit)); ws <= thisWeek; ws = shiftKey(ws, 7)) {
     let count = 0;
     let blocked = false;
+    const gain = XP_PER_CHECK + Math.min(run, XP_STREAK_CAP); // cada día hecho de esta semana
     forEachDay(ws, ws === thisWeek ? today : shiftKey(ws, 6), (key) => {
-      if (isDone(habit, key)) count++;
+      if (isDone(habit, key)) {
+        count++;
+        xpOn[key] = gain;
+      }
       if (!isActive(habit, key)) blocked = true;
     });
-    xp += count * (XP_PER_CHECK + Math.min(run, XP_STREAK_CAP));
+    xp += count * gain;
     checkins += count;
     if (count >= times) {
       run++;
@@ -487,7 +520,7 @@ function weeklyTimeline(habit) {
     }
     if (ws === thisWeek) weekDone = count;
   }
-  return { unit: 'week', current: run, best, xp, checkins, weekDone, earns: [], runOn: {} };
+  return { unit: 'week', current: run, best, xp, checkins, weekDone, earns: [], runOn: {}, xpOn };
 }
 
 // Hábitos que tocaban ese día y cuántos se hicieron (para el día perfecto).
@@ -850,6 +883,7 @@ function renderToday() {
 
   renderLevelCard(stats);
   renderChallengeStrip(hasHabits);
+  renderJournal(hasHabits);
 
   // El anillo solo cuenta lo que toca ese día (los que descansan o están en pausa, no).
   const ring = ringTotals(day, habits);
@@ -1317,7 +1351,14 @@ function renderProgress() {
     <div class="badges">${badges}</div>
   </article>`;
 
-  $('#progress-view').innerHTML = hero + challengesCard + shieldsCard + rules + roadCard + badgesCard;
+  const lastWeek = shiftKey(weekStartOf(ui.today), -7);
+  const summaryCard = hasWeekHistory(lastWeek) ? `<article class="card">
+    <div class="card-head"><h2>Tu semana pasada</h2></div>
+    <p class="card-text">${weekRange(lastWeek)}: cumplimiento, días perfectos, XP, retos y ánimo.</p>
+    <button type="button" class="secondary-btn wide" data-summary>📊 Resumen de la semana pasada</button>
+  </article>` : '';
+
+  $('#progress-view').innerHTML = hero + challengesCard + summaryCard + shieldsCard + rules + roadCard + badgesCard;
 
   // Centrar el nivel actual en el camino.
   const roadEl = $('#road');
@@ -1447,7 +1488,8 @@ function heatmapHTML(id, classOf) {
     <div class="hm-foot">
       <span class="hm-caption">Toca un día para ver el detalle</span>
       <button type="button" class="link-btn" data-goto hidden>Ver día ›</button>
-    </div>`;
+    </div>
+    ${id === 'all' ? '<p class="hm-note" hidden></p>' : ''}`;
 }
 
 function dayCaption(habitId, key) {
@@ -1457,8 +1499,10 @@ function dayCaption(habitId, key) {
   if (habitId === 'all') {
     const habits = visibleHabits();
     const { total, done } = ringTotals(key, habits);
-    if (total) return `${label} · ${done} de ${total}`;
-    return habits.some((h) => dayStatus(h, key) !== 'off') ? `${label} · Día de descanso` : `${label} · sin hábitos`;
+    const mood = (state.days[key] || {}).mood;
+    const moodText = mood ? ` · ${MOODS[mood - 1]}` : '';
+    if (total) return `${label} · ${done} de ${total}${moodText}`;
+    return `${label} · ${habits.some((h) => dayStatus(h, key) !== 'off') ? 'Día de descanso' : 'sin hábitos'}${moodText}`;
   }
   const habit = findHabit(habitId);
   if (!habit) return label;
@@ -1638,7 +1682,7 @@ $('#reset-btn').addEventListener('click', async () => {
         <li><span aria-hidden="true">🗑️</span><span>Tu XP y tu nivel vuelven a cero</span></li>
         <li><span aria-hidden="true">🗑️</span><span>Todos los logros se bloquean otra vez</span></li>
         <li><span aria-hidden="true">🗑️</span><span>Se borra el historial de días y las rachas</span></li>
-        <li><span aria-hidden="true">✅</span><span>Tus hábitos y tu perfil se mantienen</span></li>
+        <li><span aria-hidden="true">✅</span><span>Tus hábitos, tu perfil y tu diario se mantienen</span></li>
       </ul>
       <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
     confirmText: 'Sí, restablecer',
@@ -1692,6 +1736,302 @@ confirmDialog.addEventListener('click', (e) => {
   if (e.target === confirmDialog) confirmDialog.close();
 });
 
+// ---------- Diario: ánimo y nota del día ----------
+
+const noteInput = $('#note-input');
+
+function setDayEntry(day, patch) {
+  const entry = { ...(state.days[day] || {}), ...patch };
+  if (!entry.mood) delete entry.mood;
+  if (!entry.note) delete entry.note;
+  if (entry.mood || entry.note) state.days[day] = entry;
+  else delete state.days[day];
+  save();
+}
+
+function renderJournal(hasHabits) {
+  $('#journal').hidden = !hasHabits;
+  if (!hasHabits) return;
+  const day = ui.day;
+  const entry = state.days[day] || {};
+  $('#journal-title').textContent = day === ui.today ? '¿Qué tal el día?' : '¿Qué tal fue ese día?';
+  document.querySelectorAll('#mood-row [data-mood]').forEach((btn) => {
+    btn.setAttribute('aria-checked', String(Number(btn.dataset.mood) === entry.mood));
+  });
+  const open = Boolean(entry.note) || ui.noteOpenFor === day;
+  $('#note-box').hidden = !open;
+  $('#note-open').hidden = open;
+  if (document.activeElement !== noteInput) noteInput.value = entry.note || '';
+  $('#note-count').textContent = `${noteInput.value.length}/${NOTE_MAX}`;
+}
+
+$('#mood-row').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-mood]');
+  if (!btn) return;
+  const mood = Number(btn.dataset.mood);
+  // Tocar otra vez el mismo lo quita.
+  setDayEntry(ui.day, { mood: (state.days[ui.day] || {}).mood === mood ? 0 : mood });
+  renderJournal(true);
+  haptic();
+});
+
+$('#note-open').addEventListener('click', () => {
+  ui.noteOpenFor = ui.day;
+  renderJournal(true);
+  noteInput.focus();
+});
+
+// La nota se guarda mientras escribes (sin volver a pintar, para no perder el foco).
+noteInput.addEventListener('input', () => {
+  setDayEntry(ui.day, { note: noteInput.value.slice(0, NOTE_MAX) });
+  $('#note-count').textContent = `${noteInput.value.length}/${NOTE_MAX}`;
+});
+noteInput.addEventListener('blur', () => {
+  const note = noteInput.value.trim();
+  if (note !== ((state.days[ui.day] || {}).note || '')) setDayEntry(ui.day, { note });
+});
+
+// ---------- Resumen de la semana ----------
+
+const fmtDayMonth = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' });
+
+// "Del 14 al 20 de septiembre" o "Del 28 de septiembre al 4 de octubre"
+function weekRange(ws) {
+  const a = parseKey(ws);
+  const b = parseKey(shiftKey(ws, 6));
+  if (a.getMonth() === b.getMonth()) return `Del ${a.getDate()} al ${fmtDayMonth.format(b)}`;
+  return `Del ${fmtDayMonth.format(a)} al ${fmtDayMonth.format(b)}`;
+}
+
+// ¿Había hábitos desde el lunes de esa semana (una semana entera de historial)?
+const hasWeekHistory = (ws) => state.habits.some((h) => habitStart(h) <= ws);
+
+// Cumplimiento de una semana: hechos / los que tocaban (en los semanales, hasta sus veces).
+function weekSummary(ws) {
+  return cachedGlobal(`summary:${ws}`, () => {
+    const days = weekKeys(ws);
+    let due = 0;
+    let done = 0;
+    let xp = 0;
+    const rows = [];
+    for (const h of state.habits) {
+      const s = streakInfo(h);
+      days.forEach((d) => { xp += s.xpOn[d] || 0; });
+      let hDue = 0;
+      let hDone = 0;
+      if (h.schedule.type === 'weekly') {
+        // Igual que en la racha: una semana con días en pausa (o antes de crearlo) solo cuenta si se cumplió.
+        const count = countDays(days, (d) => isDone(h, d));
+        const blocked = days.some((d) => !isActive(h, d));
+        if (days.some((d) => isActive(h, d)) && (!blocked || count >= h.schedule.times)) {
+          hDue = h.schedule.times;
+          hDone = Math.min(hDue, count);
+        }
+      } else {
+        days.forEach((d) => {
+          if (!isDue(h, d)) return;
+          hDue++;
+          if (isDone(h, d)) hDone++;
+        });
+      }
+      due += hDue;
+      done += hDone;
+      if (hDue) rows.push({ habit: h, pct: hDone / hDue, done: hDone });
+    }
+    const w = weekData(ws);
+    xp += w.perfectCount * XP_PERFECT_DAY;
+    const withChallenges = Boolean(state.challengesSince) && ws >= state.challengesSince;
+    const challenges = withChallenges ? weekChallenges(ws) : [];
+    const won = challenges.filter((c) => c.done);
+    xp += won.reduce((n, c) => n + c.reward, 0);
+    const moods = days.map((d) => (state.days[d] || {}).mood).filter(Boolean);
+    const sorted = [...rows].sort((a, b) => b.pct - a.pct || b.done - a.done);
+    const best = sorted[0] || null;
+    const hardest = sorted.length > 1 && sorted.at(-1).pct < 1 ? sorted.at(-1) : null;
+    return {
+      pct: due ? done / due : null,
+      due,
+      done,
+      xp,
+      perfect: w.perfectCount,
+      challenges: withChallenges ? `${won.length}/${challenges.length}` : '—',
+      best,
+      hardest: hardest && hardest !== best ? hardest : null,
+      mood: moods.length ? moods.reduce((a, b) => a + b, 0) / moods.length : null,
+    };
+  });
+}
+
+const summaryDialog = $('#summary');
+
+function showSummary(ws) {
+  const sum = weekSummary(ws);
+  const prev = hasWeekHistory(shiftKey(ws, -7)) ? weekSummary(shiftKey(ws, -7)) : null;
+  const pct = sum.pct === null ? null : Math.round(sum.pct * 100);
+  let delta = '';
+  if (pct !== null && prev && prev.pct !== null) {
+    const diff = pct - Math.round(prev.pct * 100);
+    delta = diff > 0 ? `<span class="delta up">↑ ${plural(diff, 'punto', 'puntos')} más que la semana anterior</span>`
+      : diff < 0 ? `<span class="delta down">↓ ${plural(-diff, 'punto', 'puntos')} menos que la semana anterior</span>`
+      : '<span class="delta">= Igual que la semana anterior</span>';
+  }
+  const habitLine = (row) => `${escapeHTML(row.habit.emoji)} ${escapeHTML(row.habit.name)} · ${Math.round(row.pct * 100)} %`;
+  const items = [
+    sum.best ? `<li><span aria-hidden="true">🏅</span><span><b>Tu mejor hábito</b>${habitLine(sum.best)}</span></li>` : '',
+    sum.hardest ? `<li><span aria-hidden="true">🧗</span><span><b>El que más te cuesta</b>${habitLine(sum.hardest)}</span></li>` : '',
+    sum.mood ? `<li><span aria-hidden="true">${MOODS[Math.round(sum.mood) - 1]}</span><span><b>Ánimo medio</b>${sum.mood.toFixed(1).replace('.', ',')} de 5</span></li>` : '',
+  ].join('');
+  $('#summary-title').textContent = weekRange(ws);
+  $('#summary-body').innerHTML = `
+    <div class="summary-hero">
+      <div class="summary-ring" style="--p:${sum.pct || 0}"><b>${pct === null ? '—' : `${pct} %`}</b></div>
+      <p class="summary-sub">${pct === null ? 'Esa semana no tocaba ningún hábito' : `de lo que tocaba (${sum.done} de ${sum.due})`}</p>
+      ${delta}
+    </div>
+    <div class="stats">
+      <div class="stat"><b>${sum.perfect}</b><span>Días perfectos</span></div>
+      <div class="stat"><b>+${fmtNumber.format(sum.xp)}</b><span>XP ganada</span></div>
+      <div class="stat"><b>${sum.challenges}</b><span>Retos</span></div>
+    </div>
+    ${items ? `<ul class="summary-list">${items}</ul>` : ''}`;
+  if (!summaryDialog.open) summaryDialog.showModal();
+}
+
+// La primera vez que se abre la app en una semana nueva, enseña cómo fue la anterior.
+function maybeShowSummary() {
+  const thisWeek = weekStartOf(ui.today);
+  if (state.lastSummary && state.lastSummary >= thisWeek) return;
+  const prev = shiftKey(thisWeek, -7);
+  if (!hasWeekHistory(prev)) return;
+  state.lastSummary = thisWeek;
+  save();
+  showSummary(prev);
+}
+
+$('#summary-close').addEventListener('click', () => summaryDialog.close());
+summaryDialog.addEventListener('click', (e) => {
+  if (e.target === summaryDialog) summaryDialog.close();
+});
+
+// ---------- Recordatorios (archivo .ics para el calendario) ----------
+
+const ICS_DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+const icsText = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const utf8Bytes = (s) => new TextEncoder().encode(s).length;
+
+// El formato pide líneas de 75 bytes como mucho; las siguientes empiezan con un espacio.
+function foldLine(line) {
+  const parts = [];
+  let current = '';
+  for (const ch of Array.from(line)) {
+    const limit = parts.length ? 74 : 75;
+    if (utf8Bytes(current + ch) > limit) {
+      parts.push(current);
+      current = ch;
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts.join('\r\n ');
+}
+
+// Evento que se repite según la frecuencia, a la hora local elegida, con aviso a esa misma hora.
+function buildICS({ id, name, emoji, schedule, time }) {
+  const [hh, mm] = time.split(':').map(Number);
+  let first = ui.today;
+  if (schedule.type === 'days') while (!schedule.days.includes(weekdayOf(first))) first = shiftKey(first, 1);
+  const start = parseKey(first);
+  start.setHours(hh, mm, 0, 0);
+  const end = new Date(start.getTime() + 15 * 60 * 1000);
+  // Hora local "flotante" (sin zona): el calendario la pone a esa hora esté donde esté.
+  const local = (d) => `${dateKey(d).replace(/-/g, '')}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const rule = schedule.type === 'daily' ? 'FREQ=DAILY'
+    : schedule.type === 'days' ? `FREQ=WEEKLY;BYDAY=${schedule.days.map((d) => ICS_DAYS[d]).join(',')}`
+    : `FREQ=WEEKLY;BYDAY=${ICS_DAYS[weekdayOf(first)]}`;
+  const title = `${emoji} ${name}`;
+  const about = schedule.type === 'weekly'
+    ? `Esta semana toca «${name}» ${plural(schedule.times, 'vez', 'veces')}. Márcalo en Racha.`
+    : `Es hora de «${name}». Márcalo en Racha.`;
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Racha//Recordatorios//ES',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${id}-${Date.now()}@racha`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART:${local(start)}`,
+    `DTEND:${local(end)}`,
+    `RRULE:${rule}`,
+    `SUMMARY:${icsText(title)}`,
+    `DESCRIPTION:${icsText(about)}`,
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${icsText(title)}`,
+    'TRIGGER:PT0M',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  return `${lines.map(foldLine).join('\r\n')}\r\n`;
+}
+
+const slugify = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'habito';
+
+// Descarga un archivo (cuando no se puede compartir).
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// En el móvil se abre el menú Compartir; si no se puede, se descarga el archivo.
+async function shareOrDownload(file, title) {
+  const isTouch = matchMedia('(pointer: coarse)').matches;
+  if (isTouch && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title });
+      return 'shared';
+    } catch (err) {
+      if (err.name === 'AbortError') return 'cancelled';
+    }
+  }
+  downloadFile(file);
+  return 'downloaded';
+}
+
+$('#reminder-btn').addEventListener('click', async () => {
+  const habit = ui.editingId && findHabit(ui.editingId);
+  const name = nameInput.value.trim();
+  if (!name) {
+    toast('Escribe primero el nombre del hábito');
+    nameInput.focus();
+    return;
+  }
+  const quit = (habit ? habit.kind : ui.sheetKind) === 'quit';
+  const ics = buildICS({
+    id: habit ? habit.id : 'nuevo',
+    name,
+    emoji: lastGrapheme(emojiInput.value) || '⭐',
+    schedule: quit ? { type: 'daily' } : sheetScheduleValue(),
+    time: $('#reminder-time').value || '09:00',
+  });
+  const file = new File([ics], `racha-${slugify(name)}.ics`, { type: 'text/calendar' });
+  haptic();
+  const result = await shareOrDownload(file, `Recordatorio: ${name}`);
+  if (result === 'downloaded') toast('📅 Abre el archivo descargado para añadirlo a tu calendario');
+  else if (result === 'shared') toast('📅 Elige Calendario para guardar el recordatorio');
+});
+
 // ---------- Navegación ----------
 
 function render() {
@@ -1723,6 +2063,7 @@ function checkDateChange() {
   ui.today = now;
   useShields();
   render();
+  maybeShowSummary();
 }
 
 // ---------- Hoja de crear / editar ----------
@@ -2266,27 +2607,9 @@ async function exportData() {
     toast('✅ Copia guardada');
   };
 
-  // En el móvil abrimos el menú Compartir ("Guardar en Archivos", AirDrop, etc.).
-  const isTouch = matchMedia('(pointer: coarse)').matches;
-  if (isTouch && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Copia de Racha' });
-      markDone();
-    } catch (err) {
-      if (err.name !== 'AbortError') toast('No se pudo compartir la copia');
-    }
-    return;
-  }
-
-  const url = URL.createObjectURL(file);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  markDone();
+  // En el móvil se abre el menú Compartir ("Guardar en Archivos", AirDrop…); si no, se descarga.
+  const result = await shareOrDownload(file, 'Copia de Racha');
+  if (result !== 'cancelled') markDone();
 }
 
 $('#import-file').addEventListener('change', async (e) => {
@@ -2412,9 +2735,10 @@ $('#add-btn').addEventListener('click', () => openSheet());
 
 // Botones repartidos por la app con data-*.
 document.addEventListener('click', (e) => {
-  const target = e.target.closest('[data-add], [data-export], [data-import], [data-goto-view]');
+  const target = e.target.closest('[data-add], [data-export], [data-import], [data-goto-view], [data-summary]');
   if (!target) return;
-  if (target.hasAttribute('data-add')) openSheet();
+  if (target.hasAttribute('data-summary')) showSummary(shiftKey(weekStartOf(ui.today), -7));
+  else if (target.hasAttribute('data-add')) openSheet();
   else if (target.hasAttribute('data-export')) exportData();
   else if (target.hasAttribute('data-import')) $('#import-file').click();
   else showView(target.dataset.gotoView);
@@ -2464,6 +2788,12 @@ $('#history').addEventListener('click', (e) => {
   if (selected) selected.classList.remove('sel');
   cell.classList.add('sel');
   foot.querySelector('.hm-caption').textContent = dayCaption(map.dataset.habit, cell.dataset.k);
+  const noteEl = foot.nextElementSibling;
+  if (noteEl && noteEl.classList.contains('hm-note')) {
+    const note = (state.days[cell.dataset.k] || {}).note;
+    noteEl.hidden = !note;
+    noteEl.textContent = note ? `📝 ${note}` : '';
+  }
   const gotoBtn = foot.querySelector('[data-goto]');
   gotoBtn.dataset.goto = cell.dataset.k;
   gotoBtn.hidden = false;
@@ -2483,6 +2813,7 @@ if (!state.challengesSince) {
 }
 useShields();
 render();
+maybeShowSummary();
 
 // Pide al navegador que no borre nuestros datos si le falta espacio.
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

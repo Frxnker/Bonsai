@@ -1912,6 +1912,148 @@ h1 {
 .ch-meta { color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 800; }
 .challenge.done .ch-meta { color: var(--xp-text); }
 
+/* ---------- Diario: ánimo y nota ---------- */
+.journal { margin-top: 18px; }
+.mood-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.mood-row button {
+  height: 52px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+  font-size: 26px;
+  line-height: 1;
+  filter: grayscale(0.6);
+  opacity: 0.75;
+  transition: transform 0.08s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+.mood-row button[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 3px 0 var(--accent-edge);
+  filter: none;
+  opacity: 1;
+  transform: translateY(-2px);
+}
+.mood-row button:active { transform: translateY(2px); }
+.journal .link-btn { margin-top: 6px; padding: 0 2px; }
+.note-box { position: relative; margin-top: 12px; }
+.note-box textarea {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  padding: 12px 14px 26px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* 16px o más evita el zoom del iPhone */
+  font-weight: 600;
+  line-height: 1.4;
+  resize: vertical;
+}
+.note-box textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 4px var(--accent-soft); }
+.note-box textarea::placeholder { color: var(--text-2); opacity: 0.8; }
+.note-count {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+.hm-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Recordatorio (en la hoja) ---------- */
+.reminder-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: end;
+  gap: 10px;
+}
+.time-field input { padding: 0 10px; text-align: center; }
+.reminder-row .secondary-btn {
+  min-height: 54px;
+  padding: 0 10px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+/* ---------- Resumen de la semana ---------- */
+.summary-card {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.modal-card h2.summary-title { font-size: 24px; }
+.summary-hero { display: grid; justify-items: center; gap: 6px; margin: 16px 0 4px; }
+.summary-ring {
+  --p: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 120px;
+}
+.summary-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1turn), var(--surface-2) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px));
+}
+.summary-ring b { position: relative; font-size: 28px; font-variant-numeric: tabular-nums; font-weight: 900; }
+.summary-sub { margin: 0; color: var(--text-2); font-size: 14px; font-weight: 700; }
+.delta {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 800;
+}
+.delta.up { background: var(--accent-soft); color: var(--accent-text); }
+.delta.down { background: var(--gold-soft); color: var(--xp-text); }
+.summary-card .stats { margin-bottom: 4px; }
+.summary-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 20px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.summary-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-size: 14px;
+  font-weight: 700;
+}
+.summary-list li > span:first-child { font-size: 24px; }
+.summary-list b { display: block; color: var(--text-2); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.summary-card .primary-btn { margin-top: 4px; }
+
 /* ---------- Ajustes: hábitos archivados ---------- */
 .archived-list {
   display: grid;

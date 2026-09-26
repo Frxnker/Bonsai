@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Racha</title>
-  <meta name="description" content="Tracker de hábitos con rachas, niveles y logros">
+  <meta name="description" content="Tracker de hábitos con rachas, niveles, retos semanales y diario. Funciona sin conexión y sin cuenta.">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#F4F1E9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#111713" media="(prefers-color-scheme: dark)">
@@ -94,6 +94,23 @@
       </div>
 
       <ul class="habit-list" id="habit-list"></ul>
+
+      <!-- Diario: ánimo y nota del día que se está viendo -->
+      <section class="card journal" id="journal" aria-labelledby="journal-title" hidden>
+        <div class="card-head"><h2 id="journal-title">¿Qué tal el día?</h2></div>
+        <div class="mood-row" id="mood-row" role="radiogroup" aria-labelledby="journal-title">
+          <button type="button" role="radio" data-mood="1" aria-label="Mal">😞</button>
+          <button type="button" role="radio" data-mood="2" aria-label="Regular">😕</button>
+          <button type="button" role="radio" data-mood="3" aria-label="Normal">😐</button>
+          <button type="button" role="radio" data-mood="4" aria-label="Bien">🙂</button>
+          <button type="button" role="radio" data-mood="5" aria-label="Genial">😄</button>
+        </div>
+        <button type="button" class="link-btn" id="note-open">✏️ Añadir nota</button>
+        <div class="note-box" id="note-box" hidden>
+          <textarea id="note-input" maxlength="200" rows="3" placeholder="Algo que quieras recordar de este día…" aria-label="Nota del día (máximo 200 caracteres)"></textarea>
+          <span class="note-count" id="note-count" aria-live="polite">0/200</span>
+        </div>
+      </section>
 
       <!-- Bienvenida (solo cuando no hay hábitos) -->
       <div class="welcome" id="welcome" hidden>
@@ -284,6 +301,16 @@
         <p class="section-label spaced">Color</p>
         <div class="color-row" id="color-row" role="radiogroup" aria-label="Color del hábito"></div>
 
+        <p class="section-label spaced">Recordatorio</p>
+        <div class="reminder-row">
+          <label class="field time-field">
+            <span>Hora</span>
+            <input id="reminder-time" type="time" value="09:00" aria-label="Hora del recordatorio">
+          </label>
+          <button type="button" class="secondary-btn" id="reminder-btn">📅 Añadir recordatorio al calendario</button>
+        </div>
+        <p class="hint left">Se añade como evento que se repite en Calendario (iPhone) o Google Calendar (Android). Si cambias la frecuencia, tendrás que volver a añadirlo.</p>
+
         <p class="section-label spaced">Elige un emoji</p>
         <div class="emoji-grid" id="emoji-grid" role="group" aria-label="Emojis sugeridos"></div>
 
@@ -321,6 +348,16 @@
       <p class="levelup-sub" id="levelup-sub"></p>
       <ul class="levelup-achievements" id="levelup-achievements"></ul>
       <button type="button" class="primary-btn" id="levelup-close">¡Seguimos!</button>
+    </div>
+  </dialog>
+
+  <!-- Resumen de la semana pasada -->
+  <dialog class="modal" id="summary" aria-labelledby="summary-title">
+    <div class="modal-card summary-card">
+      <p class="levelup-kicker">Resumen de la semana</p>
+      <h2 class="summary-title" id="summary-title"></h2>
+      <div id="summary-body"></div>
+      <button type="button" class="primary-btn" id="summary-close">¡A por esta semana!</button>
     </div>
   </dialog>
 

@@ -2,7 +2,7 @@
 // Estrategia: responde al instante con la copia guardada y, en segundo plano,
 // descarga la versión nueva para la próxima vez que abras la app.
 
-const CACHE = 'racha-v8';
+const CACHE = 'racha-v9';
 const ASSETS = [
   './',
   './index.html',
