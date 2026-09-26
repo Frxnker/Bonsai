@@ -1745,6 +1745,50 @@ h1 {
   white-space: nowrap;
 }
 
+/* ---------- Tipo y meta (en la hoja) ---------- */
+.segmented.two { grid-template-columns: 1fr 1fr; }
+.segmented.two button { min-height: 50px; line-height: 1.2; }
+.field.spaced { margin-top: 22px; }
+.unit-field { margin-top: 12px; }
+.stepper input {
+  width: 64px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
+.stepper input:focus { outline: none; background: var(--accent-soft); }
+
+/* ---------- Hoy: cantidad y recaídas ---------- */
+/* La tarjeta se rellena con el color del hábito según lo que llevas */
+.habit.qty:not(.done) {
+  background: linear-gradient(90deg, var(--surface-2) calc(var(--fill, 0) * 100%), var(--surface) 0);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 18%, var(--surface)) calc(var(--fill, 0) * 100%), var(--surface) 0);
+}
+.habit .amount { color: var(--text); font-weight: 900; }
+.habit.done .amount { color: inherit; }
+.habit.qty .check svg { stroke-width: 3; }
+.habit.qty:not(.done) .check { border-color: var(--c); color: var(--c); }
+.habit.slipped { border-style: dashed; border-color: var(--danger); }
+.habit.slipped .meta { color: var(--danger); }
+.xp-float.step {
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--edge);
+  color: var(--accent-text);
+}
+.hm-grid .slip {
+  background: var(--danger);
+  background: color-mix(in srgb, var(--danger) 60%, var(--heat-0));
+}
+
 /* ---------- Ajustes: hábitos archivados ---------- */
 .archived-list {
   display: grid;

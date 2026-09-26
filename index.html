@@ -217,7 +217,16 @@
         <input class="emoji-input" id="habit-emoji" aria-label="Emoji del hábito" inputmode="text" enterkeyhint="done">
         <p class="hint">Toca el emoji para escribir otro, o elige uno abajo.</p>
 
-        <label class="field">
+        <div id="kind-block">
+          <p class="section-label">Tipo</p>
+          <div class="segmented two" id="kind-type" role="radiogroup" aria-label="Tipo de hábito">
+            <button type="button" role="radio" data-kind="build">🌱 Quiero empezar a…</button>
+            <button type="button" role="radio" data-kind="quit">🚭 Quiero dejar de…</button>
+          </div>
+          <p class="hint left" id="kind-hint" hidden></p>
+        </div>
+
+        <label class="field spaced">
           <span>Nombre</span>
           <input id="habit-name" type="text" maxlength="40" placeholder="Ej. Beber 2 litros de agua" enterkeyhint="done" required>
         </label>
@@ -227,20 +236,37 @@
           <div class="ideas-row" id="ideas-row"></div>
         </div>
 
-        <p class="section-label spaced">Frecuencia</p>
-        <div class="segmented" id="freq-type" role="radiogroup" aria-label="Frecuencia">
-          <button type="button" role="radio" data-freq="daily">Cada día</button>
-          <button type="button" role="radio" data-freq="days">Algunos días</button>
-          <button type="button" role="radio" data-freq="weekly">Por semana</button>
+        <div id="freq-block">
+          <p class="section-label spaced">Frecuencia</p>
+          <div class="segmented" id="freq-type" role="radiogroup" aria-label="Frecuencia">
+            <button type="button" role="radio" data-freq="daily">Cada día</button>
+            <button type="button" role="radio" data-freq="days">Algunos días</button>
+            <button type="button" role="radio" data-freq="weekly">Por semana</button>
+          </div>
+          <div class="weekday-row" id="freq-days" role="group" aria-label="Días de la semana" hidden></div>
+          <div class="stepper" id="freq-times" hidden>
+            <button type="button" data-step="-1" aria-label="Una vez menos por semana">−</button>
+            <output id="freq-times-value" aria-live="polite">3</output>
+            <span>veces por semana</span>
+            <button type="button" data-step="1" aria-label="Una vez más por semana">+</button>
+          </div>
+          <p class="hint left" id="freq-hint"></p>
         </div>
-        <div class="weekday-row" id="freq-days" role="group" aria-label="Días de la semana" hidden></div>
-        <div class="stepper" id="freq-times" hidden>
-          <button type="button" data-step="-1" aria-label="Una vez menos por semana">−</button>
-          <output id="freq-times-value" aria-live="polite">3</output>
-          <span>veces por semana</span>
-          <button type="button" data-step="1" aria-label="Una vez más por semana">+</button>
+
+        <div id="goal-block">
+          <p class="section-label spaced">Meta de cada día</p>
+          <div class="stepper" id="goal-stepper">
+            <button type="button" data-step="-1" aria-label="Bajar la meta">−</button>
+            <input id="goal-value" type="number" min="1" max="99" inputmode="numeric" aria-label="Meta de cada día (de 1 a 99)">
+            <span id="goal-label">vez al día</span>
+            <button type="button" data-step="1" aria-label="Subir la meta">+</button>
+          </div>
+          <label class="field unit-field" id="unit-field" hidden>
+            <span>Unidad (opcional)</span>
+            <input id="habit-unit" type="text" maxlength="20" placeholder="vasos, páginas, minutos…" enterkeyhint="done">
+          </label>
+          <p class="hint left" id="goal-hint"></p>
         </div>
-        <p class="hint left" id="freq-hint"></p>
 
         <p class="section-label spaced">Color</p>
         <div class="color-row" id="color-row" role="radiogroup" aria-label="Color del hábito"></div>

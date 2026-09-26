@@ -1,8 +1,9 @@
 'use strict';
 
-const APP_VERSION = '0.6 beta';
+const APP_VERSION = '0.7 beta';
 const STORAGE_KEY = 'racha:v1';
 const HEATMAP_WEEKS = 53; // un año
+const LONG_PRESS_MS = 500; // mantener pulsado resta 1 en los hábitos con cantidad
 
 // ---------- Progresión: XP, niveles y logros ----------
 
@@ -52,18 +53,30 @@ const ACHIEVEMENTS = [
   { emoji: '👑', name: 'Un año', desc: 'Racha de 365 días', stat: 'best', goal: 365 },
 ];
 
+// Plantillas: las 8 primeras salen en la bienvenida. Los campos que faltan usan los valores por defecto.
 const TEMPLATES = [
-  { emoji: '💧', name: 'Beber agua' },
+  { emoji: '💧', name: 'Beber agua', goal: 8, unit: 'vasos' },
   { emoji: '🚶', name: 'Caminar 30 min' },
-  { emoji: '📚', name: 'Leer 10 páginas' },
+  { emoji: '📚', name: 'Leer', goal: 10, unit: 'páginas' },
   { emoji: '🧘', name: 'Meditar' },
   { emoji: '😴', name: 'Dormir 8 horas' },
   { emoji: '💪', name: 'Hacer ejercicio', schedule: { type: 'weekly', times: 3 } },
   { emoji: '🍎', name: 'Comer fruta' },
-  { emoji: '📵', name: 'Menos móvil' },
+  { emoji: '📵', name: 'Menos redes', kind: 'quit' },
   { emoji: '✍️', name: 'Escribir diario' },
   { emoji: '🦷', name: 'Hilo dental' },
+  { emoji: '🚭', name: 'Dejar de fumar', kind: 'quit' },
+  { emoji: '🍬', name: 'Sin azúcar', kind: 'quit' },
 ];
+// Campos de un hábito que se copian de una plantilla.
+const templateFields = (t) => ({
+  name: t.name,
+  emoji: t.emoji,
+  kind: t.kind || 'build',
+  goal: t.goal || 1,
+  unit: t.unit || '',
+  schedule: t.schedule || { type: 'daily' },
+});
 
 const SUGGESTED_EMOJIS = [
   '💧', '🏃', '📚', '🧘', '😴', '🥗', '💊', '🦷',
@@ -106,6 +119,7 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg>',
   pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
 };
 
 // ---------- Fechas (siempre en hora local, formato AAAA-MM-DD) ----------
@@ -186,6 +200,9 @@ const normalizePauses = (list) => (Array.isArray(list) ? list : [])
   .filter((p) => p && isDateKey(p.from) && (!p.to || (isDateKey(p.to) && p.to >= p.from)))
   .map((p) => ({ from: p.from, to: isDateKey(p.to) ? p.to : null }));
 
+// Meta diaria: de 1 a 99 (1 = hábito de sí/no, como siempre).
+const clampGoal = (v) => Math.min(99, Math.max(1, Math.round(Number(v)) || 1));
+
 // Cada día marcado guarda un número (las versiones antiguas guardaban 1).
 const normalizeDone = (done) => Object.fromEntries(Object.entries(done || {})
   .filter(([k, v]) => isDateKey(k) && Number(v) > 0)
@@ -204,11 +221,16 @@ function normalize(data) {
       // Los hábitos de versiones anteriores reciben un color según su posición.
       color: COLORS.some((c) => c.id === h.color) ? h.color
         : OLD_COLORS[h.color] || COLORS[i % COLORS.length].id,
-      schedule: normalizeSchedule(h.schedule),
+      // Tipo: 'build' (empezar a hacer algo) o 'quit' (dejar algo). Los de dejar son diarios y sin cantidad.
+      kind: h.kind === 'quit' ? 'quit' : 'build',
+      schedule: h.kind === 'quit' ? { type: 'daily' } : normalizeSchedule(h.schedule),
+      goal: h.kind === 'quit' ? 1 : clampGoal(h.goal),
+      unit: typeof h.unit === 'string' ? h.unit.trim().slice(0, 20) : '',
       pauses: normalizePauses(h.pauses),
       archived: isDateKey(h.archived) ? h.archived : null,
       created: isDateKey(h.created) ? h.created : todayKey(),
       done: normalizeDone(h.done),
+      slips: Object.fromEntries(Object.keys(h.slips || {}).filter(isDateKey).map((k) => [k, 1])),
     }));
   const bank = data.bank || {};
   clean.bank = {
@@ -264,11 +286,15 @@ const findHabit = (id) => state.habits.find((h) => h.id === id);
 // Hábito nuevo con los valores por defecto (diario, sin pausas).
 const newHabit = (fields) => ({
   id: uid(),
+  kind: 'build',
   schedule: { type: 'daily' },
+  goal: 1,
+  unit: '',
   pauses: [],
   archived: null,
   created: ui.today,
   done: {},
+  slips: {},
   ...fields,
 });
 
@@ -316,7 +342,19 @@ const isPaused = (habit, key) => habit.pauses.some((p) => key >= p.from && (!p.t
 const isArchivedOn = (habit, key) => Boolean(habit.archived) && key >= habit.archived;
 // Ya existía, no estaba en pausa ni archivado.
 const isActive = (habit, key) => key >= habitStart(habit) && !isArchivedOn(habit, key) && !isPaused(habit, key);
-const isDone = (habit, key) => Boolean(habit.done[key]);
+// Hecho = llegó a su meta ese día. En los de dejar algo, cada día activo sin recaída cuenta como hecho.
+function isDone(habit, key) {
+  if (habit.kind === 'quit') return key <= ui.today && !habit.slips[key] && isActive(habit, key);
+  return (habit.done[key] || 0) >= habit.goal;
+}
+// Cuánto se lleva ese día (sin pasar de la meta, por si se bajó después).
+const amountOn = (habit, key) => Math.min(habit.done[key] || 0, habit.goal);
+const hasSlip = (habit, key) => habit.kind === 'quit' && Boolean(habit.slips[key]) && isActive(habit, key);
+// "Dejar de fumar" → "fumar", "Sin azúcar" → "azúcar", "Menos redes" → "redes"
+const quitWhat = (habit) => {
+  const rest = habit.name.replace(/^(dejar\s+(de|el|la|los|las)\s+|dejar\s+|sin\s+|menos\s+|no\s+)/i, '').trim() || habit.name;
+  return rest.charAt(0).toLowerCase() + rest.slice(1);
+};
 
 // ¿Tocaba hacerlo ese día? Los de "X veces por semana" nunca tocan un día concreto.
 function isDue(habit, key, weekday = weekdayOf(key)) {
@@ -463,7 +501,9 @@ function computeStats() {
     xp += s.xp;
     checkins += s.checkins;
     if (s.unit === 'day') best = Math.max(best, s.best); // los logros de racha se miden en días
-    for (const d in habit.done) days.add(d);
+    // Días que pueden ser perfectos: los marcados y, en los de dejar algo, todos desde que empezó.
+    if (habit.kind === 'quit') forEachDay(habitStart(habit), ui.today, (d) => days.add(d));
+    else for (const d in habit.done) days.add(d);
   }
   let perfectDays = 0;
   days.forEach((d) => { if (isPerfectDay(d)) perfectDays++; });
@@ -563,25 +603,42 @@ function renderLevelCard(stats) {
 
 const flameHTML = (text) => `<span class="flame">🔥 ${text}</span>`;
 
+// Semanales: "✓ 3/3 esta semana"
+function weekText(habit) {
+  const { times } = habit.schedule;
+  const sameWeek = weekStartOf(ui.day) === weekStartOf(ui.today);
+  const count = sameWeek ? streakInfo(habit).weekDone : weekCount(habit, ui.day);
+  return `${count >= times ? '✓ ' : ''}${count}/${times} ${sameWeek ? 'esta semana' : 'esa semana'}`;
+}
+
+// Racha corta, para acompañar a otros datos: "🔥 5 días" o "🔥 2 semanas · 1/3 esta semana".
+function shortStreak(habit) {
+  const s = streakInfo(habit);
+  if (s.unit === 'week') return [s.current ? flameHTML(plural(s.current, 'semana', 'semanas')) : '', weekText(habit)].filter(Boolean).join(' · ');
+  return s.current ? flameHTML(plural(s.current, 'día', 'días')) : '';
+}
+
 // Texto bajo el nombre: racha y lo siguiente que conviene saber.
 function streakMeta(habit) {
   const s = streakInfo(habit);
   const today = ui.today;
-
-  if (s.unit === 'week') {
-    const { times } = habit.schedule;
-    const sameWeek = weekStartOf(ui.day) === weekStartOf(today);
-    const count = sameWeek ? s.weekDone : weekCount(habit, ui.day);
-    const week = `${count >= times ? '✓ ' : ''}${count}/${times} ${sameWeek ? 'esta semana' : 'esa semana'}`;
-    return s.current ? `${flameHTML(plural(s.current, 'semana', 'semanas'))} · ${week}` : week;
-  }
-
+  if (s.unit === 'week') return shortStreak(habit);
   if (s.current === 0) return isDue(habit, today) ? 'Empieza tu racha hoy' : 'Empieza tu racha';
   const flame = flameHTML(plural(s.current, 'día', 'días'));
   if (isDue(habit, today) && !isDone(habit, today)) return `${flame} · ¡no la pierdas!`;
   const next = MILESTONES.find((m) => m > s.current);
   return next ? `${flame} · próxima meta: ${next}` : flame;
 }
+
+// Los de dejar algo: "🚭 12 días sin fumar"
+function quitMeta(habit) {
+  if (hasSlip(habit, ui.day)) return `Recaída${ui.day === ui.today ? ' hoy' : ''} · <u>toca para deshacer</u>`;
+  const days = plural(streakInfo(habit).current, 'día', 'días');
+  return `<span class="flame">${escapeHTML(habit.emoji)} ${days}</span> sin ${escapeHTML(quitWhat(habit))}`;
+}
+
+// Cantidad: "3/8 vasos"
+const amountText = (habit, key) => `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}`;
 
 function pauseLabel(habit) {
   const p = habit.pauses.find((x) => ui.day >= x.from && (!x.to || ui.day <= x.to));
@@ -591,43 +648,61 @@ function pauseLabel(habit) {
 function habitRow(habit) {
   const emoji = `<span class="emoji" aria-hidden="true">${escapeHTML(habit.emoji)}</span>`;
   const name = `<span class="name">${escapeHTML(habit.name)}</span>`;
-  const color = `style="--c:${colorHex(habit.color)}"`;
+  const safeName = escapeHTML(habit.name);
+  let style = `--c:${colorHex(habit.color)}`;
 
   if (ui.editing) {
-    return `<li><button type="button" class="habit" data-id="${habit.id}" ${color}>
+    return `<li><button type="button" class="habit" data-id="${habit.id}" style="${style}">
       ${emoji}
       <span class="info">${name}<span class="meta">Toca para editar</span></span>
       <span class="grip-space"></span>
     </button><span class="grip" aria-hidden="true">${ICONS.grip}</span></li>`;
   }
 
-  const status = dayStatus(habit, ui.day);
-  const done = isDone(habit, ui.day);
+  const day = ui.day;
+  const status = dayStatus(habit, day);
+  const done = isDone(habit, day);
   const classes = ['habit'];
   if (done) classes.push('done');
   if (ui.pop === habit.id) classes.push('pop');
 
   if (status === 'paused') {
     classes.push('paused');
-    return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" data-paused ${color}
-      aria-label="${escapeHTML(habit.name)}: ${pauseLabel(habit)}. Toca para reanudar">
+    return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" style="${style}"
+      aria-label="${safeName}: ${pauseLabel(habit)}. Toca para reanudar">
       ${emoji}
       <span class="info">${name}<span class="meta">${pauseLabel(habit)} · <u>reanudar</u></span></span>
       <span class="check pause-mark">${ICONS.pause}</span>
     </button></li>`;
   }
 
-  let meta = streakMeta(habit);
-  if (status === 'rest') {
-    classes.push('resting');
-    const rest = ui.day === ui.today ? 'Hoy descansa' : 'Día de descanso';
-    meta = done ? '✨ Día extra' : `${rest}${streakInfo(habit).current ? ` · ${flameHTML(plural(streakInfo(habit).current, 'día', 'días'))}` : ''}`;
-  }
+  const rest = status === 'rest' ? (day === ui.today ? 'Hoy descansa' : 'Día de descanso') : '';
+  let meta;
+  let mark = ICONS.check;
+  let label = '';
 
-  return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" ${color}>
+  if (habit.kind === 'quit') {
+    if (hasSlip(habit, day)) classes.push('slipped');
+    meta = quitMeta(habit);
+    label = hasSlip(habit, day) ? `${safeName}: recaída apuntada. Toca para deshacer`
+      : `${safeName}: ${plural(streakInfo(habit).current, 'día', 'días')} sin ${escapeHTML(quitWhat(habit))}. Toca si has recaído`;
+  } else if (habit.goal > 1) {
+    // Cantidad: la tarjeta se va rellenando con el color del hábito.
+    classes.push('qty');
+    style += `;--fill:${(amountOn(habit, day) / habit.goal).toFixed(3)}`;
+    const extra = rest ? (done ? '✨ Día extra' : rest) : shortStreak(habit);
+    meta = [`<b class="amount">${amountText(habit, day)}</b>`, extra].filter(Boolean).join(' · ');
+    if (!done) mark = ICONS.plus;
+    label = `${safeName}: ${amountOn(habit, day)} de ${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}. Toca para sumar 1; mantén pulsado para restar 1`;
+  } else {
+    meta = rest ? (done ? '✨ Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
+  }
+  if (rest) classes.push('resting');
+
+  return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" style="${style}"${label ? ` aria-label="${label}"` : ''}>
     ${emoji}
     <span class="info">${name}<span class="meta">${meta}</span></span>
-    <span class="check">${ICONS.check}</span>
+    <span class="check">${mark}</span>
   </button></li>`;
 }
 
@@ -651,32 +726,33 @@ async function askResume(habit) {
   toast(`▶️ «${habit.name}» reanudado`);
 }
 
-function toggleHabit(id, button) {
-  const habit = findHabit(id);
-  if (!habit) return;
-  if (isPaused(habit, ui.day)) {
-    askResume(habit);
-    return;
-  }
-
+// Aplica un cambio en el día que se está viendo y enseña lo que ha pasado: XP, vibración y celebraciones.
+function changeHabit(habit, button, mutate) {
+  const day = ui.day;
   const before = computeStats();
-  const wasPerfect = isPerfectDay(ui.day);
+  const wasPerfect = isPerfectDay(day);
+  const wasDone = isDone(habit, day);
+  const amountBefore = habit.done[day] || 0;
   const anchor = button && button.querySelector('.check');
 
-  if (habit.done[ui.day]) delete habit.done[ui.day];
-  else habit.done[ui.day] = 1;
+  mutate();
   save();
 
-  const nowDone = isDone(habit, ui.day);
+  const nowDone = isDone(habit, day);
   const after = computeStats();
-  floatXp(anchor, after.xp - before.xp);
-  if (nowDone) haptic();
+  const step = (habit.done[day] || 0) - amountBefore;
+  if (after.xp !== before.xp) floatXp(anchor, after.xp - before.xp);
+  else if (step) floatXp(anchor, step, step > 0 ? '+1' : '−1'); // pasos de cantidad que aún no llegan a la meta
+  if (nowDone !== wasDone || step) haptic();
 
-  ui.pop = nowDone ? id : null;
+  const hadFocus = button && document.activeElement === button;
+  ui.pop = (nowDone && !wasDone) || step > 0 ? habit.id : null;
   renderToday();
   ui.pop = null;
+  // Con teclado, el foco sigue en el mismo hábito tras volver a pintar la lista.
+  if (hadFocus) $(`.habit[data-id="${habit.id}"]`)?.focus();
 
-  if (!nowDone) return;
+  if (!nowDone || wasDone) return;
   const unlocked = ACHIEVEMENTS.filter((a) => isUnlocked(a, after) && !isUnlocked(a, before));
   if (after.level > before.level) {
     showLevelUp(after, unlocked);
@@ -684,10 +760,70 @@ function toggleHabit(id, button) {
     confetti();
     const extra = unlocked.length > 1 ? ` (+${unlocked.length - 1})` : '';
     toast(`${unlocked[0].emoji} Logro desbloqueado: ${unlocked[0].name}${extra}`);
-  } else if (!wasPerfect && isPerfectDay(ui.day)) {
+  } else if (!wasPerfect && isPerfectDay(day)) {
     confetti(document.body, 90);
     toast(`🌟 ¡Día perfecto! +${XP_PERFECT_DAY} XP extra`);
   }
+}
+
+// Tocar un hábito: marcar/desmarcar, sumar 1 (cantidad) o apuntar una recaída (dejar algo).
+function toggleHabit(id, button) {
+  const habit = findHabit(id);
+  if (!habit) return;
+  const day = ui.day;
+  if (isPaused(habit, day)) {
+    askResume(habit);
+    return;
+  }
+  if (habit.kind === 'quit') {
+    toggleSlip(habit, button);
+    return;
+  }
+  if (habit.goal > 1) {
+    const amount = amountOn(habit, day);
+    if (amount >= habit.goal) {
+      toast('¡Meta cumplida! Mantén pulsado para restar');
+      return;
+    }
+    changeHabit(habit, button, () => { habit.done[day] = amount + 1; });
+    return;
+  }
+  changeHabit(habit, button, () => {
+    if (habit.done[day]) delete habit.done[day];
+    else habit.done[day] = 1;
+  });
+}
+
+// Mantener pulsado (o la tecla −) resta 1 en los hábitos con cantidad.
+function stepDown(habit, button) {
+  const day = ui.day;
+  const amount = amountOn(habit, day);
+  if (!amount || habit.kind === 'quit' || isPaused(habit, day)) return;
+  changeHabit(habit, button, () => {
+    if (amount > 1) habit.done[day] = amount - 1;
+    else delete habit.done[day];
+  });
+}
+
+// Recaídas: apuntarla pide confirmación; volver a tocar la deshace.
+async function toggleSlip(habit, button) {
+  const day = ui.day;
+  if (dayStatus(habit, day) === 'off') {
+    toast('Ese día este hábito aún no existía');
+    return;
+  }
+  if (habit.slips[day]) {
+    changeHabit(habit, button, () => { delete habit.slips[day]; });
+    return;
+  }
+  const ok = await askConfirm({
+    emoji: '🫶',
+    title: day === ui.today ? '¿Has recaído hoy?' : '¿Recaíste ese día?',
+    body: '<p>No pasa nada: apúntalo y sigue. La racha vuelve a empezar al día siguiente. Si te has equivocado, toca otra vez la tarjeta para deshacerlo.</p>',
+    confirmText: 'Sí, he recaído',
+  });
+  if (!ok) return;
+  changeHabit(habit, button, () => { habit.slips[day] = 1; });
 }
 
 // ---------- Bienvenida ----------
@@ -721,12 +857,7 @@ $('#template-grid').addEventListener('click', (e) => {
 $('#start-btn').addEventListener('click', () => {
   [...pickedTemplates].sort((a, b) => a - b).forEach((i) => {
     const t = TEMPLATES[i];
-    state.habits.push(newHabit({
-      name: t.name,
-      emoji: t.emoji,
-      color: nextColor(state.habits),
-      schedule: t.schedule || { type: 'daily' },
-    }));
+    state.habits.push(newHabit({ ...templateFields(t), color: nextColor(state.habits) }));
   });
   pickedTemplates.clear();
   save();
@@ -867,26 +998,29 @@ function renderHistory() {
   const cards = habits.map((h) => {
     const s = streakInfo(h);
     const unit = s.unit === 'week' ? 'semanas' : 'días';
-    const paused = isPaused(h, ui.today) ? ' · En pausa' : '';
+    const sub = [
+      h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule),
+      h.goal > 1 ? `Meta: ${h.goal}${h.unit ? ` ${escapeHTML(h.unit)}` : ''}` : '',
+      isPaused(h, ui.today) ? 'En pausa' : '',
+    ].filter(Boolean).join(' · ');
+    const third = h.kind === 'quit'
+      ? `<b>${Object.keys(h.slips).length}</b><span>Recaídas</span>`
+      : `<b>${s.checkins}</b><span>Días hechos</span>`;
     return `<article class="card" style="--c:${colorHex(h.color)}">
       <div class="card-head">
         <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
         <div class="card-title">
           <h2>${escapeHTML(h.name)}</h2>
-          <span class="card-sub">${scheduleLabel(h.schedule)}${paused}</span>
+          <span class="card-sub">${sub}</span>
         </div>
         <button type="button" class="text-btn" data-edit="${h.id}">Editar</button>
       </div>
       <div class="stats">
         <div class="stat"><b>${s.current}</b><span>Racha (${unit})</span></div>
         <div class="stat"><b>${s.best}</b><span>Mejor (${unit})</span></div>
-        <div class="stat"><b>${s.checkins}</b><span>Días hechos</span></div>
+        <div class="stat">${third}</div>
       </div>
-      ${heatmapHTML(h.id, (key) => {
-        if (isDone(h, key)) return 'l4';
-        const status = dayStatus(h, key);
-        return status === 'paused' || status === 'rest' ? status : 'l0';
-      })}
+      ${heatmapHTML(h.id, (key) => habitCellClass(h, key))}
     </article>`;
   });
 
@@ -894,6 +1028,16 @@ function renderHistory() {
 
   // Empezar mostrando las semanas más recientes (a la derecha).
   root.querySelectorAll('.hm-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
+}
+
+// Casilla de un hábito: hecho (l4), a medias (l1–l3, en los de cantidad), recaída, pausa o descanso.
+function habitCellClass(habit, key) {
+  if (hasSlip(habit, key)) return 'slip';
+  if (isDone(habit, key)) return 'l4';
+  const status = dayStatus(habit, key);
+  if (status === 'paused' || status === 'rest') return status;
+  const amount = habit.kind === 'quit' ? 0 : amountOn(habit, key);
+  return amount ? `l${Math.min(3, Math.max(1, Math.round((amount / habit.goal) * 3)))}` : 'l0';
 }
 
 // Cuadrícula tipo GitHub: columnas = semanas (de lunes a domingo), filas = días.
@@ -946,8 +1090,15 @@ function dayCaption(habitId, key) {
   const habit = findHabit(habitId);
   if (!habit) return label;
   const status = dayStatus(habit, key);
-  if (isDone(habit, key)) return `${label} · ${status === 'active' ? 'Hecho ✓' : 'Hecho ✓ (día extra)'}`;
-  const text = { paused: 'En pausa', rest: 'Día de descanso', off: 'Aún no existía' }[status] || 'Sin hacer';
+  const amount = habit.kind !== 'quit' && habit.goal > 1
+    ? `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${habit.unit}` : ''}` : '';
+  if (hasSlip(habit, key)) return `${label} · Recaída`;
+  if (isDone(habit, key)) {
+    if (habit.kind === 'quit') return `${label} · Sin recaer ✓`;
+    return `${label} · ${status === 'active' ? 'Hecho ✓' : 'Hecho ✓ (día extra)'}${amount ? ` · ${amount}` : ''}`;
+  }
+  const text = { paused: 'En pausa', rest: 'Día de descanso', off: 'Aún no existía' }[status]
+    || (amount && amountOn(habit, key) ? amount : 'Sin hacer');
   return `${label} · ${text}`;
 }
 
@@ -1120,6 +1271,7 @@ $('#reset-btn').addEventListener('click', async () => {
   const snapshot = JSON.stringify(state);
   state.habits.forEach((h) => {
     h.done = {};
+    h.slips = {};
     h.created = ui.today;
   });
   state.bank = { xp: 0, checkins: 0, best: 0 };
@@ -1371,6 +1523,62 @@ $('#color-row').addEventListener('click', (e) => {
   haptic();
 });
 
+// ---------- Tipo y meta (en la hoja) ----------
+
+const goalInput = $('#goal-value');
+const unitInput = $('#habit-unit');
+
+// Empezar a hacer algo o dejarlo. Los de dejar son diarios y sin cantidad, así que se ocultan esas secciones.
+function setSheetKind(kind) {
+  ui.sheetKind = kind;
+  const quit = kind === 'quit';
+  document.querySelectorAll('#kind-type [data-kind]').forEach((btn) => {
+    btn.setAttribute('aria-checked', String(btn.dataset.kind === kind));
+  });
+  $('#freq-block').hidden = quit;
+  $('#goal-block').hidden = quit;
+  $('#kind-hint').hidden = !quit;
+  $('#kind-hint').textContent = 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca la tarjeta para apuntarlo.';
+  nameInput.placeholder = quit ? 'Ej. Dejar de fumar' : 'Ej. Beber 2 litros de agua';
+}
+
+function setSheetGoal(goal, unit) {
+  goalInput.value = goal;
+  unitInput.value = unit;
+  syncGoal();
+}
+
+function syncGoal() {
+  const goal = clampGoal(goalInput.value);
+  $('#unit-field').hidden = goal <= 1;
+  $('#goal-label').textContent = goal <= 1 ? 'vez al día' : 'al día';
+  $('#goal-stepper [data-step="-1"]').disabled = goal <= 1;
+  $('#goal-stepper [data-step="1"]').disabled = goal >= 99;
+  let hint = goal <= 1
+    ? 'Un toque y listo.'
+    : 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.';
+  const habit = ui.editingId && findHabit(ui.editingId);
+  if (habit && goal !== habit.goal) hint += ' Los días pasados se recalcularán con la nueva meta.';
+  $('#goal-hint').textContent = hint;
+}
+
+$('#kind-type').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-kind]');
+  if (!btn) return;
+  setSheetKind(btn.dataset.kind);
+  haptic();
+});
+
+$('#goal-stepper').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-step]');
+  if (!btn) return;
+  goalInput.value = clampGoal(clampGoal(goalInput.value) + Number(btn.dataset.step));
+  syncGoal();
+  haptic();
+});
+goalInput.addEventListener('input', syncGoal);
+goalInput.addEventListener('change', () => { goalInput.value = clampGoal(goalInput.value); syncGoal(); });
+
 function renderIdeas() {
   const used = new Set(state.habits.map((h) => h.name.toLowerCase()));
   const ideas = TEMPLATES.filter((t) => !used.has(t.name.toLowerCase()));
@@ -1391,6 +1599,10 @@ function openSheet(id = null) {
     : SUGGESTED_EMOJIS.find((e) => !state.habits.some((h) => h.emoji === e)) || '⭐';
   $('#delete-block').hidden = !habit;
   if (habit) syncPauseBox(habit);
+  // El tipo solo se elige al crear el hábito.
+  $('#kind-block').hidden = Boolean(habit);
+  setSheetKind(habit ? habit.kind : 'build');
+  setSheetGoal(habit ? habit.goal : 1, habit ? habit.unit : '');
   setSheetColor(habit ? habit.color : nextColor(state.habits));
   setSheetSchedule(habit ? habit.schedule : { type: 'daily' });
   renderIdeas();
@@ -1438,10 +1650,12 @@ $('#emoji-grid').addEventListener('click', (e) => {
 $('#ideas-row').addEventListener('click', (e) => {
   const btn = e.target.closest('.idea');
   if (!btn) return;
-  const t = TEMPLATES[Number(btn.dataset.template)];
+  const t = templateFields(TEMPLATES[Number(btn.dataset.template)]);
   nameInput.value = t.name;
   emojiInput.value = t.emoji;
-  setSheetSchedule(t.schedule || { type: 'daily' });
+  setSheetKind(t.kind);
+  setSheetGoal(t.goal, t.unit);
+  setSheetSchedule(t.schedule);
   syncEmojiGrid();
   updateSaveButton();
 });
@@ -1453,15 +1667,20 @@ form.addEventListener('submit', (e) => {
   const emoji = lastGrapheme(emojiInput.value) || '⭐';
 
   const habit = ui.editingId && findHabit(ui.editingId);
-  const schedule = sheetScheduleValue();
-  if (habit) {
-    habit.name = name;
-    habit.emoji = emoji;
-    habit.color = ui.sheetColor;
-    habit.schedule = schedule; // cambiar la frecuencia recalcula todo con la nueva
-  } else {
-    state.habits.push(newHabit({ name, emoji, color: ui.sheetColor, schedule }));
-  }
+  const kind = habit ? habit.kind : ui.sheetKind;
+  const quit = kind === 'quit';
+  const goal = quit ? 1 : clampGoal(goalInput.value);
+  const fields = {
+    name,
+    emoji,
+    color: ui.sheetColor,
+    // Cambiar la frecuencia o la meta recalcula todo (también los días pasados) con lo nuevo.
+    schedule: quit ? { type: 'daily' } : sheetScheduleValue(),
+    goal,
+    unit: goal > 1 ? unitInput.value.trim().slice(0, 20) : '',
+  };
+  if (habit) Object.assign(habit, fields);
+  else state.habits.push(newHabit({ ...fields, kind }));
   save();
   closeSheet();
   render();
@@ -1553,12 +1772,13 @@ levelupDialog.addEventListener('click', (e) => {
 });
 
 // "+12 XP" que sube y se desvanece sobre el hábito tocado.
-function floatXp(anchor, amount) {
+function floatXp(anchor, amount, text) {
   if (!anchor || !amount) return;
   const r = anchor.getBoundingClientRect();
   const el = document.createElement('span');
   el.className = amount > 0 ? 'xp-float' : 'xp-float minus';
-  el.textContent = `${amount > 0 ? '+' : '−'}${Math.abs(amount)} XP`;
+  if (text) el.classList.add('step'); // "+1" de cantidad, sin XP
+  el.textContent = text || `${amount > 0 ? '+' : '−'}${Math.abs(amount)} XP`;
   el.style.left = `${r.left + r.width / 2}px`;
   el.style.top = `${r.top - 10}px`;
   document.body.appendChild(el);
@@ -1741,11 +1961,63 @@ $('#toast-action').addEventListener('click', () => {
 
 // ---------- Eventos ----------
 
+// Tras mantener pulsado no queremos que el "clic" del final sume otra vez.
+let pressTimer = null;
+let skipClick = false;
+
 $('#habit-list').addEventListener('click', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn) return;
+  if (skipClick) {
+    skipClick = false;
+    return;
+  }
   if (ui.editing) openSheet(btn.dataset.id);
   else toggleHabit(btn.dataset.id, btn);
+});
+
+// Mantener pulsado ~500 ms resta 1 en los hábitos con cantidad.
+$('#habit-list').addEventListener('pointerdown', (e) => {
+  skipClick = false;
+  const btn = e.target.closest('.habit');
+  if (!btn || ui.editing) return;
+  const habit = findHabit(btn.dataset.id);
+  if (!habit || habit.kind === 'quit' || habit.goal <= 1) return;
+  const { clientX: x, clientY: y } = e;
+  const cancel = () => {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    btn.removeEventListener('pointerup', cancel);
+    btn.removeEventListener('pointercancel', cancel);
+    btn.removeEventListener('pointerleave', cancel);
+    btn.removeEventListener('pointermove', onMove);
+  };
+  const onMove = (ev) => {
+    if (Math.abs(ev.clientX - x) > 10 || Math.abs(ev.clientY - y) > 10) cancel();
+  };
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(() => {
+    cancel();
+    skipClick = true;
+    stepDown(habit, btn);
+  }, LONG_PRESS_MS);
+  btn.addEventListener('pointerup', cancel);
+  btn.addEventListener('pointercancel', cancel);
+  btn.addEventListener('pointerleave', cancel);
+  btn.addEventListener('pointermove', onMove);
+});
+
+// Sin menú contextual al mantener pulsado (Android) y con teclado: "−" o Retroceso restan 1.
+$('#habit-list').addEventListener('contextmenu', (e) => {
+  if (e.target.closest('.habit.qty')) e.preventDefault();
+});
+$('#habit-list').addEventListener('keydown', (e) => {
+  const btn = e.target.closest('.habit');
+  if (!btn || ui.editing || !['-', 'Backspace', 'Delete'].includes(e.key)) return;
+  const habit = findHabit(btn.dataset.id);
+  if (!habit || habit.goal <= 1) return;
+  e.preventDefault();
+  stepDown(habit, btn);
 });
 
 $('#add-btn').addEventListener('click', () => openSheet());
