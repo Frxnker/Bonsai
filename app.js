@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.4 beta';
+const APP_VERSION = '0.5 beta';
 const STORAGE_KEY = 'racha:v1';
 const HEATMAP_WEEKS = 53; // un año
 
@@ -68,15 +68,20 @@ const SUGGESTED_EMOJIS = [
 
 // Cada hábito tiene su color (se usa en su tarjeta, su casilla y su mapa de calor).
 const COLORS = [
-  { id: 'violeta', name: 'Violeta', hex: '#7C5CFF' },
-  { id: 'rosa', name: 'Rosa', hex: '#FF4F9A' },
-  { id: 'naranja', name: 'Naranja', hex: '#FF7A2F' },
-  { id: 'amarillo', name: 'Amarillo', hex: '#E9A800' },
-  { id: 'verde', name: 'Verde', hex: '#1FB866' },
-  { id: 'turquesa', name: 'Turquesa', hex: '#12B3A6' },
-  { id: 'azul', name: 'Azul', hex: '#3B82F6' },
-  { id: 'rojo', name: 'Rojo', hex: '#F43F5E' },
+  { id: 'salvia', name: 'Salvia', hex: '#6F9677' },
+  { id: 'jade', name: 'Jade', hex: '#4E8C7E' },
+  { id: 'niebla', name: 'Niebla', hex: '#6C8CA6' },
+  { id: 'glicina', name: 'Glicina', hex: '#8E86B4' },
+  { id: 'sakura', name: 'Sakura', hex: '#CF8591' },
+  { id: 'arcilla', name: 'Arcilla', hex: '#C27556' },
+  { id: 'ocre', name: 'Ocre', hex: '#BF9544' },
+  { id: 'piedra', name: 'Piedra', hex: '#858379' },
 ];
+// Colores de la versión anterior → su equivalente zen.
+const OLD_COLORS = {
+  violeta: 'glicina', rosa: 'sakura', naranja: 'arcilla', amarillo: 'ocre',
+  verde: 'salvia', turquesa: 'jade', azul: 'niebla', rojo: 'arcilla',
+};
 const colorHex = (id) => (COLORS.find((c) => c.id === id) || COLORS[0]).hex;
 // El primer color que aún no use ningún hábito (o el siguiente en la rueda).
 const nextColor = (habits) => (
@@ -153,7 +158,8 @@ function normalize(data) {
       name: h.name.trim().slice(0, 40),
       emoji: typeof h.emoji === 'string' && h.emoji ? h.emoji : '⭐',
       // Los hábitos de versiones anteriores reciben un color según su posición.
-      color: COLORS.some((c) => c.id === h.color) ? h.color : COLORS[i % COLORS.length].id,
+      color: COLORS.some((c) => c.id === h.color) ? h.color
+        : OLD_COLORS[h.color] || COLORS[i % COLORS.length].id,
       created: isDateKey(h.created) ? h.created : todayKey(),
       done: Object.fromEntries(Object.keys(h.done || {}).filter(isDateKey).map((k) => [k, 1])),
     }));
@@ -1093,35 +1099,38 @@ function confetti(container = document.body, amount = 120) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  const colors = ['#6C47FF', '#FF4F9A', '#FFD23F', '#1FB866', '#3B82F6', '#FF7A2F'];
+  // Pétalos de cerezo, hojas de salvia y motas doradas que caen despacio, meciéndose.
+  const colors = ['#F2C4CB', '#E8A5B0', '#CF8591', '#B7CDB5', '#8FB39A', '#E3CE9A'];
   const pieces = Array.from({ length: amount }, (_, i) => ({
-    x: w / 2 + (Math.random() - 0.5) * w * 0.4,
-    y: h * 0.38,
-    vx: (Math.random() - 0.5) * 13,
-    vy: -Math.random() * 13 - 5,
-    size: 6 + Math.random() * 6,
+    x: Math.random() * w,
+    y: -Math.random() * h * 0.5,
+    vy: 1.2 + Math.random() * 1.8,
+    sway: 0.6 + Math.random() * 1.2,
+    phase: Math.random() * Math.PI * 2,
+    size: 7 + Math.random() * 7,
     rot: Math.random() * Math.PI * 2,
-    vr: (Math.random() - 0.5) * 0.35,
+    vr: (Math.random() - 0.5) * 0.06,
     color: colors[i % colors.length],
   }));
 
-  const duration = 2600;
+  const duration = 3400;
   const start = performance.now();
   const frame = (now) => {
     const t = now - start;
     ctx.clearRect(0, 0, w, h);
-    ctx.globalAlpha = Math.max(0, 1 - t / duration);
+    // Se ven enteros casi todo el rato y se desvanecen al final.
+    ctx.globalAlpha = Math.min(1, Math.max(0, (duration - t) / (duration * 0.3)));
     for (const p of pieces) {
-      p.vy += 0.38;
-      p.vx *= 0.99;
-      p.x += p.vx;
       p.y += p.vy;
+      p.x += Math.sin(t / 500 + p.phase) * p.sway;
       p.rot += p.vr;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
       ctx.fillStyle = p.color;
-      ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size / 2, p.size / 3.6, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
     if (t < duration) requestAnimationFrame(frame);

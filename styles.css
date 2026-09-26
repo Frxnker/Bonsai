@@ -1,5 +1,6 @@
 /* =========================================================
-   Racha · estilo "arcade": redondeado, colorido y con botones 3D
+   Racha · estilo zen: tonos de jardín (salvia, arena, piedra)
+   con formas redondeadas y botones que se hunden al pulsarlos
    ========================================================= */
 
 /* Permite animar los anillos de progreso */
@@ -11,44 +12,53 @@
 
 /* ---------- Colores (modo claro por defecto) ---------- */
 :root {
-  --bg: #F4F1FF;
-  --glow-1: rgba(124, 92, 255, 0.16);
-  --glow-2: rgba(255, 95, 168, 0.12);
-  --surface: #FFFFFF;
-  --surface-2: #F0ECFF;
-  --line: #E4DEF7;
-  --line-strong: #CBC2EC;
-  --edge: #DCD4F4;            /* borde inferior "3D" de tarjetas y botones */
-  --text: #1C1433;
-  --text-2: #6B6488;
+  --bg: #F4F1E9;              /* papel de arroz */
+  --glow-1: rgba(126, 160, 130, 0.16);
+  --glow-2: rgba(214, 190, 150, 0.16);
+  --surface: #FFFDF8;
+  --surface-2: #EFEBE1;
+  --line: #E4DED2;
+  --line-strong: #CEC6B6;
+  --edge: #E2DBCD;            /* borde inferior "3D" de tarjetas y botones */
+  --text: #2D3630;            /* tinta verde musgo */
+  --text-2: #656C64;
 
-  --accent: #6C47FF;
-  --accent-edge: #4B2BD1;
+  --accent: #4E7A62;          /* salvia */
+  --accent-edge: #3B5F4B;
   --accent-ink: #FFFFFF;
-  --accent-soft: #ECE6FF;
-  --accent-text: #5433E6;
+  --accent-soft: #E3ECE2;
+  --accent-text: #3E6A52;
 
-  --hero: linear-gradient(135deg, #6C47FF 0%, #A445F5 55%, #FF5FA8 100%);
-  --hero-edge: #4B2BD1;
-  --hero-glow: rgba(108, 71, 255, 0.3);
+  /* Tarjeta principal: degradado suave de salvia a arena */
+  --hero: linear-gradient(135deg, #DCE7D7 0%, #E6E8D8 55%, #F0E5D4 100%);
+  --hero-edge: #C8D3C0;
+  --hero-glow: rgba(78, 122, 98, 0.14);
+  --hero-text: #2D3630;
+  --hero-text-2: #55625A;
+  --hero-accent: #7A5C1B;
+  --hero-track: rgba(45, 54, 48, 0.1);
+  --hero-chip: rgba(255, 255, 255, 0.55);
+  --hero-bubble: rgba(255, 255, 255, 0.35);
+  --ring: #4E7A62;
 
-  --xp: #FFD23F;
-  --xp-edge: #E0A800;
-  --xp-ink: #3B2A00;
-  --xp-text: #A36800;
-  --gold-soft: #FFF5D1;
+  --xp: #D2AA52;              /* oro viejo */
+  --xp-edge: #B08A38;
+  --xp-ink: #33280F;
+  --xp-text: #7A5C1B;
+  --gold-soft: #F4EDDA;
 
-  --flame: #F25F1C;
-  --danger: #EF3E5C;
-  --danger-edge: #C4213F;
+  --flame: #B85F3C;           /* terracota */
+  --danger: #B34A45;
+  --danger-edge: #8A3531;
+  --danger-ink: #FFFFFF;
 
-  --heat-0: #ECE8FA;
-  --backdrop: rgba(28, 20, 51, 0.45);
-  --dock-bg: rgba(255, 255, 255, 0.9);
-  --dock-shadow: 0 16px 34px rgba(28, 20, 51, 0.16);
-  --toast-bg: #1C1433;
-  --toast-text: #FFFFFF;
-  --toast-action: #FFD23F;
+  --heat-0: #EAE6DB;
+  --backdrop: rgba(40, 46, 42, 0.4);
+  --dock-bg: rgba(255, 253, 248, 0.9);
+  --dock-shadow: 0 16px 34px rgba(45, 54, 48, 0.12);
+  --toast-bg: #2D3630;
+  --toast-text: #F4F1E9;
+  --toast-action: #D8B660;
 
   --radius: 22px;
   --dock-h: 66px;
@@ -62,42 +72,55 @@
   color-scheme: light;
 }
 
-/* ---------- Modo oscuro automático ---------- */
+/* ---------- Modo oscuro automático: bosque de noche ---------- */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0F0C1D;
-    --glow-1: rgba(124, 92, 255, 0.24);
-    --glow-2: rgba(255, 95, 168, 0.12);
-    --surface: #1B1631;
-    --surface-2: #262043;
-    --line: #2F2852;
-    --line-strong: #4A4078;
-    --edge: #09070F;
-    --text: #F4F1FF;
-    --text-2: #A7A0C9;
+    --bg: #111713;
+    --glow-1: rgba(127, 174, 143, 0.12);
+    --glow-2: rgba(217, 184, 101, 0.06);
+    --surface: #19211C;
+    --surface-2: #222C25;
+    --line: #2B362F;
+    --line-strong: #435047;
+    --edge: #080B09;
+    --text: #ECEFE8;
+    --text-2: #A3ADA3;
 
-    --accent: #8466FF;
-    --accent-edge: #5234DB;
-    --accent-soft: rgba(132, 102, 255, 0.2);
-    --accent-text: #B9A9FF;
+    --accent: #86B495;
+    --accent-edge: #4F7C62;
+    --accent-ink: #10201A;
+    --accent-soft: rgba(134, 180, 149, 0.16);
+    --accent-text: #A8D1B5;
 
-    --hero-edge: #3A22B0;
-    --hero-glow: rgba(108, 71, 255, 0.35);
+    --hero: linear-gradient(135deg, #22332A 0%, #2A3A31 55%, #38372B 100%);
+    --hero-edge: #0C120E;
+    --hero-glow: rgba(0, 0, 0, 0.4);
+    --hero-text: #ECEFE8;
+    --hero-text-2: #B5C0B4;
+    --hero-accent: #D9B865;
+    --hero-track: rgba(255, 255, 255, 0.12);
+    --hero-chip: rgba(255, 255, 255, 0.09);
+    --hero-bubble: rgba(255, 255, 255, 0.04);
+    --ring: #86B495;
 
-    --xp-text: #FFD86A;
-    --gold-soft: rgba(255, 210, 63, 0.13);
+    --xp: #D6B25E;
+    --xp-edge: #A88632;
+    --xp-ink: #2A2110;
+    --xp-text: #E0C47C;
+    --gold-soft: rgba(214, 178, 94, 0.12);
 
-    --flame: #FF8A4C;
-    --danger: #FF5B78;
-    --danger-edge: #A91D39;
+    --flame: #E08A62;
+    --danger: #E27A70;
+    --danger-edge: #7E2F29;
+    --danger-ink: #2A0F0C;
 
-    --heat-0: #272045;
-    --backdrop: rgba(0, 0, 0, 0.6);
-    --dock-bg: rgba(27, 22, 49, 0.9);
+    --heat-0: #212A24;
+    --backdrop: rgba(0, 0, 0, 0.55);
+    --dock-bg: rgba(25, 33, 28, 0.9);
     --dock-shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
-    --toast-bg: #F4F1FF;
-    --toast-text: #1C1433;
-    --toast-action: #6C47FF;
+    --toast-bg: #ECEFE8;
+    --toast-text: #19211C;
+    --toast-action: #4E7A62;
 
     color-scheme: dark;
   }
@@ -247,7 +270,7 @@ main {
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 .primary-btn:active { box-shadow: 0 2px 0 var(--accent-edge); }
-.primary-btn.danger { background: var(--danger); box-shadow: 0 5px 0 var(--danger-edge); color: #FFFFFF; }
+.primary-btn.danger { background: var(--danger); box-shadow: 0 5px 0 var(--danger-edge); color: var(--danger-ink); }
 .primary-btn.danger:active { box-shadow: 0 2px 0 var(--danger-edge); }
 
 .secondary-btn {
@@ -413,7 +436,7 @@ h1 {
   border-radius: 26px;
   background: var(--hero);
   box-shadow: 0 5px 0 var(--hero-edge), 0 16px 32px var(--hero-glow);
-  color: #FFFFFF;
+  color: var(--hero-text);
   text-align: left;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
@@ -426,7 +449,7 @@ h1 {
   width: 170px;
   height: 170px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--hero-bubble);
   pointer-events: none;
 }
 
@@ -445,7 +468,7 @@ h1 {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(var(--xp) calc(var(--p) * 1turn), rgba(255, 255, 255, 0.28) 0);
+  background: conic-gradient(var(--ring) calc(var(--p) * 1turn), var(--hero-track) 0);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 10px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 10px));
 }
@@ -461,8 +484,8 @@ h1 {
   margin-top: 3px;
   font-size: 11px;
   font-weight: 800;
+  color: var(--hero-text-2);
   letter-spacing: 0.06em;
-  opacity: 0.85;
   text-transform: uppercase;
 }
 
@@ -479,7 +502,7 @@ h1 {
 .level-xp {
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--hero-chip);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 900;
@@ -496,9 +519,9 @@ h1 {
 }
 .level-next {
   overflow: hidden;
+  color: var(--hero-text-2);
   font-size: 12.5px;
   font-weight: 700;
-  opacity: 0.88;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -509,7 +532,7 @@ h1 {
   margin: 10px 0 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--hero-track);
 }
 .xp-track.big { height: 14px; margin: 16px 0 0; }
 .xp-fill {
@@ -533,12 +556,12 @@ h1 {
   font-size: 15px;
   font-weight: 800;
   text-align: center;
-  animation: nudge 1.8s ease-in-out infinite;
+  animation: nudge 3.2s ease-in-out infinite;
 }
 
 @keyframes nudge {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  50% { transform: translateY(-2px); }
 }
 
 .list-head {
@@ -582,7 +605,7 @@ h1 {
   transition: none;
 }
 .habit-list li.dragging .habit {
-  box-shadow: 0 4px 0 var(--edge), 0 18px 36px rgba(28, 20, 51, 0.22);
+  box-shadow: 0 4px 0 var(--edge), 0 18px 36px rgba(45, 54, 48, 0.2);
   transform: rotate(-1.5deg) scale(1.02);
 }
 
@@ -757,11 +780,11 @@ h1 {
   border-radius: 11px;
   background: var(--accent);
   box-shadow: 0 3px 0 var(--accent-edge);
-  color: #FFFFFF;
+  color: var(--accent-ink);
   font-size: 15px;
   font-weight: 900;
 }
-.steps li:nth-child(2) .step-n { background: #FF4F9A; box-shadow: 0 3px 0 #C92C70; }
+.steps li:nth-child(2) .step-n { background: #CF8591; box-shadow: 0 3px 0 #A8616D; color: #FFFFFF; }
 .steps li:nth-child(3) .step-n { background: var(--xp); box-shadow: 0 3px 0 var(--xp-edge); color: var(--xp-ink); }
 
 .template-grid {
@@ -813,7 +836,7 @@ h1 {
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 2px 0 var(--accent-edge);
-  color: #FFFFFF;
+  color: var(--accent-ink);
   font-size: 13px;
   font-weight: 900;
 }
@@ -898,7 +921,7 @@ h1 {
   border: 0;
   background: var(--hero);
   box-shadow: 0 5px 0 var(--hero-edge), 0 16px 32px var(--hero-glow);
-  color: #FFFFFF;
+  color: var(--hero-text);
   text-align: center;
 }
 .card.hero::after {
@@ -909,7 +932,7 @@ h1 {
   width: 200px;
   height: 200px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--hero-bubble);
   pointer-events: none;
 }
 .card.hero > * { position: relative; z-index: 1; }
@@ -927,22 +950,22 @@ h1 {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(var(--xp) calc(var(--p) * 1turn), rgba(255, 255, 255, 0.28) 0);
+  background: conic-gradient(var(--xp) calc(var(--p) * 1turn), var(--hero-track) 0);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px));
 }
 .ring span { position: relative; font-size: 54px; line-height: 1; }
 .hero-level {
-  color: var(--xp);
+  color: var(--hero-accent);
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .hero-title { margin: 2px 0 0; font-size: 32px; font-weight: 900; letter-spacing: -0.02em; }
-.hero-next { margin: 8px 0 0; font-size: 14px; font-weight: 700; opacity: 0.9; }
-.card.hero .stat { background: rgba(255, 255, 255, 0.16); }
-.card.hero .stat span { color: #FFFFFF; opacity: 0.85; }
+.hero-next { margin: 8px 0 0; color: var(--hero-text-2); font-size: 14px; font-weight: 700; }
+.card.hero .stat { background: var(--hero-chip); }
+.card.hero .stat span { color: var(--hero-text-2); }
 
 .rules {
   display: grid;
@@ -1015,10 +1038,10 @@ h1 {
   border-color: transparent;
   background: var(--hero);
   box-shadow: 0 4px 0 var(--hero-edge);
-  color: #FFFFFF;
+  color: var(--hero-text);
 }
 .road-step.current .road-level,
-.road-step.current .road-xp { color: #FFFFFF; opacity: 0.9; }
+.road-step.current .road-xp { color: var(--hero-text-2); }
 
 /* ---------- Progreso: logros ---------- */
 .badges {
@@ -1191,7 +1214,7 @@ h1 {
 .tab[aria-current="page"] {
   background: var(--accent);
   box-shadow: inset 0 -3px 0 var(--accent-edge);
-  color: #FFFFFF;
+  color: var(--accent-ink);
 }
 
 /* ---------- Hoja para crear / editar ---------- */
@@ -1433,7 +1456,7 @@ h1 {
   border: 0;
   background: var(--hero);
   box-shadow: 0 6px 0 var(--hero-edge), 0 24px 50px var(--hero-glow);
-  color: #FFFFFF;
+  color: var(--hero-text);
 }
 .levelup-card::before {
   content: "";
@@ -1443,7 +1466,7 @@ h1 {
   width: 260px;
   height: 260px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--hero-bubble);
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -1459,14 +1482,14 @@ h1 {
 }
 .levelup-kicker {
   margin: 16px 0 2px;
-  color: var(--xp);
+  color: var(--hero-accent);
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .modal-card h2 { margin: 0; font-size: 36px; font-weight: 900; letter-spacing: -0.02em; }
-.levelup-sub { margin: 6px 0 20px; font-weight: 700; opacity: 0.9; }
+.levelup-sub { margin: 6px 0 20px; color: var(--hero-text-2); font-weight: 700; }
 .levelup-achievements {
   display: grid;
   gap: 8px;
@@ -1480,17 +1503,12 @@ h1 {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--hero-chip);
   font-size: 14px;
   font-weight: 600;
   text-align: left;
 }
 .levelup-achievements li > span:first-child { font-size: 24px; }
-.levelup-card .primary-btn {
-  background: #FFFFFF;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.22);
-  color: var(--accent);
-}
 
 /* Confirmación */
 .confirm-emoji { font-size: 50px; line-height: 1; }
