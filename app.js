@@ -406,8 +406,8 @@ function dailyTimeline(habit) {
         xp += XP_PER_CHECK + Math.min(run, XP_STREAK_CAP);
         run++;
         best = Math.max(best, run);
-      } else if (key !== today) {
-        run = 0; // hoy aún se puede hacer
+      } else if (key !== today || hasSlip(habit, key)) {
+        run = 0; // hoy aún se puede hacer… salvo si ya se apuntó una recaída
       }
     } else if (done) {
       xp += XP_PER_CHECK; // día extra: da XP sin tocar la racha
@@ -632,7 +632,7 @@ function streakMeta(habit) {
 
 // Los de dejar algo: "🚭 12 días sin fumar"
 function quitMeta(habit) {
-  if (hasSlip(habit, ui.day)) return `Recaída${ui.day === ui.today ? ' hoy' : ''} · <u>toca para deshacer</u>`;
+  if (hasSlip(habit, ui.day)) return `Recaída${ui.day === ui.today ? ' hoy' : ''} · <u>deshacer</u>`;
   const days = plural(streakInfo(habit).current, 'día', 'días');
   return `<span class="flame">${escapeHTML(habit.emoji)} ${days}</span> sin ${escapeHTML(quitWhat(habit))}`;
 }
@@ -1566,6 +1566,11 @@ $('#kind-type').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-kind]');
   if (!btn) return;
   setSheetKind(btn.dataset.kind);
+  // Si aún no has elegido emoji, ponemos uno que encaje con el tipo.
+  if (!ui.emojiTouched) {
+    emojiInput.value = btn.dataset.kind === 'quit' ? '🚭' : ui.defaultEmoji;
+    syncEmojiGrid();
+  }
   haptic();
 });
 
@@ -1594,9 +1599,9 @@ function openSheet(id = null) {
 
   $('#sheet-title').textContent = habit ? 'Editar hábito' : 'Nuevo hábito';
   nameInput.value = habit ? habit.name : '';
-  emojiInput.value = habit
-    ? habit.emoji
-    : SUGGESTED_EMOJIS.find((e) => !state.habits.some((h) => h.emoji === e)) || '⭐';
+  ui.defaultEmoji = SUGGESTED_EMOJIS.find((e) => !state.habits.some((h) => h.emoji === e)) || '⭐';
+  ui.emojiTouched = Boolean(habit);
+  emojiInput.value = habit ? habit.emoji : ui.defaultEmoji;
   $('#delete-block').hidden = !habit;
   if (habit) syncPauseBox(habit);
   // El tipo solo se elige al crear el hábito.
@@ -1635,6 +1640,7 @@ nameInput.addEventListener('input', updateSaveButton);
 
 // Nos quedamos solo con el último emoji escrito, así escribir uno nuevo reemplaza al anterior.
 emojiInput.addEventListener('input', () => {
+  ui.emojiTouched = true;
   emojiInput.value = lastGrapheme(emojiInput.value);
   syncEmojiGrid();
 });
@@ -1643,6 +1649,7 @@ emojiInput.addEventListener('focus', () => emojiInput.select());
 $('#emoji-grid').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-emoji]');
   if (!btn) return;
+  ui.emojiTouched = true;
   emojiInput.value = btn.dataset.emoji;
   syncEmojiGrid();
 });
@@ -1653,6 +1660,7 @@ $('#ideas-row').addEventListener('click', (e) => {
   const t = templateFields(TEMPLATES[Number(btn.dataset.template)]);
   nameInput.value = t.name;
   emojiInput.value = t.emoji;
+  ui.emojiTouched = true;
   setSheetKind(t.kind);
   setSheetGoal(t.goal, t.unit);
   setSheetSchedule(t.schedule);
