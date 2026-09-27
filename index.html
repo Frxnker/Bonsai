@@ -19,6 +19,18 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
   <link rel="icon" type="image/png" href="assets/icons/icon-192.png">
 
+  <!-- Tema, tamaño del texto y pestaña Salud antes de pintar, para que no parpadeen (el resto, en app.js) -->
+  <script>
+    try {
+      const prefs = JSON.parse(localStorage.getItem('racha:v1')).prefs || {};
+      const root = document.documentElement;
+      if (prefs.theme === 'light' || prefs.theme === 'dark') root.dataset.theme = prefs.theme;
+      if (prefs.textSize === 'large' || prefs.textSize === 'xlarge') root.dataset.text = prefs.textSize;
+      if (prefs.showHealth === false) root.dataset.health = 'off';
+    } catch (err) {
+      // sin datos todavía: los valores de siempre
+    }
+  </script>
   <link rel="stylesheet" href="assets/css/styles.css">
   <script src="assets/js/app.js" defer></script>
 </head>
@@ -209,6 +221,58 @@
         <p class="hint left">También puedes tocar tu avatar de arriba y escribir cualquier emoji.</p>
       </article>
 
+      <p class="section-label group">Apariencia</p>
+      <article class="card">
+        <p class="section-label" id="theme-label">Tema</p>
+        <div class="segmented" role="radiogroup" aria-labelledby="theme-label">
+          <button type="button" role="radio" data-pref="theme" data-value="auto">Automático</button>
+          <button type="button" role="radio" data-pref="theme" data-value="light">Claro</button>
+          <button type="button" role="radio" data-pref="theme" data-value="dark">Oscuro</button>
+        </div>
+        <p class="hint left">Automático sigue el modo claro u oscuro del móvil.</p>
+        <p class="section-label spaced" id="text-size-label">Tamaño del texto</p>
+        <div class="segmented" role="radiogroup" aria-labelledby="text-size-label">
+          <button type="button" role="radio" data-pref="textSize" data-value="normal">Normal</button>
+          <button type="button" role="radio" data-pref="textSize" data-value="large">Grande</button>
+          <button type="button" role="radio" data-pref="textSize" data-value="xlarge">Muy grande</button>
+        </div>
+        <div class="divider"></div>
+        <label class="switch-row">
+          <span class="switch-text"><b id="pref-haptics">Vibración al marcar</b><span id="pref-haptics-hint">Una vibración suave al completar un hábito.</span></span>
+          <input type="checkbox" role="switch" data-pref="haptics" aria-labelledby="pref-haptics" aria-describedby="pref-haptics-hint">
+        </label>
+      </article>
+
+      <p class="section-label group">Qué se muestra</p>
+      <article class="card">
+        <label class="field">
+          <span>Al abrir la app</span>
+          <select data-pref="startView">
+            <option value="today">Hoy</option>
+            <option value="progress">Progreso</option>
+            <option value="history">Historial</option>
+            <option value="health">Salud</option>
+          </select>
+        </label>
+        <div class="divider"></div>
+        <label class="switch-row">
+          <span class="switch-text"><b id="pref-challenges">Retos de la semana en Hoy</b><span id="pref-challenges-hint">Siguen contando y siempre los tienes en Progreso.</span></span>
+          <input type="checkbox" role="switch" data-pref="showChallenges" aria-labelledby="pref-challenges" aria-describedby="pref-challenges-hint">
+        </label>
+        <label class="switch-row">
+          <span class="switch-text"><b id="pref-journal">Diario en Hoy</b><span id="pref-journal-hint">«¿Qué tal el día?», debajo de tus hábitos. Lo que ya apuntaste se conserva.</span></span>
+          <input type="checkbox" role="switch" data-pref="showJournal" aria-labelledby="pref-journal" aria-describedby="pref-journal-hint">
+        </label>
+        <label class="switch-row">
+          <span class="switch-text"><b id="pref-health">Pestaña Salud</b><span id="pref-health-hint">Si la ocultas, tus registros se conservan.</span></span>
+          <input type="checkbox" role="switch" data-pref="showHealth" aria-labelledby="pref-health" aria-describedby="pref-health-hint">
+        </label>
+        <label class="switch-row">
+          <span class="switch-text"><b id="pref-summary">Resumen al empezar la semana</b><span id="pref-summary-hint">Se abre solo el primer día de cada semana. Siempre está en Progreso.</span></span>
+          <input type="checkbox" role="switch" data-pref="weeklySummary" aria-labelledby="pref-summary" aria-describedby="pref-summary-hint">
+        </label>
+      </article>
+
       <p class="section-label group">Rutinas</p>
       <article class="card">
         <p class="card-text first">Agrupa hábitos, por ejemplo «Mañana» o «Noche», para verlos juntos en Hoy. Son opcionales y no cambian tus rachas ni tu XP.</p>
@@ -227,6 +291,17 @@
           <button type="button" class="secondary-btn" data-import>Importar copia</button>
         </div>
         <p class="backup-date" id="backup-date"></p>
+        <p class="backup-due" id="backup-due" hidden></p>
+        <label class="field spaced">
+          <span>Recordarme hacer una copia</span>
+          <select data-pref="backupReminder" aria-describedby="backup-reminder-hint">
+            <option value="0">Nunca</option>
+            <option value="7">Cada semana</option>
+            <option value="14">Cada 2 semanas</option>
+            <option value="30">Cada mes</option>
+          </select>
+        </label>
+        <p class="hint left" id="backup-reminder-hint">El aviso sale solo aquí, en Ajustes.</p>
         <div class="backup-note" id="pre-import" hidden>
           <p class="card-text first" id="pre-import-text"></p>
           <div class="btn-row">
@@ -243,12 +318,46 @@
         </div>
       </article>
 
+      <p class="section-label group">Almacenamiento</p>
+      <article class="card">
+        <ul class="info-rows" id="storage-list"></ul>
+        <p class="card-text" id="storage-protect"></p>
+        <button type="button" class="secondary-btn wide" id="storage-persist" hidden>Pedir que no se borren</button>
+      </article>
+
       <div id="archived-section" hidden>
         <p class="section-label group">Hábitos archivados</p>
         <article class="card">
           <ul class="archived-list" id="archived-list"></ul>
         </article>
       </div>
+
+      <p class="section-label group">Ayuda</p>
+      <article class="card">
+        <ul class="link-list">
+          <li>
+            <button type="button" class="link-row" data-info="welcome">
+              <span class="rule-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20.5v-8"/><path d="M12 12.5C12 8.5 9.5 6 5 6c0 4 2.5 6.5 7 6.5z"/><path d="M12 10.5c0-3.5 2.3-6 6.5-6 0 3.8-2.4 6-6.5 6z"/></svg></span>
+              <span class="rule-text"><b>Cómo se usa Bonsái</b><span>La bienvenida, paso a paso</span></span>
+              <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="link-row" data-info="faq">
+              <span class="rule-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.4"/><path d="M12 16.8v.2"/></svg></span>
+              <span class="rule-text"><b>Preguntas frecuentes</b><span>XP, rachas, protectores, retos, copias…</span></span>
+              <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="link-row" data-info="news">
+              <span class="rule-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.5c.6 4.2 2.3 5.9 6.5 6.5-4.2.6-5.9 2.3-6.5 6.5-.6-4.2-2.3-5.9-6.5-6.5 4.2-.6 5.9-2.3 6.5-6.5z"/><path d="M18.5 16.5v4M16.5 18.5h4"/></svg></span>
+              <span class="rule-text"><b>Novedades</b><span id="news-sub">Qué hay nuevo en esta versión</span></span>
+              <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </li>
+        </ul>
+      </article>
 
       <p class="section-label group">Zona beta <span class="beta-pill">BETA</span></p>
       <article class="card">
@@ -262,6 +371,17 @@
           </span>
         </div>
         <button type="button" class="danger-btn in-card" id="reset-btn">Restablecer progreso</button>
+        <div class="divider"></div>
+        <div class="setting-row">
+          <span class="rule-icon danger" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/></svg>
+          </span>
+          <span class="rule-text">
+            <b>Borrar todos los datos</b>
+            <span>Empiezas de cero en este dispositivo: hábitos, historial, diario, rutinas, Salud, perfil y ajustes.</span>
+          </span>
+        </div>
+        <button type="button" class="danger-btn in-card" id="erase-btn">Borrar todos los datos</button>
       </article>
 
       <p class="app-version" id="app-version"></p>
@@ -477,6 +597,15 @@
         <button type="button" class="text-btn" id="health-cancel">Cancelar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Ayuda: bienvenida, preguntas frecuentes y novedades -->
+  <dialog class="modal" id="info-dialog" aria-labelledby="info-title">
+    <div class="modal-card info-card">
+      <h2 id="info-title"></h2>
+      <div class="info-body" id="info-body"></div>
+      <button type="button" class="primary-btn" id="info-close">Entendido</button>
+    </div>
   </dialog>
 
   <!-- Exportar una copia: qué lleva y si incluye Salud -->

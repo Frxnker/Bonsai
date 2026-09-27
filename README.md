@@ -2,7 +2,7 @@
 
 Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
 
-Versión actual: **0.5 beta**.
+Versión actual: **0.6 beta**.
 
 > **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
 
@@ -285,7 +285,7 @@ Los logros de racha se miden en días, en cualquier hábito diario, de algunos d
 
 ## Resumen de la semana
 
-- **Cuándo sale:** la primera vez que abres la app en una semana nueva, siempre que tengas al menos una semana entera de historial.
+- **Cuándo sale:** la primera vez que abres la app en una semana nueva, siempre que tengas al menos una semana entera de historial. Se puede desactivar en **Ajustes → Qué se muestra**.
 - **Qué muestra de la semana anterior:**
   - % de cumplimiento: los hechos entre los que tocaban. En los semanales cuentan hasta sus veces.
   - Días perfectos y XP ganada.
@@ -391,15 +391,32 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
 - **Tu perfil:**
   - Nombre (hasta 24 caracteres) y avatar: elige uno de los 24 o toca el grande y escribe cualquier emoji.
   - También muestra tu nivel y desde cuándo usas Bonsái. Todo se guarda al momento.
+- **Apariencia:**
+  - **Tema:** Automático (sigue el modo claro u oscuro del móvil, como siempre), Claro u Oscuro.
+  - **Tamaño del texto:** Normal, Grande (un 10 % más) o Muy grande (un 20 % más). Solo crece la letra; la app sigue sin scroll horizontal.
+  - **Vibración al marcar:** se puede quitar.
+- **Qué se muestra:**
+  - **Al abrir la app:** con qué pantalla empieza (Hoy, Progreso, Historial o Salud).
+  - **Retos de la semana en Hoy** y **Diario en Hoy:** se pueden ocultar. Los retos siguen contando (y están en Progreso), y lo que ya apuntaste en el diario se conserva.
+  - **Pestaña Salud:** si no la usas, se quita de la barra; tus registros se conservan.
+  - **Resumen al empezar la semana:** si lo desactivas, ya no se abre solo; sigue en Progreso.
 - **Rutinas:** crear, editar, ordenar y eliminar (ver [Rutinas](#rutinas)).
-- **Copia de seguridad:** ver [Copia de seguridad](#copia-de-seguridad). Se muestra la fecha de tu última copia y, si hace falta, dos avisos:
+- **Copia de seguridad:** ver [Copia de seguridad](#copia-de-seguridad). Se muestra la fecha de tu última copia y, si hace falta, estos avisos:
+  - **Recordarme hacer una copia:** nunca, cada semana, cada 2 semanas (por defecto) o cada mes. Si ha pasado ese tiempo desde la última (o aún no has hecho ninguna), sale un aviso aquí, en Ajustes, y solo aquí.
   - **Tus datos de antes de la última importación**, con **Volver a ellos** o **Descartar**.
   - **Datos apartados**: si al abrir la app había datos guardados que no se podían leer, se apartan en vez de perderse. Puedes **descargarlos** para intentar recuperarlos, o **borrarlos**.
+- **Almacenamiento:** cuánto ocupan tus datos (y las copias guardadas en el dispositivo, si las hay), cuánto ocupa Bonsái en total con lo necesario para funcionar sin conexión, y si el navegador se compromete a no borrarlos. Si no, **Pedir que no se borren** se lo solicita (suele concederlo con la app instalada en la pantalla de inicio).
 - **Hábitos archivados:** con la XP de cada uno y los botones **Restaurar** y **Borrar** (con deshacer).
-- **Zona beta → Restablecer progreso y logros:**
-  - Vuelves al nivel 1 y se borran el historial de días, las recaídas, los protectores y los logros.
-  - Tus hábitos, tus rutinas, tu perfil, tu diario y tus registros de Salud se mantienen.
-  - Antes te enseña tu nivel, tu XP y tus logros, con opción de exportar una copia. Se puede deshacer.
+- **Ayuda:**
+  - **Cómo se usa Bonsái:** la bienvenida, paso a paso.
+  - **Preguntas frecuentes:** XP, rachas, protectores, retos, cantidades, días pasados, pausar o archivar, rutinas, Salud y tus datos.
+  - **Novedades** de la versión.
+- **Zona beta:**
+  - **Restablecer progreso y logros:**
+    - Vuelves al nivel 1 y se borran el historial de días, las recaídas, los protectores y los logros.
+    - Tus hábitos, tus rutinas, tu perfil, tu diario y tus registros de Salud se mantienen.
+    - Antes te enseña tu nivel, tu XP y tus logros, con opción de exportar una copia. Se puede deshacer.
+  - **Borrar todos los datos:** empiezas de cero en este dispositivo. Se borran hábitos, historial, diario, rutinas, Salud, perfil, nivel, logros y ajustes, además de las copias guardadas antes de importar y los datos apartados. Antes te dice qué se va a borrar, con opción de exportar una copia, y se puede deshacer durante unos segundos.
 - **Versión** de la app, al final.
 
 ## Aspecto, accesibilidad y detalles
@@ -408,7 +425,7 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
 - **Letra del sistema:** San Francisco en el iPhone (Roboto en Android), con los títulos grandes en serif (New York). Los números usan cifras de ancho fijo para que no bailen al cambiar.
 - **Iconos de línea** en toda la app. Los únicos emojis son los que eliges tú para tus hábitos y tu avatar.
 - **Celebraciones tranquilas:** la casilla se rellena, la XP aparece como un texto pequeño que se desvanece y, al subir de nivel, un anillo se completa. Sin confeti.
-- **Modo oscuro automático** (grafito verdoso, no negro puro), según el ajuste del móvil.
+- **Modo oscuro automático** (grafito verdoso, no negro puro), según el ajuste del móvil, o claro u oscuro fijo desde **Ajustes → Apariencia**, donde también está el tamaño del texto.
 - **Icono:** un bonsái plano en color papel sobre verde salvia (`assets/icons/icon.svg`); los PNG del iPhone y Android se generan a partir de él.
 - **Pensada para el móvil:** botones grandes, barra de pestañas translúcida de lado a lado, respeta el notch, la isla dinámica y la barra inferior, y nunca hay scroll horizontal.
 - **Accesible:**
@@ -429,7 +446,8 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
   - recaídas, pausas y protectores usados;
   - diario y perfil;
   - rutinas (solo qué hábitos agrupan);
-  - registros de Salud (medida, fecha, valor con su unidad y nota) y la unidad que prefieres.
+  - registros de Salud (medida, fecha, valor con su unidad y nota) y la unidad que prefieres;
+  - tus ajustes (tema, tamaño del texto, vibración, qué se muestra y el aviso de copia). Viajan en las copias; al importar una copia de antes de tenerlos, se conservan los del dispositivo.
 - La XP, los niveles, las rachas, los logros, los protectores ganados y los retos **se calculan a partir de tu historial**, así que siempre cuadran. Salud y las rutinas no intervienen en esos cálculos.
 - Los datos de versiones anteriores se actualizan solos al abrir la app nueva, sin perder nada (los hábitos que ya tenías pasan a ser «Personalizado» y funcionan igual; quien no tenía Salud ni rutinas empieza sin ellas).
 - Otras dos claves, solo cuando hacen falta: `racha:v1:antes-de-importar` (tus datos justo antes de la última importación) y `racha:v1:rescate` (datos guardados que no se podían leer).

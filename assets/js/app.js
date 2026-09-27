@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.5 beta';
+const APP_VERSION = '0.6 beta';
 const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
 const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
@@ -39,6 +39,24 @@ const HEALTH_METRICS = {
 };
 const HEALTH_NOTE_MAX = 200;
 const HEALTH_MIN_DATE = '1900-01-01';
+// Ajustes de la app. Viajan en las copias; los datos y copias de antes empiezan con estos valores.
+const DEFAULT_PREFS = {
+  theme: 'auto',        // 'auto' (el del móvil), 'light' u 'dark'
+  textSize: 'normal',   // 'normal', 'large' o 'xlarge'
+  haptics: true,        // vibración al marcar
+  startView: 'today',   // pestaña con la que se abre la app
+  showChallenges: true, // retos de la semana en Hoy
+  showJournal: true,    // diario en Hoy
+  showHealth: true,     // pestaña Salud
+  weeklySummary: true,  // el resumen se abre solo al empezar la semana
+  backupReminder: 14,   // días sin copia antes de avisar en Ajustes (0 = nunca)
+};
+const PREF_CHOICES = {
+  theme: ['auto', 'light', 'dark'],
+  textSize: ['normal', 'large', 'xlarge'],
+  startView: ['today', 'progress', 'history', 'health'],
+  backupReminder: [0, 7, 14, 30],
+};
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
 const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52];
 
@@ -263,7 +281,19 @@ const emptyState = () => ({
   lastSummary: null,     // lunes de la última semana en la que se enseñó el resumen
   health: emptyHealth(), // medidas de Salud
   routines: [],          // rutinas: [{ id, name, habitIds }], en el orden en que se ven
+  prefs: normalizePrefs(), // ajustes (ver DEFAULT_PREFS)
 });
+
+// Cada ajuste, solo con un valor válido; si no, el de por defecto.
+function normalizePrefs(data) {
+  const prefs = { ...DEFAULT_PREFS };
+  if (!data || typeof data !== 'object') return prefs;
+  Object.keys(prefs).forEach((key) => {
+    const value = data[key];
+    if (PREF_CHOICES[key] ? PREF_CHOICES[key].includes(value) : typeof value === 'boolean') prefs[key] = value;
+  });
+  return prefs;
+}
 
 // Rutinas: solo agrupan hábitos para verlos juntos en Hoy (sin XP ni rachas propias).
 // Cada hábito está como mucho en una; los ids que ya no existen se descartan.
@@ -432,6 +462,7 @@ function normalize(data) {
   clean.lastSummary = isDateKey(data.lastSummary) ? weekStartOf(data.lastSummary) : null;
   clean.health = normalizeHealth(data.health);
   clean.routines = normalizeRoutines(data.routines, clean.habits);
+  clean.prefs = normalizePrefs(data.prefs);
 
   // Perfil. Si no hay fecha de inicio (datos de versiones anteriores), usamos el día más antiguo que conste.
   const profile = data.profile || {};
@@ -491,7 +522,9 @@ function replaceState(data) {
   state.lastSummary = data.lastSummary || state.lastSummary;
   state.health = data.health;
   state.routines = data.routines;
+  state.prefs = data.prefs;
   const saved = save();
+  applyPrefs();
   render();
   return saved;
 }
@@ -1164,7 +1197,7 @@ function renderLevelCard(stats) {
 function renderChallengeStrip(hasHabits) {
   const list = weekChallenges(weekStartOf(ui.today));
   const strip = $('#challenge-strip');
-  strip.hidden = !hasHabits || !list.length;
+  strip.hidden = !hasHabits || !list.length || !state.prefs.showChallenges;
   if (strip.hidden) return;
   const done = list.filter((c) => c.done).length;
   $('#cs-count').textContent = `${done}/${list.length}`;
@@ -2548,10 +2581,13 @@ function renderSettings() {
 
   renderRoutineList();
   renderBackupNotes();
+  renderPrefControls();
 
   $('#backup-date').textContent = state.lastBackup
     ? `Última copia: ${fmtCaptionYear.format(parseKey(state.lastBackup)).replace(/\./g, '')}`
     : 'Aún no has hecho ninguna copia.';
+  renderBackupDue();
+  renderStorage();
 
   const archived = state.habits.filter((h) => h.archived);
   $('#archived-section').hidden = !archived.length;
@@ -2716,6 +2752,235 @@ $('#reset-btn').addEventListener('click', async () => {
   });
 });
 
+// ---------- Ajustes de la app ----------
+
+const THEME_COLORS = { light: '#F6F5F1', dark: '#161A18' }; // el fondo de cada tema, para la barra del sistema
+// Si Salud está oculta, la app no puede abrirse en Salud.
+const startViewFor = (prefs) => (prefs.startView === 'health' && !prefs.showHealth ? 'today' : prefs.startView);
+
+// Tema, tamaño del texto y pestaña Salud (como atributos de <html>, igual que el script del <head>).
+function applyPrefs() {
+  const { prefs } = state;
+  const root = document.documentElement;
+  if (prefs.theme === 'auto') delete root.dataset.theme;
+  else root.dataset.theme = prefs.theme;
+  if (prefs.textSize === 'normal') delete root.dataset.text;
+  else root.dataset.text = prefs.textSize;
+  if (prefs.showHealth) delete root.dataset.health;
+  else root.dataset.health = 'off';
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    const own = meta.media.includes('dark') ? 'dark' : 'light';
+    meta.content = THEME_COLORS[prefs.theme === 'auto' ? own : prefs.theme];
+  });
+  if (!prefs.showHealth && ui.view === 'health') showView('today');
+}
+
+function setPref(key, value) {
+  state.prefs = normalizePrefs({ ...state.prefs, [key]: value });
+  save();
+  applyPrefs();
+  render();
+}
+
+// Controles con data-pref: opciones (botones con data-value), interruptores y desplegables.
+const settingsView = $('#view-settings');
+settingsView.addEventListener('click', (e) => {
+  const option = e.target.closest('button[data-pref]');
+  const info = e.target.closest('[data-info]');
+  if (info) openInfo(info.dataset.info);
+  if (!option) return;
+  setPref(option.dataset.pref, option.dataset.value);
+  haptic();
+});
+settingsView.addEventListener('change', (e) => {
+  const control = e.target.closest('input[data-pref], select[data-pref]');
+  if (!control) return;
+  const key = control.dataset.pref;
+  if (control.type === 'checkbox') setPref(key, control.checked);
+  else setPref(key, typeof DEFAULT_PREFS[key] === 'number' ? Number(control.value) : control.value);
+  if (control.type === 'checkbox') haptic(); // al activar la vibración, se nota al momento
+});
+
+function renderPrefControls() {
+  settingsView.querySelectorAll('[data-pref]').forEach((control) => {
+    const value = state.prefs[control.dataset.pref];
+    if (control.tagName === 'BUTTON') control.setAttribute('aria-checked', String(control.dataset.value === String(value)));
+    else if (control.type === 'checkbox') control.checked = value;
+    else control.value = String(value);
+  });
+  settingsView.querySelector('select[data-pref="startView"] option[value="health"]').disabled = !state.prefs.showHealth;
+}
+
+// Aviso de copia (solo en Ajustes): { days } desde la última, o days = null si aún no hay ninguna.
+const daysBetween = (from, to) => Math.round((parseKey(to) - parseKey(from)) / 864e5);
+function backupDue() {
+  const every = state.prefs.backupReminder;
+  const hasData = state.habits.length > 0 || state.health.entries.length > 0 || Object.keys(state.days).length > 0;
+  if (!every || !hasData) return null;
+  if (!state.lastBackup) return { days: null };
+  const days = daysBetween(state.lastBackup, ui.today);
+  return days >= every ? { days } : null;
+}
+
+function renderBackupDue() {
+  const due = backupDue();
+  $('#backup-due').hidden = !due;
+  $('#backup-date').hidden = Boolean(due); // el aviso ya dice cuándo fue la última
+  if (!due) return;
+  $('#backup-due').textContent = due.days === null
+    ? 'Aún no has hecho ninguna copia. Exporta una para no perder tus datos.'
+    : `Tu última copia es de hace ${plural(due.days, 'día', 'días')}. Conviene hacer otra.`;
+}
+
+// Almacenamiento: lo que ocupan tus datos y si el navegador se compromete a no borrarlos.
+const fmtSize = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+const fmtBytes = (n) => (n < 1024 * 1024 ? `${fmtNumber.format(Math.max(1, Math.round(n / 1024)))} KB` : `${fmtSize.format(n / 1024 / 1024)} MB`);
+
+function dataSizes() {
+  const size = (key) => {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? utf8Bytes(value) : 0;
+    } catch (err) {
+      return 0;
+    }
+  };
+  return { data: size(STORAGE_KEY), saved: size(PRE_IMPORT_KEY) + size(RESCUE_KEY) };
+}
+
+async function renderStorage() {
+  const { data, saved } = dataSizes();
+  const rows = [['Tus datos', fmtBytes(data)]];
+  if (saved) rows.push(['Copias guardadas en el dispositivo', fmtBytes(saved)]);
+  const storage = navigator.storage;
+  const [estimate, persisted] = await Promise.all([
+    storage && storage.estimate ? storage.estimate().catch(() => null) : null,
+    storage && storage.persisted ? storage.persisted().catch(() => null) : null,
+  ]);
+  if (estimate && estimate.usage) rows.push(['En total, con lo necesario para funcionar sin conexión', fmtBytes(estimate.usage)]);
+  $('#storage-list').innerHTML = rows.map(([label, value]) => `<li><span>${label}</span><b>${value}</b></li>`).join('');
+  $('#storage-protect').textContent = persisted === true
+    ? 'Protegidos: el navegador no los borrará aunque al dispositivo le falte espacio.'
+    : persisted === false
+      ? 'Sin protección: si al dispositivo le falta espacio, el navegador podría borrarlos. Haz copias de vez en cuando.'
+      : 'Este navegador no indica si protege tus datos. Haz copias de vez en cuando.';
+  $('#storage-persist').hidden = persisted !== false || !storage.persist;
+}
+
+$('#storage-persist').addEventListener('click', async () => {
+  const ok = await navigator.storage.persist().catch(() => false);
+  toast(ok ? 'Tus datos quedan protegidos' : 'El navegador no lo ha permitido; suele hacerlo si instalas la app en la pantalla de inicio');
+  renderStorage();
+});
+
+// Borrar todo lo de Bonsái en este dispositivo (se puede deshacer unos segundos desde el aviso).
+function eraseAllData() {
+  const fresh = emptyState();
+  fresh.challengesSince = weekStartOf(ui.today);
+  fresh.lastSummary = weekStartOf(ui.today);
+  [PRE_IMPORT_KEY, RESCUE_KEY].forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (err) {
+      // no había nada que borrar
+    }
+  });
+  return replaceState(fresh);
+}
+
+$('#erase-btn').addEventListener('click', async () => {
+  const counts = backupCounts(state);
+  const ok = await askConfirm({
+    icon: 'trash',
+    title: '¿Borrar todos tus datos?',
+    body: `<p>Se borra todo lo de Bonsái en este dispositivo:</p>
+      <ul class="confirm-list">
+        <li>${ICONS.x}<span>${plural(counts.habits, 'hábito', 'hábitos')} y todo su historial</span></li>
+        <li>${ICONS.x}<span>Tu diario, tus rutinas y tus registros de Salud</span></li>
+        <li>${ICONS.x}<span>Tu perfil, tu nivel, tus logros y tus ajustes</span></li>
+        <li>${ICONS.x}<span>Las copias guardadas antes de importar y los datos apartados</span></li>
+      </ul>
+      <p>Solo podrás deshacerlo durante unos segundos, desde el aviso.</p>
+      <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
+    confirmText: 'Borrar todo',
+    danger: true,
+  });
+  if (!ok) return;
+  const snapshot = JSON.stringify(state);
+  eraseAllData();
+  ui.day = ui.today;
+  showView('today');
+  haptic();
+  toast('Todos los datos borrados', { action: 'Deshacer', onAction: undoTo(snapshot) });
+});
+
+// ---------- Ayuda: bienvenida, preguntas frecuentes y novedades ----------
+
+const infoDialog = $('#info-dialog');
+const faqItem = (question, answer) => `<details class="faq"><summary>${question}${ICONS.chevronRight}</summary><p>${answer}</p></details>`;
+const stepItem = (icon, title, text) => `<li><span class="sum-icon">${ICONS[icon]}</span><span><b>${title}</b>${text}</span></li>`;
+
+const INFO = {
+  welcome: () => ({
+    title: 'Cómo se usa Bonsái',
+    body: `<ul class="summary-list">
+      ${stepItem('plus', 'Crea un hábito', 'Toca + y elige qué quieres cultivar. Cada tipo trae su meta: minutos, vasos, páginas…')}
+      ${stepItem('checkCircle', 'Márcalo al hacerlo', 'Un toque y ganas XP. En los de cantidad, mantén pulsado para apuntar lo que hiciste. Con ‹ › vas a días anteriores.')}
+      ${stepItem('flame', 'Cuida tu racha', 'Los días de descanso y las pausas no la rompen, y los protectores te cubren si un día se te olvida.')}
+      ${stepItem('target', 'Retos y niveles', 'Cada lunes hay 3 retos nuevos. Con la XP subes de nivel, de Semilla a Maestro.')}
+      ${stepItem('chart', 'Revisa tu semana', 'Al empezar la semana verás cómo fue la anterior; en Progreso tienes la revisión y tus tendencias.')}
+      ${stepItem('shield', 'Tus datos son tuyos', 'Se quedan en este dispositivo. Haz una copia de vez en cuando desde Ajustes.')}
+    </ul>`,
+  }),
+  faq: () => ({
+    title: 'Preguntas frecuentes',
+    body: [
+      faqItem('¿Cómo gano XP?', `+${XP_PER_CHECK} por cada hábito hecho, más 1 por cada día (o semana) de racha, hasta +${XP_STREAK_CAP}. Un día perfecto (todo lo que tocaba) da +${XP_PERFECT_DAY}; cada reto semanal, de +30 a +60, y un día extra (hacerlo en su día de descanso), +${XP_PER_CHECK}. Todo sale de tu historial: si desmarcas un día, esa XP se resta.`),
+      faqItem('¿Cuándo se rompe una racha?', 'Cuando pasa sin hacerlo un día que tocaba. Los días de descanso y los de pausa no cuentan. En los de «X veces por semana», la racha son semanas cumplidas, y la semana en curso no la rompe hasta que termina.'),
+      faqItem('¿Qué son los protectores?', `Ganas 1 cada vez que un hábito llega a ${SHIELD_EVERY}, ${SHIELD_EVERY * 2}, ${SHIELD_EVERY * 3}… días seguidos (como mucho guardas ${SHIELD_MAX}). Si ayer se te olvidó un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta uno solo y la racha se mantiene. Ese día no da XP y, si luego lo marcas, el protector vuelve.`),
+      faqItem('¿Cómo funcionan los retos?', 'Cada lunes salen 3 retos elegidos según tus hábitos, los mismos toda la semana. Dan de 30 a 60 XP. Los ves en Hoy y, con detalle, en Progreso.'),
+      faqItem('¿Cómo apunto una cantidad?', 'En los de tiempo, distancia o páginas, un toque marca la meta y, si mantienes pulsado, apuntas lo que hiciste de verdad. En los contadores (vasos, piezas…), cada toque suma 1 y mantener pulsado resta 1. Con teclado, la tecla − hace lo mismo que mantener pulsado.'),
+      faqItem('¿Puedo marcar un día que se me olvidó?', 'Sí. En Hoy, usa las flechas ‹ › para ir a días anteriores. O en el Historial: toca el día y luego «Ver día».'),
+      faqItem('¿Pausar, archivar o eliminar?', 'Pausar (vacaciones, una lesión…) lo aparta sin romper la racha. Archivar lo quita de Hoy y del Historial, pero conservas su XP y puedes restaurarlo desde Ajustes. Eliminar lo borra, con unos segundos para deshacerlo, y tu XP total no cambia.'),
+      faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti.'),
+      faqItem('¿Qué guarda Salud?', 'Tu peso, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no lo interpreta. Si no la usas, puedes ocultar la pestaña aquí, en Ajustes.'),
+      faqItem('¿Dónde se guardan mis datos? ¿Se sincronizan?', 'Solo en este dispositivo: no hay cuenta ni servidor, así que no se sincronizan solos. Para pasarlos a otro móvil, exporta una copia y luego impórtala allí.'),
+      faqItem('¿Qué pasa si borro la app?', 'En el iPhone, borrar el icono borra también sus datos; en Android puede pasar al borrar los datos de Chrome. Por eso conviene exportar una copia de vez en cuando (Bonsái te lo puede recordar).'),
+    ].join(''),
+  }),
+  news: () => ({
+    title: 'Novedades',
+    body: `<h3 class="news-title">Versión ${APP_VERSION}</h3>
+      <ul class="news-list">
+        <li>Ajustes nuevos: tema claro u oscuro, tamaño del texto, vibración y con qué pantalla se abre la app.</li>
+        <li>Puedes ocultar los retos o el diario de Hoy, la pestaña Salud y el resumen de cada semana.</li>
+        <li>Aviso para hacer copias, cuánto ocupan tus datos y la opción de borrarlo todo.</li>
+        <li>Ayuda, novedades y la bienvenida, aquí en Ajustes.</li>
+      </ul>
+      <h3 class="news-title">Versión 0.5 beta</h3>
+      <ul class="news-list">
+        <li>Salud: apunta tu peso, con gráfica e historial.</li>
+        <li>Revisión semanal y tendencias en Progreso.</li>
+        <li>Rutinas para agrupar tus hábitos.</li>
+        <li>Copias de seguridad más claras y seguras, y mejoras de accesibilidad.</li>
+      </ul>`,
+  }),
+};
+
+function openInfo(kind) {
+  const { title, body } = INFO[kind]();
+  $('#info-title').textContent = title;
+  $('#info-body').innerHTML = body;
+  infoDialog.showModal();
+  infoDialog.querySelector('.info-card').scrollTop = 0;
+}
+
+$('#news-sub').textContent = `Qué hay nuevo en la versión ${APP_VERSION}`;
+$('#info-close').addEventListener('click', () => infoDialog.close());
+infoDialog.addEventListener('click', (e) => {
+  if (e.target === infoDialog) infoDialog.close();
+});
+
 // ---------- Diálogo de confirmación ----------
 
 const confirmDialog = $('#confirm');
@@ -2764,8 +3029,9 @@ function setDayEntry(day, patch) {
 }
 
 function renderJournal(hasHabits) {
-  $('#journal').hidden = !hasHabits;
-  if (!hasHabits) return;
+  const shown = hasHabits && state.prefs.showJournal;
+  $('#journal').hidden = !shown;
+  if (!shown) return;
   const day = ui.day;
   const entry = state.days[day] || {};
   const hasNote = Boolean(entry.note && entry.note.trim());
@@ -2930,9 +3196,10 @@ function maybeShowSummary() {
   if (state.lastSummary && state.lastSummary >= thisWeek) return;
   const prev = shiftKey(thisWeek, -7);
   if (!hasWeekHistory(prev)) return;
+  // Se apunta como visto aunque esté desactivado, para que al activarlo no salga uno atrasado.
   state.lastSummary = thisWeek;
   save();
-  showSummary(prev);
+  if (state.prefs.weeklySummary) showSummary(prev);
 }
 
 $('#summary-close').addEventListener('click', () => summaryDialog.close());
@@ -3860,8 +4127,9 @@ function floatXp(anchor, amount, text) {
   setTimeout(remove, 1500);
 }
 
-// Vibración suave. En iPhone (iOS 18+) se consigue pulsando un interruptor oculto.
+// Vibración suave (salvo que se haya quitado en Ajustes). En iPhone (iOS 18+) se consigue pulsando un interruptor oculto.
 function haptic() {
+  if (!state.prefs.haptics) return;
   if (navigator.vibrate) {
     navigator.vibrate(12);
     return;
@@ -3911,6 +4179,7 @@ function readBackup(text) {
   return {
     data,
     hasHealth,
+    hasPrefs: isObject(raw.prefs),
     exportedAt: typeof parsed.exportedAt === 'string' && !Number.isNaN(Date.parse(parsed.exportedAt)) ? parsed.exportedAt : null,
     // Lo que no era válido y se queda fuera, para avisar antes de importar.
     dropped: {
@@ -4074,6 +4343,8 @@ $('#import-file').addEventListener('change', async (e) => {
   });
   if (!ok) return;
   if (!backup.hasHealth) data.health = state.health;
+  // Las copias sin ajustes (las de antes de tenerlos) no cambian los de este dispositivo.
+  if (!backup.hasPrefs) data.prefs = state.prefs;
   // La fecha de la última copia es de este móvil: nos quedamos con la más reciente.
   data.lastBackup = [data.lastBackup, state.lastBackup].filter(Boolean).sort().pop() || null;
   const result = importBackup(data);
@@ -4387,7 +4658,8 @@ if (!state.challengesSince) {
   save();
 }
 useShields();
-render();
+applyPrefs();
+showView(startViewFor(state.prefs));
 maybeShowSummary();
 if (loadProblem) toast('No se pudieron leer tus datos guardados. Se han apartado sin borrarlos: míralo en Ajustes');
 
