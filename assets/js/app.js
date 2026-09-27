@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.1 beta';
+const APP_VERSION = '0.4 beta';
 const STORAGE_KEY = 'racha:v1'; // no cambia con el nombre de la app: así nadie pierde sus datos
 // Copias de seguridad que se aceptan al importar: las nuevas ('bonsai') y las de cuando la app se llamaba Racha.
 const BACKUP_APPS = ['bonsai', 'racha'];

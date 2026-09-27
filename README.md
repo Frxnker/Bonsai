@@ -2,7 +2,7 @@
 
 Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
 
-Versión actual: **1.1 beta**.
+Versión actual: **0.4 beta**.
 
 > **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
 
