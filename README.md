@@ -1,629 +1,75 @@
 # Bonsái
 
-Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
+Tracker de hábitos para el móvil (iPhone o Android) que se instala como una app (PWA). Hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin cuenta: **tus datos se quedan en tu móvil** y **funciona sin conexión**.
 
-Versión actual: **0.8 beta**.
+Versión actual: **0.8 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
 
-> **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
+La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro de la app, en **Ajustes → Ayuda**.
 
-## Índice
+## Qué hace
 
-1. [Resumen rápido](#resumen-rápido)
-2. [Primera vez: la bienvenida](#primera-vez-la-bienvenida)
-3. [Pantalla Hoy](#pantalla-hoy)
-4. [Crear y editar hábitos](#crear-y-editar-hábitos)
-5. [Tipos de hábito](#tipos-de-hábito)
-6. [Frecuencia](#frecuencia)
-7. [Pausar, archivar y eliminar](#pausar-archivar-y-eliminar)
-8. [XP y niveles](#xp-y-niveles)
-9. [Protectores de racha](#protectores-de-racha)
-10. [Retos semanales](#retos-semanales)
-11. [Logros](#logros)
-12. [Diario: ánimo y nota del día](#diario-ánimo-y-nota-del-día)
-13. [Resumen de la semana](#resumen-de-la-semana)
-14. [Revisión semanal](#revisión-semanal)
-15. [Tendencias](#tendencias)
-16. [Rutinas](#rutinas)
-17. [Zen](#zen)
-18. [Recordatorios en el calendario](#recordatorios-en-el-calendario)
-19. [Salud](#salud)
-20. [Salud de Apple y Health Connect](#salud-de-apple-y-health-connect)
-21. [Pantalla Progreso](#pantalla-progreso)
-22. [Pantalla Historial](#pantalla-historial)
-23. [Pantalla Ajustes](#pantalla-ajustes)
-24. [Aspecto, accesibilidad y detalles](#aspecto-accesibilidad-y-detalles)
-25. [Tus datos](#tus-datos)
-26. [Sincronización entre dispositivos](#sincronización-entre-dispositivos)
-27. [Archivos del proyecto](#archivos-del-proyecto)
-28. [Pruebas](#pruebas)
-29. [Publicarla e instalarla](#paso-1-opcional-verla-en-tu-ordenador)
-30. [Copia de seguridad](#copia-de-seguridad)
-31. [Tres cosas importantes](#tres-cosas-importantes)
-
----
-
-## Resumen rápido
-
-- Tocas un hábito cuando lo haces y ganas **XP**; subes de **nivel** y consigues **logros**.
-- Cada hábito lleva su **racha** (días seguidos, o semanas en los semanales).
-- **98 tipos de hábito** listos para usar, en 10 grupos y con **buscador**: desde lo básico (hacer las comidas, lavarse los dientes, ducharse, hacer la cama…) hasta moverte, mente, salud, cuidarte, casa, personas, trabajo y estudio, dinero y dejar algo. Cada uno con su **edición a medida**: por ejemplo, un deslizador para elegir cuántos minutos quieres caminar. Y uno **personalizado** para cualquier otra cosa.
-- Se miden de cuatro formas: **sí/no** (una o **varias veces al día**, como lavarse los dientes 2 veces), **tiempo o distancia** («30 min», «5 km»: un toque marca la meta), **contador** («3/8 vasos») y **dejar algo** («12 días sin fumar»).
-- Eliges la **frecuencia**: cada día, algunos días de la semana o de 1 a 7 veces por semana.
-- Puedes **pausar** un hábito (vacaciones, lesión…) sin romper la racha, o **archivarlo**.
-- Los **protectores** salvan tu racha si un día se te olvida.
-- Cada semana hay **3 retos** que dan XP extra.
-- Un **diario** para apuntar cómo te ha ido el día, y un **resumen** de la semana cada lunes.
-- Una **revisión semanal** más completa (hábitos día a día, diario y últimas semanas) y **tendencias** opcionales, siempre descriptivas.
-- **Rutinas** opcionales («Mañana», «Noche»…) para ver tus hábitos agrupados.
-- Un rincón **Zen**: respiración guiada, meditación, sonidos, el ejercicio 5-4-3-2-1, gratitud y emociones, sin XP.
-- Un apartado **Salud** para tus medidas (peso, cintura, pulso, tensión, sueño, grasa corporal, temperatura y pasos), con gráficas, media de 7 días y estadísticas; privado y sin XP.
+- **Hábitos:** 98 tipos listos para usar, por grupos y con buscador (desde lo básico, como hacer las comidas o lavarse los dientes, hasta deporte, casa, trabajo o dejar algo), y uno personalizado.
+- **Cómo se marcan:** sí o no (una o varias veces al día), tiempo o distancia («30 min»), contador («3/8 vasos») o dejar algo («12 días sin fumar»).
+- **Frecuencia:** cada día, algunos días de la semana o de 1 a 7 veces por semana. Se pueden pausar (sin romper la racha) o archivar.
+- **Progreso:** XP, niveles, rachas, protectores de racha, 3 retos cada semana y logros. Todo se calcula a partir de tu historial, así que siempre cuadra.
+- **Diario:** ánimo y nota de cada día, un resumen cada lunes, una revisión semanal y tendencias que solo describen lo que has registrado.
+- **Rutinas** («Mañana», «Noche»…) para ver tus hábitos agrupados.
+- **Salud:** tus medidas (peso, tensión, sueño, pasos…) con gráficas y estadísticas. Es privado y va aparte: no da XP, y la app no interpreta tus medidas ni da consejos médicos.
+- **Zen:** respiración guiada, meditación, sonidos, gratitud y emociones, sin XP.
 - **Recordatorios** que se añaden al calendario del móvil.
-- **Mapas de calor** de 12 meses, **copia de seguridad**, modo claro/oscuro automático y un diseño sobrio y tranquilo.
-
-## Primera vez: la bienvenida
-
-Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app y 8 tipos de hábito sugeridos. **Al tocar uno no se crea todavía:** se abre su edición, ya adaptada (por ejemplo, Caminar con su deslizador de minutos), para que lo ajustes y pulses **Añadir**. **«Ver todos los tipos»** abre la lista completa.
-
-## Pantalla Hoy
-
-**Arriba**
-- **Saludo** con tu avatar y tu nombre: «Buenos días» (de 6 a 13 h), «Buenas tardes» (de 13 a 21 h) o «Buenas noches». Tocar el avatar te lleva a Ajustes.
-- **Editar** activa el modo edición y **+** crea un hábito nuevo.
-- **Título del día:** «Hoy», «Ayer» o el día de la semana, con la fecha debajo.
-- **Flechas ‹ ›** para ir a días anteriores y marcar lo que se te olvidó; no se puede ir al futuro. El botón **«Volver a hoy»** (o tocar otra vez la pestaña Hoy) te devuelve al día de hoy.
-
-**Tarjeta principal** (tócala para ir a Progreso)
-- **Anillo del día:** cuántos de los hábitos que tocan llevas («2/3»). Pone «hecho» al completarlos todos, y una hoja con «descanso» si ese día no toca ninguno.
-- **Tu nivel:** número y título, la XP dentro del nivel («371/700 XP»), la barra de XP y cuánto falta para el siguiente.
-- **Protectores** disponibles (de 0 a 3), junto al icono del escudo.
-
-**Retos de la semana**: una tarjeta con cuántos llevas («1/3») y una barrita por reto. Tócala para ver el detalle en Progreso.
-
-**Pistas**: la primera vez verás «Toca un hábito cuando lo completes.», y en modo edición una ayuda para editar y reordenar.
-
-**Lista de hábitos**
-- Todos van en una sola tarjeta, separados por líneas finas. Cada uno lleva su emoji en un cuadrado teñido con su color y, a la derecha, una **casilla redonda** que se rellena con ese color al marcarlo.
-- La cabecera dice cuántos llevas («2 de 3 hechos»), «Todo hecho hoy» («Día completo» en días pasados) o «Día de descanso».
-- **Orden:** primero los que tocan, luego los que descansan ese día (atenuados) y al final los que están en pausa.
-- Debajo del nombre verás la racha (con un icono de llama delante) y lo siguiente que conviene saber:
-  - «5 días · pendiente hoy» si hoy aún no lo has hecho.
-  - «6 días · próxima meta: 7» cuando ya lo has hecho. Las metas son 3, 7, 14, 30, 60, 100, 180 y 365 días.
-  - «Empieza tu racha hoy» si aún no tienes racha.
-  - Semanales: «2 semanas · 2/3 esta semana» (con ✓ al cumplir la semana).
-  - Contador: «3/8 vasos · 5 días» (o «1/2 veces» en los que haces varias veces al día), y un anillo fino alrededor de la casilla muestra lo que llevas.
-  - Tiempo, distancia…: «20/30 min · 5 días» (o «30 min» al cumplirla).
-  - Dejar algo: «12 días sin fumar».
-  - Descanso: «Hoy descansa · 5 días» o «Día extra» si lo haces igualmente.
-  - Pausa: «En pausa hasta el 3 oct · reanudar».
-  - Día salvado por un protector (al mirar días anteriores): «Protegido · la racha se mantuvo».
-- **Tocar un hábito:** marca o desmarca (en los de tiempo o distancia, marca la meta), suma 1 en los contadores, apunta una recaída en los de dejar algo, u ofrece reanudar si está en pausa.
-- **Mantener pulsado:** en los de tiempo o distancia abre el deslizador para apuntar la cantidad real; en los contadores resta 1.
-- **Modo edición:** toca un hábito para editarlo, o arrástralo desde ☰ para cambiar el orden.
-
-**Al marcar** notarás, sin estridencias:
-- una vibración suave;
-- la casilla se rellena en unas décimas de segundo;
-- un «+15 XP» pequeño (o «+1» en los pasos de cantidad) que sube un poco y se desvanece;
-- cuando toca, un aviso: «Día completo · +25 XP» al completar todos los hábitos del día, o «Logro conseguido: …». Al subir de nivel se abre una ventana con un anillo que se completa, tu nivel, su título y los logros conseguidos. No hay confeti ni fuegos artificiales.
-
-**Diario del día**: debajo de la lista (ver [Diario](#diario-ánimo-y-nota-del-día)).
-
-**Salud y Zen**: debajo del diario, dos tarjetas: **Salud**, con tus últimas medidas, y **Zen**, con la reflexión del día. Cada una abre su apartado a pantalla completa (ver [Salud](#salud) y [Zen](#zen)). Se pueden ocultar en Ajustes.
-
-## Crear y editar hábitos
-
-Toca **+**. Primero eliges **qué tipo de hábito** quieres y después se abre **su edición, adaptada a ese tipo**. No se crea nada hasta que pulsas **Añadir** (y **«‹ Otro tipo»** te devuelve a la lista).
-
-**El buscador**, arriba de la lista, filtra mientras escribes, sin importar tildes ni mayúsculas. Busca en el nombre, en el grupo y en otras palabras: «comer» encuentra Hacer las comidas, Desayunar, Comer fruta…; «dientes», Lavarse los dientes y Usar hilo dental. Los grupos sin resultados se ocultan. Si no hay ninguno, lo dice y **Personalizado** pasa a ser **Crear «lo que has escrito»**, que abre el formulario libre con ese nombre ya puesto.
-
-**Los tipos**, por grupos:
-
-| Grupo | Tipo | Cómo se mide (y lo que propone) |
-| --- | --- | --- |
-| Lo básico | 🍽️ Hacer las comidas | Veces al día (propone 3) |
-|  | 🥣 Desayunar · 🚿 Ducharse · 🛏️ Hacer la cama · 🌅 Levantarse temprano · 🌙 Acostarse pronto · 🍳 Cocinar en casa | Sí o no |
-|  | 🪥 Lavarse los dientes | Veces al día (propone 2) |
-| Moverte | 🚶 Caminar | Tiempo (5–180 min, 30) o pasos (1.000–30.000, 8.000) |
-|  | 🏃 Correr | Distancia (0,5–42 km, 5) o tiempo (5–180 min, 30) · 3 veces por semana |
-|  | 🚴 Montar en bici | Distancia (1–100 km, 15) o tiempo (5–180 min, 45) · 2 veces por semana |
-|  | 💪 Hacer ejercicio | Tiempo (5–180 min, 45) · 3 veces por semana |
-|  | 🏋️ Ir al gimnasio | Sí o no · 3 veces por semana |
-|  | 🤸 Estirar | Tiempo (5–60 min, 10) |
-|  | 🧘‍♀️ Hacer yoga | Tiempo (5–180 min, 30) |
-|  | 🏊 Nadar | Tiempo (5–180 min, 30) · 2 veces por semana |
-|  | ⚽ Hacer deporte | Tiempo (5–180 min, 60) · 2 veces por semana |
-|  | 🥾 Hacer senderismo | Distancia (0,5–40 km, 10) o tiempo (5–180 min, 120) · 1 vez por semana |
-|  | 💃 Bailar | Tiempo (5–180 min, 20) |
-|  | 🪜 Subir por las escaleras | Sí o no |
-|  | ⏱️ Pausas para moverte | Veces al día (propone 4) |
-| Mente | 🧘 Meditar | Tiempo (1–60 min, 10) |
-|  | 📚 Leer | Páginas (5–150, 20) o tiempo (5–180 min, 20) |
-|  | 🗣️ Practicar un idioma | Tiempo (5–180 min, 15) |
-|  | 🎸 Tocar un instrumento · 🖋️ Escribir · 🎨 Dibujar o pintar | Tiempo (5–180 min, 20) |
-|  | ✍️ Escribir diario · 💡 Aprender algo nuevo · 🧩 Hacer un pasatiempo · 🎧 Escuchar un pódcast | Sí o no |
-| Salud | 💧 Beber agua | Contador de vasos (2–16, 8) |
-|  | 😴 Dormir bien | Horas (4–12 h, 8) |
-|  | 🍎 Comer fruta | Contador de piezas (1–8, 3) |
-|  | 🥦 Comer verdura | Contador de raciones (1–10, 2) |
-|  | 🥗 Comer sano · 🦷 Usar hilo dental · 💊 Tomar vitaminas · 🩺 Tomar la medicación | Sí o no |
-|  | 👀 Descansar la vista | Veces al día (propone 3) |
-| Cuidarte | 🙏 Agradecer algo · 🌳 Salir a la calle · 🎶 Escuchar música · 🧴 Cuidar la piel · 🔌 Sin pantallas antes de dormir · 🎈 Hacer algo que te guste | Sí o no |
-|  | 🌬️ Respirar hondo | Veces al día (propone 3) |
-|  | 🌿 Tiempo en la naturaleza · 🛋️ Un rato para ti | Tiempo (5–180 min, 30) |
-|  | ☀️ Tomar el sol | Tiempo (5–60 min, 15) |
-| Casa | 🧹 Ordenar | Tiempo (5–120 min, 15) |
-|  | 🧽 Limpiar la casa · 🧺 Poner una lavadora · 🪴 Regar las plantas | Sí o no · 2 veces por semana |
-|  | 🧼 Fregar los platos · 🗑️ Sacar la basura | Sí o no |
-|  | 🐕 Pasear al perro · 🐾 Dar de comer a la mascota | Veces al día (propone 2) |
-|  | 🛒 Hacer la compra | Sí o no · 1 vez por semana |
-| Personas | 👪 Tiempo en familia · 📞 Llamar a alguien querido · ❤️ Tiempo en pareja · 🤝 Hacer algo amable · 👂 Escuchar sin interrumpir | Sí o no |
-|  | 🫂 Quedar con amigos · 🤲 Hacer voluntariado | Sí o no · 1 vez por semana |
-| Trabajo y estudio | 🗓️ Planificar el día · ✅ Hacer la tarea más importante · 📥 Vaciar la bandeja de entrada · 🗂️ Ordenar el escritorio · 🔕 Desconectar del trabajo | Sí o no |
-|  | 🍅 Pomodoros | Veces al día (propone 4) |
-|  | 🎯 Trabajo concentrado | Tiempo (5–180 min, 60) |
-|  | 🎓 Estudiar | Tiempo (5–180 min, 45) |
-|  | 💻 Programar | Tiempo (5–180 min, 30) |
-|  | 📋 Revisar la semana | Sí o no · 1 vez por semana |
-| Dinero | 🧾 Apuntar los gastos · 🥡 Llevar comida de casa | Sí o no |
-|  | 💰 Ahorrar · 📊 Revisar las cuentas | Sí o no · 1 vez por semana |
-| Dejar algo | 🚭 Dejar de fumar · 💨 Dejar de vapear · 🍷 Sin alcohol · 🍬 Sin azúcar · 🍟 Sin comida basura · 🥤 Sin refrescos · ☕ Menos café · 🍪 Sin picar entre horas · 📵 Menos redes · 📱 Menos pantalla · 📺 Menos series · 🎮 Menos videojuegos · ⏰ Sin posponer la alarma · 💅 No morderse las uñas · 🛍️ Sin compras impulsivas · 🎰 Sin apuestas · 🤐 Sin quejarse · 🙊 Sin palabrotas | Días sin recaer |
-| A tu manera | Personalizado | El formulario libre: empezar o dejar algo, meta de 1 a 99 y unidad |
-
-**La edición** se adapta al tipo:
-
-- **Emoji y nombre**, ya puestos (puedes cambiarlos; el nombre admite hasta 40 caracteres).
-- **Meta de cada día** (en los que se miden): un **deslizador** con los límites de ese tipo. Si se puede medir de dos formas, arriba eliges cuál (por ejemplo, «Tiempo | Pasos» al caminar). Debajo se explica cómo se marca.
-- **Frecuencia:** cada día, algunos días o X veces por semana (ver [Frecuencia](#frecuencia)). Algunos tipos traen una propuesta (correr, 3 veces por semana).
-- **Veces al día** (en los de sí o no): botones − y + de 1 a 99. Con 1, un toque y listo; con más, cada toque suma 1 (lavarse los dientes, 2 veces al día). Algunos tipos traen una propuesta (hacer las comidas, 3; pasear al perro, 2).
-- Los de **dejar algo** no tienen frecuencia ni veces al día (son diarios).
-- **Personalizado** es el formulario de siempre: «Quiero empezar a…» o «Quiero dejar de…», y una meta de 1 a 99 con botones − y + y una unidad opcional.
-- **Color:** 8 tonos (Salvia, Jade, Niebla, Glicina, Sakura, Arcilla, Ocre y Piedra). Se usa en su icono, su casilla y su mapa de calor. Por defecto se propone uno que no uses aún.
-- **Recordatorio:** una hora y el botón **«Añadir al calendario»** (ver [Recordatorios](#recordatorios-en-el-calendario)).
-- **Solo al editar:** Pausa, Archivar y Eliminar. Al editar no se cambia el tipo.
-
-**Añadir/Guardar** se desactiva si falta el nombre o si eliges «Algunos días» sin marcar ninguno. Al editar, si cambias la frecuencia o la meta, un aviso te explica qué pasa con los días pasados. **Cancelar** o tocar fuera de la hoja la cierra sin guardar.
-
-## Tipos de hábito
-
-### Sí/no (una vez al día)
-Un toque y listo. Tocar otra vez lo desmarca.
-
-### De tiempo, distancia, pasos, horas o páginas
-- **Un toque marca que has cumplido la meta** del día (por ejemplo, 30 min) y da su XP. Otro toque lo desmarca.
-- **Mantener pulsado** (medio segundo) abre un deslizador para **apuntar lo que hiciste de verdad**: por ejemplo, 20 de 30 min. Si llegas a la meta (o la pasas), cuenta como hecho; si no, se queda a medias y un anillo alrededor de la casilla muestra cuánto llevas. Desde ahí también puedes **borrar lo de ese día**. Con teclado, la tecla **−** abre el mismo deslizador.
-- Debajo del nombre verás «20/30 min» o, al cumplirla, lo que hiciste («35 min»).
-- **Si cambias la meta**, los días que marcaste con un toque siguen contando como cumplidos. Si cambias la forma de medir (de minutos a pasos, por ejemplo), los días pasados se convierten en proporción.
-
-### Contador (vasos, piezas…, varias veces al día o una meta de 2 a 99 en Personalizado)
-- Cada toque **suma 1** hasta llegar a la meta. **Mantener pulsado** (medio segundo) **resta 1**. Con teclado, las teclas **−**, **Retroceso** o **Suprimir** también restan.
-- Muestra «3/8 vasos» (o «1/2 veces», si no tiene unidad) y un **anillo alrededor de la casilla** se va completando con el color del hábito.
-- Solo cuenta como hecho (y da XP) **al llegar a la meta**. Si tocas cuando ya está completo, te recuerda que puedes mantener pulsado para restar.
-- En el Historial, los días a medias salen más tenues.
-
-### Para dejar algo
-- **Cada día sin recaer cuenta como hecho automáticamente**, con su XP, desde el día en que lo creas.
-- Si recaes, toca el hábito y confirma «Sí, he recaído». La racha vuelve a empezar al día siguiente. Si te has equivocado, vuelve a tocar para deshacerlo, sin confirmación.
-- Debajo del nombre pone «12 días sin fumar». El texto se saca del nombre: «Dejar de fumar» da «fumar», «Sin azúcar» da «azúcar» y «Menos redes» da «redes».
-- Siempre son diarios y sin cantidad, así que al elegir este tipo se ocultan la frecuencia y la meta.
-- En el Historial se ven las recaídas marcadas y cuántas llevas.
-
-## Frecuencia
-
-- **Cada día.**
-- **Algunos días** (por ejemplo, L · X · V; por defecto de lunes a viernes). Solo cuentan los días elegidos. Los demás son de **descanso**: no rompen la racha y en Hoy se ven atenuados con «Hoy descansa». Si aun así lo haces, cuenta como **día extra** (+10 XP, sin tocar la racha).
-- **X veces por semana** (de 1 a 7). Vale cualquier día, y cada día que lo haces cuenta una vez (con 7, hay que hacerlo todos los días de la semana). La racha se cuenta en **semanas cumplidas** y la tarjeta muestra «2/3 esta semana». La semana en curso no rompe la racha hasta que termina. Una semana con días en pausa (o la primera, si empezaste a mitad) no rompe la racha aunque no la cumplas.
-
-## Pausar, archivar y eliminar
-
-Todo esto está en el formulario del hábito, al editarlo.
-
-- **Pausar**, con fecha de fin opcional («hasta el…») o indefinidamente:
-  - Los días en pausa no rompen la racha, no cuentan para el día perfecto y en el Historial salen en gris.
-  - En Hoy, el hábito va al final, atenuado, con «En pausa · reanudar». Al tocarlo te pregunta si quieres reanudarlo.
-  - Si hoy ya lo habías hecho, la pausa empieza mañana, para no perder la XP de hoy.
-  - Se puede deshacer desde el aviso.
-- **Archivar:**
-  - Desaparece de Hoy y del Historial, pero conservas su XP y su historial.
-  - Se restaura (o se borra) desde **Ajustes → Hábitos archivados**. Al restaurarlo, los días que estuvo archivado cuentan como pausa y tu racha sigue.
-- **Eliminar:**
-  - Se puede **deshacer** durante unos segundos.
-  - Tu XP total, tus protectores usados, tus retos y tus récords **no cambian** al borrar un hábito.
-
-## XP y niveles
-
-| Qué haces | XP |
-| --- | --- |
-| Hábito hecho (o un día sin recaer) | +10 |
-| Bonus de racha: +1 por cada día (o semana) de racha | hasta +10 |
-| Día perfecto: todos los hábitos que tocaban ese día | +25 |
-| Reto semanal completado | +30 a +60 |
-| Día extra (en un día de descanso) | +10 |
-| Día salvado por un protector | 0 |
-
-- Cada nivel pide 100 XP más que el anterior: el nivel 2 está en 100 XP, el 3 en 300, el 4 en 600, el 5 en 1.000…
-- **Día perfecto:** solo cuentan los hábitos que tocaban ese día. No cuentan los que descansan, los que están en pausa ni los de «X veces por semana».
-- **Todo se calcula a partir de tu historial.** Si desmarcas un día, la XP se resta; si cambias la frecuencia o la meta, se recalcula todo con lo nuevo.
-
-**Los 15 títulos** siguen el crecimiento de un bonsái, de la semilla al maestro (después del 15: «Maestro 2», «Maestro 3»…):
-
-| Nivel | Título | Nivel | Título | Nivel | Título |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Semilla | 6 | Rama | 11 | Corteza |
-| 2 | Brote | 7 | Copa | 12 | Árbol joven |
-| 3 | Plántula | 8 | Poda | 13 | Árbol maduro |
-| 4 | Arraigo | 9 | Forma | 14 | Árbol antiguo |
-| 5 | Tallo | 10 | Tronco | 15 | Maestro |
-
-## Protectores de racha
-
-- **Cómo se ganan:** 1 cada vez que la racha de cualquier hábito llega a 7, 14, 21… días seguidos. Como mucho guardas **3**; los que ganes con 3 guardados se pierden.
-- **Cómo se usan:** solos. Al abrir la app (o al cambiar de día con la app abierta), si un hábito diario o de algunos días con racha de **3 o más** se quedó sin hacer ayer, se gasta un protector por cada día olvidado. Si fueron varios días seguidos, solo se gastan si tienes suficientes para cubrir todo el hueco. Verás el aviso «Protector usado: tu racha de 12 días se mantiene».
-- **El día protegido** mantiene la racha, pero no la aumenta, no da XP, no cuenta como hábito marcado ni como día perfecto. En el Historial sale con un borde del color del hábito.
-- **Si luego marcas ese día a mano**, el protector vuelve a tu reserva.
-- Los hábitos de «X veces por semana» y los de dejar algo no usan protectores.
-
-## Retos semanales
-
-- Cada lunes salen **3 retos** nuevos, elegidos según tus hábitos y los mismos toda la semana. Añadir un hábito a mitad de semana no los cambia.
-- Cada reto da de 30 a 60 XP según su dificultad. Solo cuentan los retos desde que empezaste a usar esta versión (no se regala XP de semanas pasadas).
-- Los ves resumidos en Hoy y con barras de avance en Progreso.
-
-**Retos posibles:**
-
-| Reto | XP |
-| --- | --- |
-| Consigue 3 días perfectos | 40 |
-| Consigue 5 días perfectos | 60 |
-| Encadena 3 días perfectos seguidos | 60 |
-| Consigue un día perfecto en fin de semana | 40 |
-| Marca N hábitos esta semana (el 80 % de lo que te toca) | 40 |
-| Completa «‹hábito›» todos los días que toca | 50 |
-| Cumple «‹hábito semanal›» X veces esta semana | 40 |
-| Llega a tu meta de «‹hábito con cantidad›» N días | 40 |
-| Haz un día extra de «‹hábito de algunos días›» | 30 |
-| Semana entera sin recaídas en «‹hábito de dejar algo›» | 50 |
-| Marca cada hábito al menos una vez | 40 |
-| Llega a una racha de 7 días en algún hábito | 50 |
-| No gastes ningún protector esta semana (se decide el domingo) | 30 |
-
-## Logros
-
-Hay 17 logros. En Progreso salen como una cuadrícula de insignias, cada una con su icono de línea: las conseguidas en verde salvia y las que te faltan en gris, con una barra de lo que llevas («4/7»).
-
-| Logro | Cómo se consigue |
-| --- | --- |
-| Primer paso | Marca tu primer hábito |
-| En marcha | Racha de 3 días |
-| Día perfecto | Todos tus hábitos en un día |
-| Una semana | Racha de 7 días |
-| Despegue | Llega al nivel 5 |
-| Dos semanas | Racha de 14 días |
-| Medio centenar | Marca 50 hábitos en total |
-| Perfeccionista | 10 días perfectos |
-| Un mes entero | Racha de 30 días |
-| Doble dígito | Llega al nivel 10 |
-| Veterano | Marca 250 hábitos en total |
-| Centenario | Racha de 100 días |
-| Diamante | 50 días perfectos |
-| Un año | Racha de 365 días |
-| Escudo | Usa tu primer protector |
-| Libre | 30 días sin recaer |
-| Retador | Completa 10 retos semanales |
-
-Los logros de racha se miden en días, en cualquier hábito diario, de algunos días o de dejar algo.
-
-## Diario: ánimo y nota del día
-
-- Debajo de tus hábitos, en Hoy, está **«¿Qué tal el día?»**. Elige tu ánimo entre cinco caras de línea: Mal, Regular, Normal, Bien o Genial. Tocar otra vez la misma lo quita.
-- **«Añadir nota»** abre un cuadro para escribir hasta 200 caracteres, con contador. Se guarda mientras escribes.
-- Funciona también en **días anteriores** (con las flechas), y entonces pregunta «¿Qué tal fue ese día?».
-- En el **Historial**, al tocar un día del mapa «Todos los hábitos», ves su ánimo junto a la fecha («Ánimo: bien») y su nota debajo.
-- El diario viaja en las copias de seguridad y **no se borra** al restablecer el progreso.
-
-## Resumen de la semana
-
-- **Cuándo sale:** la primera vez que abres la app en una semana nueva, siempre que tengas al menos una semana entera de historial. Se puede desactivar en **Ajustes → Qué se muestra**.
-- **Qué muestra de la semana anterior:**
-  - % de cumplimiento: los hechos entre los que tocaban. En los semanales cuentan hasta sus veces.
-  - Días perfectos y XP ganada.
-  - Tu mejor hábito y el que más te cuesta.
-  - Comparación con la semana previa («↑ 12 puntos más», «↓ 5 puntos menos»).
-  - Retos completados («2/3») y ánimo medio, si lo apuntaste.
-- **Volver a verlo:** en **Progreso → Tu semana pasada → Ver el resumen breve**.
-- Desde el propio resumen, **«Revisar la semana con calma»** abre la revisión semanal.
-
-## Revisión semanal
-
-Se abre desde el resumen del lunes o desde **Progreso → Tu semana pasada → Revisar la semana pasada**. Con las flechas de arriba puedes ir a semanas anteriores (solo semanas completas, hasta un año atrás).
-
-- **Cómo fue:** el cumplimiento («Hiciste 23 de 29 de lo que tocaba»), la diferencia con la semana anterior en puntos, días perfectos, XP y retos, y unas columnas con las últimas 4 semanas.
-- **Tus hábitos:** cada hábito con lo que hizo («5 de 7 días que tocaban», «2 de 3 veces», «7 días sin fumar») y una fila de 7 casillas, de lunes a domingo, con los colores del Historial. Van en tu orden de siempre: no hay «mejor» ni «peor» hábito.
-- **Tu diario:** el ánimo medio y cada día con ánimo o nota.
-- **Esta semana** (solo al revisar la semana pasada): puedes **pausar esta semana**, **reanudar** o **archivar** cada hábito. Todo empieza hoy (o mañana, si hoy ya lo hiciste) y no cambia los días anteriores. En la misma fila aparece el botón para deshacerlo («Reanudar» o «Restaurar»).
-- Cambiar la frecuencia o la meta se sigue haciendo desde la edición del hábito, y eso recalcula su racha y su XP con lo nuevo, como siempre.
-
-## Tendencias
-
-En **Progreso → Tendencias** (plegadas; tócalas para abrirlas). Analizan las últimas **4 o 12 semanas completas**, y lo dicen: «Del 24 ago al 20 sept: 4 semanas completas».
-
-- **Por día de la semana:** qué parte de lo que tocaba completaste cada día (en los hábitos para empezar algo, sin los semanales) y una frase como «Los lunes completaste el 90 % de lo que tocaba; los domingos, el 45 %» o «Entre días de la semana hay poca diferencia».
-- **Por hábito:** su porcentaje y si es más, menos o parecido al de las semanas anteriores (diferencia de 10 puntos o más).
-- **Ánimo:** cuántos días lo apuntaste y la media.
-- **Sin datos suficientes no hay cifras:** cada día de la semana tiene que haber tocado algo al menos 3 veces, cada hábito al menos 7, y el ánimo necesita 7 días apuntados. Si no, lo dice.
-- Solo describen lo que registraste: no explican por qué ni predicen nada.
-
-## Rutinas
-
-- Se crean en **Ajustes → Rutinas → Nueva rutina**: un nombre (hasta 30 caracteres) y los hábitos que quieras. Cada hábito puede estar en una sola rutina; si eliges uno que ya estaba en otra, se cambia. También puedes elegir la rutina desde la edición de cada hábito.
-- En **Hoy**, cada rutina sale en su propio bloque con su nombre y cuántos llevas («2 de 3», «Completa» o «Descanso»); los demás hábitos van debajo, en «Otros hábitos». En modo edición la lista vuelve a ser una sola, para poder arrastrar.
-- Las flechas de Ajustes cambian el orden de las rutinas; **Editar** las renombra o cambia sus hábitos, y desde ahí se eliminan (con deshacer).
-- **Las rutinas solo agrupan.** Crearlas, editarlas, ordenarlas o eliminarlas nunca borra hábitos ni cambia sus días. Completar una rutina no marca nada por ti ni da XP extra: solo cuentan los hábitos, como siempre.
-
-## Zen
-
-Un rincón para la calma. Se abre desde la tarjeta **Zen** de Hoy (con la reflexión del día), a pantalla completa. No da XP ni cuenta para rachas o retos.
-
-- **Reflexión del día:** una frase breve, la misma todo el día y distinta al siguiente.
-- **Respirar:** un círculo que crece al inhalar y se encoge al exhalar, con la fase y los segundos debajo. Tres ritmos: **caja** (4 · 4 · 4 · 4), **4-7-8** y **tranquila** (5 · 5), de 1, 3, 5 o 10 minutos (redondeados a ciclos completos, para no cortar a mitad de una respiración). Con la **vibración de ritmo**, el móvil vibra suave en cada cambio de fase, para seguirla con los ojos cerrados. Si te notas incómodo o mareado, para y respira con normalidad.
-- **Meditar:** temporizador de 3 a 30 minutos, con un anillo que se completa, **campana** suave al empezar y al terminar y, si quieres, avisos cada minuto o cada 5 minutos (sin campana, son una vibración).
-- **Sonidos:** lluvia, olas, ruido marrón o ruido suave, generados en el propio móvil (sin descargas), con volumen y apagado automático a los 15, 30 o 60 minutos. Se puede cambiar de sonido sin parar.
-- **5-4-3-2-1:** un ejercicio para volver al presente: 5 cosas que ves, 4 que puedes tocar, 3 que oyes, 2 que hueles y 1 que saboreas. Tocas el botón con cada una.
-- **Gratitud:** tres cosas buenas de cada día, que se guardan mientras escribes, con los días anteriores debajo.
-- **Emociones:** cómo te sientes, eligiendo hasta 3 palabras (agradables, difíciles y otras) y su intensidad, con una nota opcional. Debajo, tus registros y lo que más has anotado este mes. No hay respuestas buenas ni malas.
-- **Tu práctica:** minutos y sesiones de la semana y del mes, por tipo de práctica, y los días con gratitud y las emociones anotadas. Sin rachas: solo lo que hay. Cuenta cada práctica de un minuto o más (el 5-4-3-2-1, si lo completas).
-- **Marcar un hábito al terminar** (en «Ajustes de Zen», dentro de Zen): elige uno y, al acabar una práctica, se marca para hoy como si lo tocaras en Hoy, con su XP de siempre. En los hábitos de minutos, como Meditar, se suman los minutos practicados.
-- **Mientras practicas**, la pantalla se mantiene encendida. Si sales a mitad (volver, cerrar o cambiar de práctica), se guarda lo que llevabas. En el iPhone, si bloqueas la pantalla o cambias de app, el sonido y la campana pueden pararse, y la vibración depende de que el sistema la permita.
-- La tarjeta se puede ocultar en **Ajustes → Qué se muestra → Zen en Hoy**.
-
-## Recordatorios en el calendario
-
-- En el formulario del hábito, elige una **hora** y pulsa **«Añadir al calendario»**. Funciona también con un hábito que aún no has guardado.
-- La app crea un evento que se repite según la frecuencia, con aviso a esa hora:
-  - Cada día: diario.
-  - Algunos días: esos días de la semana.
-  - Veces por semana: un recordatorio semanal.
-  - Dejar algo: diario.
-- **iPhone:** se abre el menú Compartir; elige **Calendario** si aparece. Si no, **Guardar en Archivos**, abre el archivo desde la app Archivos y pulsa **Añadir todo**.
-- **Android:** se abre el menú Compartir (o se descarga el archivo `.ics`); ábrelo con **Google Calendar** u otra app de calendario.
-- **Si cambias la frecuencia**, tendrás que volver a añadir el recordatorio y borrar el anterior del calendario.
-
-## Salud
-
-Un apartado aparte para tus medidas, privado y sin XP. Tú eliges cuáles apuntar. Se abre desde la tarjeta **Salud** de Hoy (con tus últimas medidas), a pantalla completa; ya no tiene pestaña propia, así que la barra se queda con Hoy, Progreso, Historial y Ajustes.
-
-| Medida | Unidades | Valores válidos | Gráfica |
-| --- | --- | --- | --- |
-| Peso | kg o lb | 20–400 kg (44–880 lb) | Línea |
-| Cintura | cm o pulgadas | 30–250 cm (12–100 in) | Línea |
-| Pulso en reposo | lpm | 25–220, enteros | Línea |
-| Tensión arterial | mmHg | Sistólica 60–260 y diastólica 30–160 (menor que la sistólica); pulso opcional | Barras de rango |
-| Sueño | horas | 0–24 | Columnas |
-| Grasa corporal | % | 2–75 | Línea |
-| Temperatura | °C o °F | 30–45 °C (86–113 °F) | Línea |
-| Pasos | pasos | 0–100.000, enteros (se acepta «8.000») | Columnas |
-
-- **Tus medidas:** arriba, una tarjeta por cada medida activa con su último valor. Al tocarla, se ve en detalle debajo.
-- **Elegir medidas y unidades** (abajo, en «Medidas y privacidad»): activa las que quieras ver y elige su unidad. Ocultar una no borra sus registros. Al principio solo está el peso.
-- **Registrar:** «Registrar», en el detalle, apunta esa medida. **Registro rápido** apunta varias del mismo día a la vez (rellenas solo las que quieras); si alguna no es válida, no se guarda ninguna y el error sale junto a su campo. Fecha (hoy por defecto, nunca futura) y una nota opcional, con **notas rápidas** para tocar: en ayunas, por la mañana, por la noche, tras entrenar, tras comer. Se aceptan coma o punto decimal.
-- **Detalle de cada medida:**
-  - El último registro y su diferencia con el anterior («−0,2 kg respecto al registro anterior, del 23 sept»; en la tensión, «+5/−2 mmHg»), siempre en el mismo tono: ni subir ni bajar se presenta como bueno o malo.
-  - Gráfica de los últimos 30 días, 90 días o 1 año: línea para los niveles, columnas desde cero para los totales del día (sueño y pasos) y, en la tensión, una barra por medición que va de la diastólica a la sistólica. Tocándola (o con las flechas del teclado) ves cada registro debajo. Con menos de 2 registros en el periodo, lo dice en vez de dibujar nada.
-  - **Media de 7 días:** una segunda línea con la media de los registros de los 7 días anteriores a cada uno (sin inventar los días sin datos). Se quita y se pone con un toque. No está en la tensión.
-  - **Estadísticas del periodo:** media, mínimo, máximo y la diferencia entre el primer y el último registro.
-  - **Comparación:** la media del periodo frente a la de los mismos días justo antes (por ejemplo, los 30 días anteriores), si hay registros en los dos.
-  - **Registros:** la lista de esa medida, del más reciente al más antiguo (de 20 en 20). Toca uno para editarlo o borrarlo (con deshacer).
-- **Exportar a CSV:** todos tus registros de Salud (también los de medidas ocultas), tal como los apuntaste, en una hoja de cálculo: fecha, medida, valor, diastólica, pulso, unidad y nota. Usa punto y coma y coma decimal, como Excel en español.
-- **Recordatorio:** elige los días y la hora, y **Añadir al calendario** crea un evento que se repite en el calendario del móvil, igual que los recordatorios de los hábitos.
-- **Unidades:** cada registro se guarda tal como lo apuntaste; al cambiar de unidad se muestran convertidos, sin modificarlos.
-- **Borrar registros de Salud:** vacía solo este apartado (todas las medidas), con confirmación y deshacer. Tus hábitos, tu progreso y tu diario no cambian.
-- **Privado y aparte:** solo se guarda en el dispositivo y en tus copias. No da XP ni cuenta para rachas, retos o logros. Bonsái no interpreta tus medidas, no calcula el IMC y no da consejos médicos.
-
-## Salud de Apple y Health Connect
-
-Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) y **Health Connect** (Android) a las apps nativas de la App Store o Google Play. Por eso **no puede leer tus pasos, minutos o sueño automáticamente**: los apuntas tú, con un toque o manteniendo pulsado para poner la cantidad exacta. Conectarla con Salud obligaría a convertir Bonsái en una app nativa. Por lo mismo, el peso del apartado [Salud](#salud) de Bonsái también se apunta a mano.
-
-## Pantalla Progreso
-
-- **Tu nivel:** anillo con el número de tu nivel, su título, barra de XP, cuánto falta para el siguiente, y tu **XP total**, tu **mejor racha** y tus **días perfectos**.
-- **Retos de la semana:** los 3 retos con su barra de avance y su estado («Conseguido · +40 XP», «No conseguido», «Se decide el domingo»…), y cuántos llevas en total.
-- **Tu semana pasada:** botón para abrir la [revisión semanal](#revisión-semanal) y enlace al resumen breve.
-- **Tendencias:** plegadas; ver [Tendencias](#tendencias).
-- **Protectores de racha:** cuántos tienes (de 3), cómo funcionan, y cuántos has ganado y usado.
-- **Cómo ganar XP:** la tabla de puntos.
-- **Camino de niveles:** los niveles en fila, con su número y su título, el tuyo centrado y resaltado, los superados marcados y la XP que pide cada uno de los siguientes.
-- **Logros:** los 17 en una cuadrícula de insignias, con el avance de los que faltan.
-
-## Pantalla Historial
-
-- **Todos los hábitos:**
-  - Mapa de calor de los últimos 12 meses, con columnas por semanas (de lunes a domingo), meses arriba y leyenda «Menos – Más».
-  - Un solo tono (verde salvia): cuanto más intenso, más hábitos cumpliste de los que tocaban. Los días de descanso salen solo con contorno.
-  - Al tocar un día: fecha, cuántos hiciste, tu ánimo y tu nota. El botón **«Ver día ›»** te lleva a ese día en Hoy para corregirlo.
-  - **Con teclado:** el tabulador entra en el mapa por el día de hoy; las flechas arriba y abajo cambian de día, izquierda y derecha de semana, e **Intro** abre ese día en Hoy. Los lectores de pantalla leen el resumen de cada día al llegar a él. Igual en el mapa de cada hábito.
-- **Una tarjeta por hábito**, con su color:
-  - Emoji, nombre, frecuencia (y meta o «En pausa») y botón **Editar**.
-  - **Racha actual**, **mejor racha** (en días o semanas) y **días hechos**. En los de dejar algo, **recaídas** en lugar de días hechos.
-  - Su propio mapa de calor, en el color del hábito. Leyenda de casillas:
-
-    | Casilla | Significado |
-    | --- | --- |
-    | Color del hábito | Hecho |
-    | Más clara | A medias (cantidad sin llegar a la meta) |
-    | Solo contorno | Descanso |
-    | Gris | En pausa |
-    | Rojiza | Recaída |
-    | Con borde de su color | Protegido |
-    | Con borde | Hoy |
-
-  - Al tocar un día se explica qué pasó: «Hecho», «Hecho (día extra)», «3/8 vasos», «Sin recaer», «Recaída», «Protegido», «En pausa», «Día de descanso», «Aún no existía» o «Sin hacer».
-
-## Pantalla Ajustes
-
-- **Tu perfil:**
-  - Nombre (hasta 24 caracteres) y avatar: elige uno de los 24 o toca el grande y escribe cualquier emoji.
-  - También muestra tu nivel y desde cuándo usas Bonsái. Todo se guarda al momento.
-- **Apariencia:**
-  - **Tema:** Automático (sigue el modo claro u oscuro del móvil, como siempre), Claro u Oscuro.
-  - **Tamaño del texto:** Normal, Grande (un 10 % más) o Muy grande (un 20 % más). Solo crece la letra; la app sigue sin scroll horizontal.
-  - **Vibración al marcar:** se puede quitar.
-- **Qué se muestra:**
-  - **Al abrir la app:** con qué pantalla empieza (Hoy, Progreso o Historial).
-  - **Retos de la semana en Hoy** y **Diario en Hoy:** se pueden ocultar. Los retos siguen contando (y están en Progreso), y lo que ya apuntaste en el diario se conserva.
-  - **Zen en Hoy:** la tarjeta que abre Zen; si la ocultas, tus prácticas y escritos se conservan.
-  - **Salud en Hoy:** la tarjeta que abre Salud; si no la usas, se quita, y tus registros se conservan.
-  - **Resumen al empezar la semana:** si lo desactivas, ya no se abre solo; sigue en Progreso.
-- **Rutinas:** crear, editar, ordenar y eliminar (ver [Rutinas](#rutinas)).
-- **Copia de seguridad:** ver [Copia de seguridad](#copia-de-seguridad). Se muestra la fecha de tu última copia y, si hace falta, estos avisos:
-  - **Recordarme hacer una copia:** nunca, cada semana, cada 2 semanas (por defecto) o cada mes. Si ha pasado ese tiempo desde la última (o aún no has hecho ninguna), sale un aviso aquí, en Ajustes, y solo aquí.
-  - **Tus datos de antes de la última importación**, con **Volver a ellos** o **Descartar**.
-  - **Datos apartados**: si al abrir la app había datos guardados que no se podían leer, se apartan en vez de perderse. Puedes **descargarlos** para intentar recuperarlos, o **borrarlos**.
-- **Almacenamiento:** cuánto ocupan tus datos (y las copias guardadas en el dispositivo, si las hay), cuánto ocupa Bonsái en total con lo necesario para funcionar sin conexión, y si el navegador se compromete a no borrarlos. Si no, **Pedir que no se borren** se lo solicita (suele concederlo con la app instalada en la pantalla de inicio).
-- **Hábitos archivados:** con la XP de cada uno y los botones **Restaurar** y **Borrar** (con deshacer).
-- **Ayuda:**
-  - **Cómo se usa Bonsái:** la bienvenida, paso a paso.
-  - **Preguntas frecuentes:** XP, rachas, protectores, retos, cantidades, días pasados, pausar o archivar, rutinas, Salud y tus datos.
-  - **Novedades** de la versión.
-- **Zona beta:**
-  - **Restablecer progreso y logros:**
-    - Vuelves al nivel 1 y se borran el historial de días, las recaídas, los protectores y los logros.
-    - Tus hábitos, tus rutinas, tu perfil, tu diario y tus registros de Salud se mantienen.
-    - Antes te enseña tu nivel, tu XP y tus logros, con opción de exportar una copia. Se puede deshacer.
-  - **Borrar todos los datos:** empiezas de cero en este dispositivo. Se borran hábitos, historial, diario, rutinas, Salud, perfil, nivel, logros y ajustes, además de las copias guardadas antes de importar y los datos apartados. Antes te dice qué se va a borrar, con opción de exportar una copia, y se puede deshacer durante unos segundos.
-- **Versión** de la app, al final.
-
-## Aspecto, accesibilidad y detalles
-
-- **Calma, sobriedad y precisión** (en la línea de Things 3, Salud de Apple, Linear o Muji): fondo de papel liso, tarjetas planas con un borde fino, un solo color de acento (verde salvia) usado con moderación, y ni degradados ni botones «3D».
-- **Letra del sistema:** San Francisco en el iPhone (Roboto en Android), con los títulos grandes en serif (New York). Los números usan cifras de ancho fijo para que no bailen al cambiar.
-- **Iconos de línea** en toda la app. Los únicos emojis son los que eliges tú para tus hábitos y tu avatar.
-- **Celebraciones tranquilas:** la casilla se rellena, la XP aparece como un texto pequeño que se desvanece y, al subir de nivel, un anillo se completa. Sin confeti.
-- **Modo oscuro automático** (grafito verdoso, no negro puro), según el ajuste del móvil, o claro u oscuro fijo desde **Ajustes → Apariencia**, donde también está el tamaño del texto.
-- **Icono:** un bonsái plano en color papel sobre verde salvia (`assets/icons/icon.svg`); los PNG del iPhone y Android se generan a partir de él.
-- **Pensada para el móvil:** botones grandes, barra de pestañas translúcida de lado a lado, respeta el notch, la isla dinámica y la barra inferior, y nunca hay scroll horizontal.
-- **Accesible:**
-  - Contraste de texto AA (WCAG) en modo claro y oscuro.
-  - Etiquetas para lectores de pantalla (también en los iconos que dan información, como el de la racha). La tarjeta principal de Hoy lee lo mismo que muestra: progreso del día, nivel, XP y protectores.
-  - Uso con teclado: tras cada cambio, el foco se queda en el hábito. En modo edición, **Alt + flecha arriba o abajo** cambia el orden (la alternativa a arrastrar). En los grupos de opciones (ánimo, frecuencia, colores, periodos…) las flechas pasan a la opción de al lado. Los mapas de calor y la gráfica de Salud se recorren con las flechas.
-  - Los errores de los formularios salen junto al campo, marcados para los lectores de pantalla, y el foco va al primero que hay que corregir.
-  - Si el móvil tiene activado «reducir movimiento», se desactivan las animaciones.
-- **Sin conexión:** tras abrirla una vez, funciona sin internet. Al actualizarla, la versión nueva aparece la siguiente vez que la abras.
-- **Cambio de día:** si dejas la app abierta pasada la medianoche (o vuelves a ella al día siguiente), se pasa sola al día nuevo, gasta protectores si hace falta y enseña el resumen si empieza semana.
-- **Almacenamiento persistente:** pide al navegador que no borre tus datos si le falta espacio.
+- Mapas de calor de 12 meses, modo claro u oscuro, tamaño del texto ajustable y uso con teclado o lector de pantalla.
 
 ## Tus datos
 
-- Todo se guarda en el propio móvil (`localStorage`, clave `racha:v1`: conserva el nombre antiguo para que nadie pierda sus datos). No hay servidor, cuenta ni seguimiento.
-- Solo se guarda lo que decides tú:
-  - tus hábitos (con su tipo y cómo se miden) y lo que marcas cada día;
-  - recaídas, pausas y protectores usados;
-  - diario y perfil;
-  - rutinas (solo qué hábitos agrupan);
-  - registros de Salud (medida, fecha, valor con su unidad —en la tensión, sistólica, diastólica y pulso— y nota), qué medidas ves, sus unidades y el recordatorio;
-  - Zen: tus prácticas (tipo, fecha y duración), tu gratitud, tus emociones y sus ajustes;
-  - tus ajustes (tema, tamaño del texto, vibración, qué se muestra y el aviso de copia). Viajan en las copias; al importar una copia de antes de tenerlos, se conservan los del dispositivo.
-- La XP, los niveles, las rachas, los logros, los protectores ganados y los retos **se calculan a partir de tu historial**, así que siempre cuadran. Salud y las rutinas no intervienen en esos cálculos.
-- Los datos de versiones anteriores se actualizan solos al abrir la app nueva, sin perder nada (los hábitos que ya tenías pasan a ser «Personalizado» y funcionan igual; quien no tenía Salud ni rutinas empieza sin ellas).
-- Otras dos claves, solo cuando hacen falta: `racha:v1:antes-de-importar` (tus datos justo antes de la última importación) y `racha:v1:rescate` (datos guardados que no se podían leer).
+- Todo se guarda en el propio dispositivo (`localStorage`, clave `racha:v1`). No hay servidor, cuenta ni seguimiento.
+- **No hay sincronización:** cada dispositivo tiene sus datos. Para pasarlos a otro, exporta una copia e impórtala allí. El diseño pendiente de una sincronización real está en [`docs/sincronizacion.md`](docs/sincronizacion.md).
+- **Copia de seguridad**, en **Ajustes → Copia de seguridad**:
+  - **Exportar copia** guarda un archivo con tus hábitos, tu historial, el diario, las rutinas, Zen, tus ajustes y, si quieres, Salud. En el iPhone, elige «Guardar en Archivos»; en Android, guárdala en Drive o en tus archivos. Lleva datos personales: guárdala en un sitio privado.
+  - **Importar copia** comprueba el archivo, te enseña qué trae y qué va a reemplazar, y guarda antes tus datos actuales para que puedas deshacerlo.
+  - La app puede recordarte que hagas una copia cada cierto tiempo.
+- **Salud de Apple y Health Connect:** el iPhone y Android solo dejan leerlos a las apps nativas, así que Bonsái no puede importar pasos, sueño ni peso automáticamente. Se apuntan a mano.
 
-## Sincronización entre dispositivos
+## Tres cosas importantes
 
-**No hay sincronización**: cada dispositivo tiene sus datos, y para pasarlos de uno a otro se exporta e importa una copia. El diseño de una sincronización real (proveedores posibles, conflictos, borrados, restauración y privacidad) y las decisiones pendientes están en [`docs/sincronizacion.md`](docs/sincronizacion.md).
+- **iPhone:** la app instalada y Safari guardan datos por separado. Usa siempre el icono de la pantalla de inicio.
+- **Borrar la app puede borrar tus datos.** En el iPhone, borrar el icono los borra siempre; en Android, puede pasar al desinstalarla o al borrar los datos de Chrome. Haz una copia de vez en cuando.
+- **La vibración al marcar** funciona en la mayoría de Android con Chrome y en iPhone con iOS 18 o posterior. Si no, la app funciona igual, sin vibrar.
 
-## Archivos del proyecto
+## Publicarla e instalarla
+
+**Verla en el ordenador:** abre `index.html` con doble clic. Funciona todo menos el modo sin conexión, que solo se activa una vez publicada.
+
+**Publicarla gratis en GitHub Pages:**
+
+1. En github.com, crea un repositorio **público** llamado `racha` (el nombre antiguo, para que la dirección de la app no cambie).
+2. Pulsa **«uploading an existing file»** y arrastra **el contenido** de la carpeta del proyecto (no la carpeta en sí: `index.html` tiene que quedar en la raíz). Pulsa **Commit changes**.
+3. En **Settings → Pages**, elige **Deploy from a branch**, rama **main** y carpeta **/ (root)**, y pulsa **Save**.
+4. En 1–2 minutos tendrás la dirección: `https://TU-USUARIO.github.io/racha/`
+
+**Instalarla en el móvil:**
+
+- **iPhone (Safari):** abre la dirección, toca **Compartir** (puede estar dentro de «⋯») y luego **«Añadir a pantalla de inicio»**. Ábrela siempre desde ese icono.
+- **Android (Chrome):** abre la dirección, toca **⋮** y elige **«Instalar app»** (o «Añadir a pantalla de inicio»).
+
+**Actualizarla:** en el repositorio, **Add file → Upload files**, arrastra los archivos que han cambiado y pulsa **Commit changes**. En el móvil, la primera vez que abras la app aún verás la versión anterior; la siguiente, ya la nueva. Tus datos no se pierden al actualizar.
+
+## Para desarrollar
 
 ```text
-Racha/
-├── index.html             # Punto de entrada de la app
-├── manifest.json          # Configuración de la PWA e iconos instalables
-├── sw.js                  # Caché y funcionamiento sin conexión
-├── README.md              # Documentación del proyecto
-├── assets/
-│   ├── css/
-│   │   └── styles.css     # Estilos y temas
-│   ├── js/
-│   │   └── app.js         # Lógica de la aplicación
-│   └── icons/             # Iconos SVG y PNG
-├── docs/
-│   └── sincronizacion.md  # Diseño pendiente de la sincronización
-└── tests/                 # Pruebas (no hace falta subirlas para publicar la app)
+index.html             # Punto de entrada
+manifest.json          # Configuración de la PWA
+sw.js                  # Caché sin conexión (cambia CACHE en cada versión)
+assets/css/styles.css  # Estilos y temas
+assets/js/app.js       # Toda la lógica
+assets/icons/          # Iconos
+docs/                  # Diseño pendiente de la sincronización
+tests/                 # Pruebas (no hace falta publicarlas)
 ```
 
-Los archivos de entrada de la PWA permanecen en la raíz para conservar el despliegue y el alcance del service worker.
-
-## Pruebas
-
-Con [Node.js](https://nodejs.org) 20 o posterior, desde la carpeta del proyecto:
+Pruebas, con [Node.js](https://nodejs.org) 20 o posterior y sin instalar nada:
 
 ```text
 node --test "tests/*.test.mjs"
 ```
 
-No hay que instalar nada: las pruebas cargan `assets/js/app.js` tal cual en un entorno aislado (con una fecha fija) y comprueban las reglas de XP y rachas de siempre, la compatibilidad con copias antiguas, Salud, la revisión semanal, las tendencias, las rutinas y las copias de seguridad.
-
-## Paso 1 (opcional): verla en tu ordenador
-
-Haz doble clic en `index.html` y se abrirá en tu navegador. Así funciona todo menos el modo sin conexión, que solo se activa una vez publicada en internet.
-
-## Paso 2: subirla gratis a GitHub Pages
-
-1. Entra en **github.com** y crea una cuenta gratuita, si aún no la tienes.
-2. Arriba a la derecha, pulsa **+ → New repository**.
-   - **Repository name:** `racha` (el repositorio conserva el nombre antiguo, así la dirección de la app no cambia)
-   - Déjalo en **Public**; es necesario para que Pages sea gratis.
-   - Pulsa **Create repository**.
-3. En la página del repositorio vacío, pulsa el enlace **«uploading an existing file»**.
-4. Abre la carpeta `Racha` en el Explorador de Windows. Selecciona **todo su contenido**, incluida la carpeta `assets`, y arrástralo a la página de GitHub.
-   - Importante: arrastra lo que hay **dentro** de la carpeta Racha, no la carpeta en sí. `index.html` tiene que quedar en la raíz del repositorio.
-5. Abajo, pulsa el botón verde **Commit changes**.
-6. Ve a **Settings** (la pestaña de arriba) y luego a **Pages** (en el menú de la izquierda).
-   - En **Source**, elige **Deploy from a branch**.
-   - En **Branch**, elige **main** y la carpeta **/ (root)**. Pulsa **Save**.
-7. Espera 1–2 minutos y recarga esa página. Arriba aparecerá tu dirección, parecida a esta:
-   **`https://TU-USUARIO.github.io/racha/`**
-
-## Paso 3: instalarla en el móvil
-
-### iPhone (Safari)
-
-1. Abre esa dirección en **Safari**.
-2. Toca el botón **Compartir** (el cuadrado con una flecha hacia arriba). En las versiones recientes de iOS puede estar dentro del menú **«⋯»**.
-3. Baja y toca **«Añadir a pantalla de inicio»**. Si aparece la opción **«Abrir como app web»**, déjala activada.
-4. Toca **Añadir**. Aparecerá el icono de Bonsái (un bonsái claro sobre verde) junto a tus otras apps.
-5. Ábrela siempre **desde ese icono**. Se verá a pantalla completa, sin las barras de Safari.
-
-### Android (Chrome)
-
-1. Abre esa dirección en **Chrome**.
-2. Toca el menú **⋮** (arriba a la derecha) y elige **«Instalar app»**. Si no aparece, elige **«Añadir a pantalla de inicio»** y después **Instalar**. A veces Chrome muestra directamente un aviso abajo para instalarla.
-3. Aparecerá el icono de Bonsái en tu pantalla de inicio (y en el cajón de apps).
-4. Ábrela desde ese icono: se verá a pantalla completa, como una app más.
-
-## Actualizar la app ya publicada
-
-Si cambias algún archivo y ya tenías la app en GitHub:
-
-1. Entra en tu repositorio en github.com y pulsa **Add file → Upload files**.
-2. Arrastra los archivos que hayan cambiado. Los que tengan el mismo nombre se sustituyen.
-3. Pulsa **Commit changes** y espera 1–2 minutos.
-4. En el móvil, abre la app, ciérrala del todo (desde el selector de apps) y vuelve a abrirla. La primera vez aún verás la versión anterior; la siguiente, ya la nueva.
-
-Tus hábitos, tu XP, tu nivel, tu diario y tu perfil no se pierden al actualizar.
-
-## Copia de seguridad
-
-En **Ajustes → Copia de seguridad**:
-
-- **Exportar copia** explica primero qué lleva el archivo (hábitos y días marcados, diario, rutinas, perfil y progreso). Si tienes registros de Salud, puedes elegir si incluirlos. Después se abre el menú Compartir: en el iPhone, elige **«Guardar en Archivos»** (por ejemplo, en iCloud Drive); en Android, guárdala en **Drive** o en tus archivos (si no se abre el menú, se descarga en la carpeta Descargas). La copia contiene tus datos personales: guárdala en un sitio privado.
-- **Importar copia** te deja elegir ese archivo para recuperar todos tus datos, por ejemplo en un móvil nuevo. Las copias de versiones anteriores (también las de cuando la app se llamaba Racha) se pueden importar.
-  - **Antes de tocar nada se comprueba el archivo.** Si no es una copia de Bonsái, es de otra app o es demasiado grande, se dice por qué y tus datos no cambian.
-  - Luego se enseña qué trae (fecha de la copia, perfil, hábitos, diario, rutinas, Salud), qué va a reemplazar y si hay algo que no es válido y se quedará fuera.
-  - **Salud:** una copia sin Salud (de una versión anterior, o exportada sin ella) no toca los registros de Salud del dispositivo.
-  - Al importar se guardan antes tus datos actuales en el dispositivo: puedes deshacerlo desde el aviso o, más tarde, desde **Ajustes → Copia de seguridad → Volver a ellos**. Si la copia no se puede guardar (por ejemplo, por falta de espacio), todo se queda como estaba.
-
-## Tres cosas importantes
-
-- **Dónde se guardan tus datos:**
-  - **iPhone:** los datos de la app instalada y los de la pestaña de Safari están separados. Lo que marques en Safari no aparece en el icono, así que usa siempre el icono.
-  - **Android:** la app instalada comparte los datos con Chrome para esa dirección. Si borras los datos de navegación (o los del sitio) en Chrome, se borran también tus hábitos.
-- **Borrar la app puede borrar tus datos.** En el iPhone, borrar el icono de la pantalla de inicio los borra siempre. En Android, desinstalarla o borrar los datos de Chrome también puede hacerlo. Haz una copia de seguridad de vez en cuando para poder recuperarlos.
-- **La vibración al marcar** funciona en la mayoría de móviles Android con Chrome (si la vibración está activada en el sistema) y en iPhone con iOS 18 o posterior. En otros casos la app funciona igual, pero sin vibrar.
+Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos, Salud, Zen, las rutinas, los ajustes y las copias de seguridad.
