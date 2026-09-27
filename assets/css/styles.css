@@ -1404,9 +1404,9 @@ input[type="range"] {
 .legend span:last-child { margin-left: 3px; }
 
 /* ---------- Salud ---------- */
-#health-view .card:first-child { margin-top: 20px; }
+#health-view > :first-child { margin-top: 0; } /* en la hoja, el primer bloque va arriba del todo */
 .card-text:last-child { margin-bottom: 0; }
-.health-empty { margin: 40px 0 32px; }
+.health-empty { margin: 24px 0 32px; }
 .health-value {
   margin: 6px 0 0;
   font-size: calc(40px * var(--text));
@@ -1640,8 +1640,8 @@ input[type="range"] {
 .secondary-btn.danger-text { color: var(--alert); }
 
 /* ---------- Zen ---------- */
-/* Tarjeta de Hoy: la reflexión del día y la entrada a Zen */
-.zen-card {
+/* Tarjetas de Hoy que abren Salud y Zen */
+.link-card {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) 16px;
   align-items: center;
@@ -1655,8 +1655,8 @@ input[type="range"] {
   text-align: left;
   transition: background-color 0.15s ease;
 }
-.zen-card:active { background: var(--wash); }
-.zen-card-icon {
+.link-card:active { background: var(--wash); }
+.link-card-icon {
   display: grid;
   place-items: center;
   width: 32px;
@@ -1665,11 +1665,11 @@ input[type="range"] {
   background: var(--sage-soft);
   color: var(--sage-ink);
 }
-.zen-card-icon svg { width: 20px; height: 20px; }
-.zen-card-text { display: grid; gap: 1px; min-width: 0; }
-.zen-card-text b { font-size: calc(15px * var(--text)); font-weight: 600; }
-.zen-card-text span { color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.35; }
-.zen-card .chevron { width: 16px; height: 16px; color: var(--ink-2); stroke-width: 1.75; }
+.link-card-icon svg { width: 20px; height: 20px; }
+.link-card-text { display: grid; gap: 1px; min-width: 0; }
+.link-card-text b { font-size: calc(15px * var(--text)); font-weight: 600; }
+.link-card-text span { color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.35; }
+.link-card .chevron { width: 16px; height: 16px; color: var(--ink-2); stroke-width: 1.75; }
 
 /* Hoja de Zen */
 .sheet-slot { justify-self: start; }
@@ -1988,8 +1988,6 @@ input[type="range"] {
 .link-row .chevron { width: 16px; height: 16px; color: var(--ink-2); stroke-width: 1.75; }
 .rule-icon.danger { background: var(--alert-soft); color: var(--alert); }
 
-/* Pestaña Salud oculta desde Ajustes (el atributo lo pone también el script del <head>) */
-:root[data-health="off"] .tab[data-view="health"] { display: none; }
 
 .archived-list {
   margin: 0;

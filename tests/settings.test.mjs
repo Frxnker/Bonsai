@@ -67,18 +67,20 @@ test('con el resumen desactivado no se abre solo, pero la semana queda vista', (
   assert.equal(app.run('globalThis.__shown'), 1);
 });
 
-test('la app se abre en la pantalla elegida, salvo Salud si está oculta', () => {
+test('la app se abre en la pantalla elegida; quien la abría en Salud vuelve a Hoy', () => {
   assert.equal(loadApp({ stored: { habits, prefs: { startView: 'history' } } }).run('ui.view'), 'history');
-  assert.equal(loadApp({ stored: { habits, prefs: { startView: 'health' } } }).run('ui.view'), 'health');
-  assert.equal(loadApp({ stored: { habits, prefs: { startView: 'health', showHealth: false } } }).run('ui.view'), 'today');
+  // Salud ya no es una pestaña (se abre desde su tarjeta en Hoy).
+  const old = loadApp({ stored: { habits, prefs: { startView: 'health' } } });
+  assert.equal(old.run('ui.view'), 'today');
+  assert.equal(old.run('state.prefs.startView'), 'today');
   assert.equal(loadApp({ stored: { habits } }).run('ui.view'), 'today');
 });
 
-test('ocultar Salud estando en Salud vuelve a Hoy, sin borrar registros', () => {
+test('ocultar la tarjeta de Salud no borra registros', () => {
   const entries = [{ id: 'w', metric: 'weight', date: '2026-09-20', value: 70, unit: 'kg' }];
-  const app = loadApp({ stored: { habits, health: { entries }, prefs: { startView: 'health' } } });
+  const app = loadApp({ stored: { habits, health: { entries } } });
   app.run(`setPref('showHealth', false)`);
-  assert.equal(app.run('ui.view'), 'today');
+  assert.equal(app.run('state.prefs.showHealth'), false);
   assert.equal(app.run('state.health.entries.length'), 1);
 });
 

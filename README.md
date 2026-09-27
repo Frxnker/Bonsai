@@ -26,7 +26,7 @@ Versión actual: **0.8 beta**.
 16. [Rutinas](#rutinas)
 17. [Zen](#zen)
 18. [Recordatorios en el calendario](#recordatorios-en-el-calendario)
-19. [Pantalla Salud](#pantalla-salud)
+19. [Salud](#salud)
 20. [Salud de Apple y Health Connect](#salud-de-apple-y-health-connect)
 21. [Pantalla Progreso](#pantalla-progreso)
 22. [Pantalla Historial](#pantalla-historial)
@@ -107,6 +107,8 @@ Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app
 - cuando toca, un aviso: «Día completo · +25 XP» al completar todos los hábitos del día, o «Logro conseguido: …». Al subir de nivel se abre una ventana con un anillo que se completa, tu nivel, su título y los logros conseguidos. No hay confeti ni fuegos artificiales.
 
 **Diario del día**: debajo de la lista (ver [Diario](#diario-ánimo-y-nota-del-día)).
+
+**Salud y Zen**: debajo del diario, dos tarjetas: **Salud**, con tus últimas medidas, y **Zen**, con la reflexión del día. Cada una abre su apartado a pantalla completa (ver [Salud](#salud) y [Zen](#zen)). Se pueden ocultar en Ajustes.
 
 ## Crear y editar hábitos
 
@@ -352,9 +354,9 @@ Un rincón para la calma. Se abre desde la tarjeta **Zen** de Hoy (con la reflex
 - **Android:** se abre el menú Compartir (o se descarga el archivo `.ics`); ábrelo con **Google Calendar** u otra app de calendario.
 - **Si cambias la frecuencia**, tendrás que volver a añadir el recordatorio y borrar el anterior del calendario.
 
-## Pantalla Salud
+## Salud
 
-Un apartado aparte para tus medidas, privado y sin XP. Tú eliges cuáles apuntar.
+Un apartado aparte para tus medidas, privado y sin XP. Tú eliges cuáles apuntar. Se abre desde la tarjeta **Salud** de Hoy (con tus últimas medidas), a pantalla completa; ya no tiene pestaña propia, así que la barra se queda con Hoy, Progreso, Historial y Ajustes.
 
 | Medida | Unidades | Valores válidos | Gráfica |
 | --- | --- | --- | --- |
@@ -385,7 +387,7 @@ Un apartado aparte para tus medidas, privado y sin XP. Tú eliges cuáles apunta
 
 ## Salud de Apple y Health Connect
 
-Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) y **Health Connect** (Android) a las apps nativas de la App Store o Google Play. Por eso **no puede leer tus pasos, minutos o sueño automáticamente**: los apuntas tú, con un toque o manteniendo pulsado para poner la cantidad exacta. Conectarla con Salud obligaría a convertir Bonsái en una app nativa. Por lo mismo, el peso del apartado [Salud](#pantalla-salud) de Bonsái también se apunta a mano.
+Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) y **Health Connect** (Android) a las apps nativas de la App Store o Google Play. Por eso **no puede leer tus pasos, minutos o sueño automáticamente**: los apuntas tú, con un toque o manteniendo pulsado para poner la cantidad exacta. Conectarla con Salud obligaría a convertir Bonsái en una app nativa. Por lo mismo, el peso del apartado [Salud](#salud) de Bonsái también se apunta a mano.
 
 ## Pantalla Progreso
 
@@ -432,10 +434,10 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
   - **Tamaño del texto:** Normal, Grande (un 10 % más) o Muy grande (un 20 % más). Solo crece la letra; la app sigue sin scroll horizontal.
   - **Vibración al marcar:** se puede quitar.
 - **Qué se muestra:**
-  - **Al abrir la app:** con qué pantalla empieza (Hoy, Progreso, Historial o Salud).
+  - **Al abrir la app:** con qué pantalla empieza (Hoy, Progreso o Historial).
   - **Retos de la semana en Hoy** y **Diario en Hoy:** se pueden ocultar. Los retos siguen contando (y están en Progreso), y lo que ya apuntaste en el diario se conserva.
   - **Zen en Hoy:** la tarjeta que abre Zen; si la ocultas, tus prácticas y escritos se conservan.
-  - **Pestaña Salud:** si no la usas, se quita de la barra; tus registros se conservan.
+  - **Salud en Hoy:** la tarjeta que abre Salud; si no la usas, se quita, y tus registros se conservan.
   - **Resumen al empezar la semana:** si lo desactivas, ya no se abre solo; sigue en Progreso.
 - **Rutinas:** crear, editar, ordenar y eliminar (ver [Rutinas](#rutinas)).
 - **Copia de seguridad:** ver [Copia de seguridad](#copia-de-seguridad). Se muestra la fecha de tu última copia y, si hace falta, estos avisos:

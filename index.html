@@ -19,14 +19,13 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
   <link rel="icon" type="image/png" href="assets/icons/icon-192.png">
 
-  <!-- Tema, tamaño del texto y pestaña Salud antes de pintar, para que no parpadeen (el resto, en app.js) -->
+  <!-- Tema y tamaño del texto antes de pintar, para que no parpadeen (el resto, en app.js) -->
   <script>
     try {
       const prefs = JSON.parse(localStorage.getItem('racha:v1')).prefs || {};
       const root = document.documentElement;
       if (prefs.theme === 'light' || prefs.theme === 'dark') root.dataset.theme = prefs.theme;
       if (prefs.textSize === 'large' || prefs.textSize === 'xlarge') root.dataset.text = prefs.textSize;
-      if (prefs.showHealth === false) root.dataset.health = 'off';
     } catch (err) {
       // sin datos todavía: los valores de siempre
     }
@@ -139,12 +138,21 @@
         </div>
       </section>
 
+      <!-- Salud: tus últimas medidas y la entrada a registrar, gráficas y estadísticas -->
+      <button type="button" class="link-card" id="health-card" hidden>
+        <span class="link-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/></svg>
+        </span>
+        <span class="link-card-text"><b>Salud</b><span id="health-card-text"></span></span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+
       <!-- Zen: la reflexión del día y la entrada a respirar, meditar, sonidos, gratitud y emociones -->
-      <button type="button" class="zen-card" id="zen-card" hidden>
-        <span class="zen-card-icon" aria-hidden="true">
+      <button type="button" class="link-card" id="zen-card" hidden>
+        <span class="link-card-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 19c-4 0-7-2.4-8-5.8 2.5-.4 5.2.5 8 2.9 2.8-2.4 5.5-3.3 8-2.9-1 3.4-4 5.8-8 5.8z"/><path d="M12 16.1c-1.9-2.2-2.6-4.7-2-7.6 1 .4 1.6 1 2 1.6.4-.6 1-1.2 2-1.6.6 2.9-.1 5.4-2 7.6z"/></svg>
         </span>
-        <span class="zen-card-text"><b>Zen</b><span id="zen-card-quote"></span></span>
+        <span class="link-card-text"><b>Zen</b><span id="zen-card-quote"></span></span>
         <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
       </button>
 
@@ -183,18 +191,6 @@
         </div>
       </div>
       <div id="history"></div>
-    </section>
-
-    <!-- Pantalla: Salud -->
-    <section id="view-health" class="view" hidden>
-      <header class="topbar"></header>
-      <div class="title-row">
-        <div class="title-text">
-          <h1>Salud</h1>
-          <p class="subtitle">Tus medidas, solo en este dispositivo</p>
-        </div>
-      </div>
-      <div id="health-view"></div>
     </section>
 
     <!-- Pantalla: Ajustes -->
@@ -260,7 +256,6 @@
             <option value="today">Hoy</option>
             <option value="progress">Progreso</option>
             <option value="history">Historial</option>
-            <option value="health">Salud</option>
           </select>
         </label>
         <div class="divider"></div>
@@ -277,7 +272,7 @@
           <input type="checkbox" role="switch" data-pref="showZen" aria-labelledby="pref-zen" aria-describedby="pref-zen-hint">
         </label>
         <label class="switch-row">
-          <span class="switch-text"><b id="pref-health">Pestaña Salud</b><span id="pref-health-hint">Si la ocultas, tus registros se conservan.</span></span>
+          <span class="switch-text"><b id="pref-health">Salud en Hoy</b><span id="pref-health-hint">La tarjeta con tus últimas medidas que abre Salud. Si la ocultas, tus registros se conservan.</span></span>
           <input type="checkbox" role="switch" data-pref="showHealth" aria-labelledby="pref-health" aria-describedby="pref-health-hint">
         </label>
         <label class="switch-row">
@@ -413,10 +408,6 @@
     <button type="button" class="tab" data-view="history">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/></svg>
       <span>Historial</span>
-    </button>
-    <button type="button" class="tab" data-view="health">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/></svg>
-      <span>Salud</span>
     </button>
     <button type="button" class="tab" data-view="settings">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -609,6 +600,18 @@
         <button type="button" class="text-btn" id="health-cancel">Cancelar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Salud: tus medidas, a pantalla completa -->
+  <dialog class="sheet" id="health-sheet" aria-labelledby="health-title">
+    <div class="sheet-frame">
+      <div class="sheet-head">
+        <span class="sheet-slot"></span>
+        <h2 id="health-title" tabindex="-1">Salud</h2>
+        <button type="button" class="text-btn end" id="health-close">Cerrar</button>
+      </div>
+      <div class="sheet-body" id="health-view"></div>
+    </div>
   </dialog>
 
   <!-- Zen: prácticas de calma, gratitud y emociones, a pantalla completa -->

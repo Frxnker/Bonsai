@@ -86,7 +86,7 @@ const DEFAULT_PREFS = {
   startView: 'today',   // pestaña con la que se abre la app
   showChallenges: true, // retos de la semana en Hoy
   showJournal: true,    // diario en Hoy
-  showHealth: true,     // pestaña Salud
+  showHealth: true,     // tarjeta de Salud en Hoy (antes, la pestaña)
   showZen: true,        // tarjeta de Zen en Hoy
   weeklySummary: true,  // el resumen se abre solo al empezar la semana
   backupReminder: 14,   // días sin copia antes de avisar en Ajustes (0 = nunca)
@@ -172,7 +172,7 @@ const ZEN_REFLECTIONS = [
 const PREF_CHOICES = {
   theme: ['auto', 'light', 'dark'],
   textSize: ['normal', 'large', 'xlarge'],
-  startView: ['today', 'progress', 'history', 'health'],
+  startView: ['today', 'progress', 'history'], // Salud ya no es una pestaña: quien la tenía vuelve a Hoy
   backupReminder: [0, 7, 14, 30],
 };
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
@@ -1333,6 +1333,7 @@ function renderToday() {
   renderLevelCard(stats);
   renderChallengeStrip(hasHabits);
   renderJournal(hasHabits);
+  renderHealthCard(hasHabits);
   renderZenCard(hasHabits);
 
   // El anillo solo cuenta lo que toca ese día (los que descansan o están en pausa, no).
@@ -2718,6 +2719,42 @@ function nearestHealthPoint(e) {
   const x = ((e.clientX - rect.left) / rect.width) * svgEl.viewBox.baseVal.width;
   return healthPoints.reduce((best, p) => (Math.abs(p.x - x) <= Math.abs(best.x - x) ? p : best));
 }
+
+// ---------- Salud desde Hoy: la tarjeta y la hoja a pantalla completa ----------
+
+const healthSheet = $('#health-sheet');
+
+function openHealth() {
+  document.documentElement.classList.add('locked');
+  if (!healthSheet.open) healthSheet.showModal();
+  renderHealth(); // con la hoja ya abierta, la gráfica sabe cuánto mide
+  $('#health-view').scrollTop = 0;
+}
+
+// Tarjeta de Hoy: las últimas medidas de las dos primeras que tengan registros (con la bienvenida no sale).
+function renderHealthCard(hasHabits) {
+  const card = $('#health-card');
+  card.hidden = !state.prefs.showHealth || !hasHabits;
+  if (card.hidden) return;
+  const latest = state.health.metrics
+    .map((metric) => ({ metric, last: healthLatest(metric).last }))
+    .filter((x) => x.last)
+    .slice(0, 2)
+    .map(({ metric, last }) => `${healthLabel(metric)} ${healthEntryValue(metric, last)} ${healthSymbol(metric)}`);
+  $('#health-card-text').textContent = latest.length ? latest.join(' · ')
+    : state.health.metrics.length ? 'Apunta tus medidas cuando quieras' : 'Elige qué medidas quieres apuntar';
+}
+
+$('#health-card').addEventListener('click', openHealth);
+$('#health-close').addEventListener('click', () => healthSheet.close());
+healthSheet.addEventListener('click', (e) => {
+  if (e.target === healthSheet) healthSheet.close();
+});
+healthSheet.addEventListener('close', () => {
+  document.documentElement.classList.remove('locked');
+  ui.healthSel = null;
+  render(); // la tarjeta de Hoy enseña lo último que se ha apuntado
+});
 
 // ---------- Interacción ----------
 
@@ -4260,10 +4297,8 @@ $('#reset-btn').addEventListener('click', async () => {
 // ---------- Ajustes de la app ----------
 
 const THEME_COLORS = { light: '#F6F5F1', dark: '#161A18' }; // el fondo de cada tema, para la barra del sistema
-// Si Salud está oculta, la app no puede abrirse en Salud.
-const startViewFor = (prefs) => (prefs.startView === 'health' && !prefs.showHealth ? 'today' : prefs.startView);
 
-// Tema, tamaño del texto y pestaña Salud (como atributos de <html>, igual que el script del <head>).
+// Tema y tamaño del texto (como atributos de <html>, igual que el script del <head>).
 function applyPrefs() {
   const { prefs } = state;
   const root = document.documentElement;
@@ -4271,13 +4306,10 @@ function applyPrefs() {
   else root.dataset.theme = prefs.theme;
   if (prefs.textSize === 'normal') delete root.dataset.text;
   else root.dataset.text = prefs.textSize;
-  if (prefs.showHealth) delete root.dataset.health;
-  else root.dataset.health = 'off';
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
     const own = meta.media.includes('dark') ? 'dark' : 'light';
     meta.content = THEME_COLORS[prefs.theme === 'auto' ? own : prefs.theme];
   });
-  if (!prefs.showHealth && ui.view === 'health') showView('today');
 }
 
 function setPref(key, value) {
@@ -4313,7 +4345,6 @@ function renderPrefControls() {
     else if (control.type === 'checkbox') control.checked = value;
     else control.value = String(value);
   });
-  settingsView.querySelector('select[data-pref="startView"] option[value="health"]').disabled = !state.prefs.showHealth;
 }
 
 // Aviso de copia (solo en Ajustes): { days } desde la última, o days = null si aún no hay ninguna.
@@ -4448,7 +4479,7 @@ const INFO = {
       faqItem('¿Puedo marcar un día que se me olvidó?', 'Sí. En Hoy, usa las flechas ‹ › para ir a días anteriores. O en el Historial: toca el día y luego «Ver día».'),
       faqItem('¿Pausar, archivar o eliminar?', 'Pausar (vacaciones, una lesión…) lo aparta sin romper la racha. Archivar lo quita de Hoy y del Historial, pero conservas su XP y puedes restaurarlo desde Ajustes. Eliminar lo borra, con unos segundos para deshacerlo, y tu XP total no cambia.'),
       faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti.'),
-      faqItem('¿Qué guarda Salud?', 'Las medidas que elijas: peso, cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no interpreta tus medidas ni da consejos médicos. Si no la usas, puedes ocultar la pestaña aquí, en Ajustes.'),
+      faqItem('¿Qué guarda Salud?', 'Las medidas que elijas: peso, cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no interpreta tus medidas ni da consejos médicos. Se abre desde su tarjeta en Hoy, que puedes ocultar aquí, en Ajustes.'),
       faqItem('¿Qué es Zen?', 'Un rincón para la calma, desde la tarjeta de Hoy: respiración guiada, meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1, además de gratitud y emociones. No da XP ni rachas; si quieres, al terminar una práctica marca el hábito que elijas (en los de minutos, como Meditar, suma lo practicado). Cuenta cada práctica de un minuto o más.'),
       faqItem('¿Dónde se guardan mis datos? ¿Se sincronizan?', 'Solo en este dispositivo: no hay cuenta ni servidor, así que no se sincronizan solos. Para pasarlos a otro móvil, exporta una copia y luego impórtala allí.'),
       faqItem('¿Qué pasa si borro la app?', 'En el iPhone, borrar el icono borra también sus datos; en Android puede pasar al borrar los datos de Chrome. Por eso conviene exportar una copia de vez en cuando (Bonsái te lo puede recordar).'),
@@ -4461,6 +4492,7 @@ const INFO = {
         <li>Zen, desde una tarjeta en Hoy: respiración guiada (caja, 4-7-8 y tranquila), meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1.</li>
         <li>Gratitud y emociones, con su historial, y una reflexión distinta cada día.</li>
         <li>Al terminar una práctica, puede marcarse el hábito que elijas, como Meditar.</li>
+        <li>Salud se abre ahora desde una tarjeta en Hoy, como Zen, y la barra se queda con 4 pestañas.</li>
       </ul>
       <h3 class="news-title">Versión 0.7 beta</h3>
       <ul class="news-list">
@@ -5063,8 +5095,8 @@ function render() {
   if (ui.view === 'today') renderToday();
   else if (ui.view === 'progress') renderProgress();
   else if (ui.view === 'history') renderHistory();
-  else if (ui.view === 'health') renderHealth();
   else renderSettings();
+  if (healthSheet.open) renderHealth();
 }
 
 function showView(view) {
@@ -5072,7 +5104,7 @@ function showView(view) {
   if (view === 'today' && ui.view === 'today') ui.day = ui.today;
   ui.view = view;
   ui.editing = false;
-  ['today', 'progress', 'history', 'health', 'settings'].forEach((v) => { $(`#view-${v}`).hidden = v !== view; });
+  ['today', 'progress', 'history', 'settings'].forEach((v) => { $(`#view-${v}`).hidden = v !== view; });
   document.querySelectorAll('.tab').forEach((tab) => {
     if (tab.dataset.view === view) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');
@@ -6195,7 +6227,7 @@ if (!state.challengesSince) {
 }
 useShields();
 applyPrefs();
-showView(startViewFor(state.prefs));
+showView(state.prefs.startView);
 maybeShowSummary();
 if (loadProblem) toast('No se pudieron leer tus datos guardados. Se han apartado sin borrarlos: míralo en Ajustes');
 
