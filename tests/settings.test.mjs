@@ -6,7 +6,7 @@ import { loadApp, plain, STORAGE_KEY } from './harness.mjs';
 
 const DEFAULTS = {
   theme: 'auto', textSize: 'normal', haptics: true, startView: 'today', showChallenges: true,
-  showJournal: true, showHealth: true, weeklySummary: true, backupReminder: 14,
+  showJournal: true, showHealth: true, showZen: true, weeklySummary: true, backupReminder: 14,
 };
 const habits = [{ id: 'h1', name: 'Leer', created: '2026-09-01', done: { '2026-09-25': 1, '2026-09-26': 1 } }];
 

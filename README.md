@@ -2,7 +2,7 @@
 
 Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
 
-Versión actual: **0.7 beta**.
+Versión actual: **0.8 beta**.
 
 > **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
 
@@ -24,20 +24,21 @@ Versión actual: **0.7 beta**.
 14. [Revisión semanal](#revisión-semanal)
 15. [Tendencias](#tendencias)
 16. [Rutinas](#rutinas)
-17. [Recordatorios en el calendario](#recordatorios-en-el-calendario)
-18. [Pantalla Salud](#pantalla-salud)
-19. [Salud de Apple y Health Connect](#salud-de-apple-y-health-connect)
-20. [Pantalla Progreso](#pantalla-progreso)
-21. [Pantalla Historial](#pantalla-historial)
-22. [Pantalla Ajustes](#pantalla-ajustes)
-23. [Aspecto, accesibilidad y detalles](#aspecto-accesibilidad-y-detalles)
-24. [Tus datos](#tus-datos)
-25. [Sincronización entre dispositivos](#sincronización-entre-dispositivos)
-26. [Archivos del proyecto](#archivos-del-proyecto)
-27. [Pruebas](#pruebas)
-28. [Publicarla e instalarla](#paso-1-opcional-verla-en-tu-ordenador)
-29. [Copia de seguridad](#copia-de-seguridad)
-30. [Tres cosas importantes](#tres-cosas-importantes)
+17. [Zen](#zen)
+18. [Recordatorios en el calendario](#recordatorios-en-el-calendario)
+19. [Pantalla Salud](#pantalla-salud)
+20. [Salud de Apple y Health Connect](#salud-de-apple-y-health-connect)
+21. [Pantalla Progreso](#pantalla-progreso)
+22. [Pantalla Historial](#pantalla-historial)
+23. [Pantalla Ajustes](#pantalla-ajustes)
+24. [Aspecto, accesibilidad y detalles](#aspecto-accesibilidad-y-detalles)
+25. [Tus datos](#tus-datos)
+26. [Sincronización entre dispositivos](#sincronización-entre-dispositivos)
+27. [Archivos del proyecto](#archivos-del-proyecto)
+28. [Pruebas](#pruebas)
+29. [Publicarla e instalarla](#paso-1-opcional-verla-en-tu-ordenador)
+30. [Copia de seguridad](#copia-de-seguridad)
+31. [Tres cosas importantes](#tres-cosas-importantes)
 
 ---
 
@@ -54,6 +55,7 @@ Versión actual: **0.7 beta**.
 - Un **diario** para apuntar cómo te ha ido el día, y un **resumen** de la semana cada lunes.
 - Una **revisión semanal** más completa (hábitos día a día, diario y últimas semanas) y **tendencias** opcionales, siempre descriptivas.
 - **Rutinas** opcionales («Mañana», «Noche»…) para ver tus hábitos agrupados.
+- Un rincón **Zen**: respiración guiada, meditación, sonidos, el ejercicio 5-4-3-2-1, gratitud y emociones, sin XP.
 - Un apartado **Salud** para tus medidas (peso, cintura, pulso, tensión, sueño, grasa corporal, temperatura y pasos), con gráficas, media de 7 días y estadísticas; privado y sin XP.
 - **Recordatorios** que se añaden al calendario del móvil.
 - **Mapas de calor** de 12 meses, **copia de seguridad**, modo claro/oscuro automático y un diseño sobrio y tranquilo.
@@ -322,6 +324,22 @@ En **Progreso → Tendencias** (plegadas; tócalas para abrirlas). Analizan las 
 - Las flechas de Ajustes cambian el orden de las rutinas; **Editar** las renombra o cambia sus hábitos, y desde ahí se eliminan (con deshacer).
 - **Las rutinas solo agrupan.** Crearlas, editarlas, ordenarlas o eliminarlas nunca borra hábitos ni cambia sus días. Completar una rutina no marca nada por ti ni da XP extra: solo cuentan los hábitos, como siempre.
 
+## Zen
+
+Un rincón para la calma. Se abre desde la tarjeta **Zen** de Hoy (con la reflexión del día), a pantalla completa. No da XP ni cuenta para rachas o retos.
+
+- **Reflexión del día:** una frase breve, la misma todo el día y distinta al siguiente.
+- **Respirar:** un círculo que crece al inhalar y se encoge al exhalar, con la fase y los segundos debajo. Tres ritmos: **caja** (4 · 4 · 4 · 4), **4-7-8** y **tranquila** (5 · 5), de 1, 3, 5 o 10 minutos (redondeados a ciclos completos, para no cortar a mitad de una respiración). Con la **vibración de ritmo**, el móvil vibra suave en cada cambio de fase, para seguirla con los ojos cerrados. Si te notas incómodo o mareado, para y respira con normalidad.
+- **Meditar:** temporizador de 3 a 30 minutos, con un anillo que se completa, **campana** suave al empezar y al terminar y, si quieres, avisos cada minuto o cada 5 minutos (sin campana, son una vibración).
+- **Sonidos:** lluvia, olas, ruido marrón o ruido suave, generados en el propio móvil (sin descargas), con volumen y apagado automático a los 15, 30 o 60 minutos. Se puede cambiar de sonido sin parar.
+- **5-4-3-2-1:** un ejercicio para volver al presente: 5 cosas que ves, 4 que puedes tocar, 3 que oyes, 2 que hueles y 1 que saboreas. Tocas el botón con cada una.
+- **Gratitud:** tres cosas buenas de cada día, que se guardan mientras escribes, con los días anteriores debajo.
+- **Emociones:** cómo te sientes, eligiendo hasta 3 palabras (agradables, difíciles y otras) y su intensidad, con una nota opcional. Debajo, tus registros y lo que más has anotado este mes. No hay respuestas buenas ni malas.
+- **Tu práctica:** minutos y sesiones de la semana y del mes, por tipo de práctica, y los días con gratitud y las emociones anotadas. Sin rachas: solo lo que hay. Cuenta cada práctica de un minuto o más (el 5-4-3-2-1, si lo completas).
+- **Marcar un hábito al terminar** (en «Ajustes de Zen», dentro de Zen): elige uno y, al acabar una práctica, se marca para hoy como si lo tocaras en Hoy, con su XP de siempre. En los hábitos de minutos, como Meditar, se suman los minutos practicados.
+- **Mientras practicas**, la pantalla se mantiene encendida. Si sales a mitad (volver, cerrar o cambiar de práctica), se guarda lo que llevabas. En el iPhone, si bloqueas la pantalla o cambias de app, el sonido y la campana pueden pararse, y la vibración depende de que el sistema la permita.
+- La tarjeta se puede ocultar en **Ajustes → Qué se muestra → Zen en Hoy**.
+
 ## Recordatorios en el calendario
 
 - En el formulario del hábito, elige una **hora** y pulsa **«Añadir al calendario»**. Funciona también con un hábito que aún no has guardado.
@@ -416,6 +434,7 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
 - **Qué se muestra:**
   - **Al abrir la app:** con qué pantalla empieza (Hoy, Progreso, Historial o Salud).
   - **Retos de la semana en Hoy** y **Diario en Hoy:** se pueden ocultar. Los retos siguen contando (y están en Progreso), y lo que ya apuntaste en el diario se conserva.
+  - **Zen en Hoy:** la tarjeta que abre Zen; si la ocultas, tus prácticas y escritos se conservan.
   - **Pestaña Salud:** si no la usas, se quita de la barra; tus registros se conservan.
   - **Resumen al empezar la semana:** si lo desactivas, ya no se abre solo; sigue en Progreso.
 - **Rutinas:** crear, editar, ordenar y eliminar (ver [Rutinas](#rutinas)).
@@ -465,6 +484,7 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
   - diario y perfil;
   - rutinas (solo qué hábitos agrupan);
   - registros de Salud (medida, fecha, valor con su unidad —en la tensión, sistólica, diastólica y pulso— y nota), qué medidas ves, sus unidades y el recordatorio;
+  - Zen: tus prácticas (tipo, fecha y duración), tu gratitud, tus emociones y sus ajustes;
   - tus ajustes (tema, tamaño del texto, vibración, qué se muestra y el aviso de copia). Viajan en las copias; al importar una copia de antes de tenerlos, se conservan los del dispositivo.
 - La XP, los niveles, las rachas, los logros, los protectores ganados y los retos **se calculan a partir de tu historial**, así que siempre cuadran. Salud y las rutinas no intervienen en esos cálculos.
 - Los datos de versiones anteriores se actualizan solos al abrir la app nueva, sin perder nada (los hábitos que ya tenías pasan a ser «Personalizado» y funcionan igual; quien no tenía Salud ni rutinas empieza sin ellas).

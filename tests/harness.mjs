@@ -57,6 +57,7 @@ export function loadApp({ stored, now = '2026-09-27T10:00:00' } = {}) {
     setTimeout: () => 0,
     clearTimeout: () => {},
     setInterval: () => 0,
+    clearInterval: () => {},
   };
   vm.createContext(context);
   vm.runInContext(APP, context, { filename: 'app.js' });

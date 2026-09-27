@@ -1639,6 +1639,203 @@ input[type="range"] {
 .field select:focus { border-color: var(--sage); outline: none; box-shadow: 0 0 0 3px var(--sage-soft); }
 .secondary-btn.danger-text { color: var(--alert); }
 
+/* ---------- Zen ---------- */
+/* Tarjeta de Hoy: la reflexión del día y la entrada a Zen */
+.zen-card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+.zen-card:active { background: var(--wash); }
+.zen-card-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+.zen-card-icon svg { width: 20px; height: 20px; }
+.zen-card-text { display: grid; gap: 1px; min-width: 0; }
+.zen-card-text b { font-size: calc(15px * var(--text)); font-weight: 600; }
+.zen-card-text span { color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.35; }
+.zen-card .chevron { width: 16px; height: 16px; color: var(--ink-2); stroke-width: 1.75; }
+
+/* Hoja de Zen */
+.sheet-slot { justify-self: start; }
+.sheet-head .zen-back { margin-left: -6px; }
+.zen-back svg { width: 18px; height: 18px; }
+#zen-title:focus { outline: none; }
+.zen-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+  font-size: calc(14px * var(--text));
+  font-weight: 500;
+}
+.zen-quote { margin-top: 0; }
+.zen-quote-text { margin: 0; font-family: var(--serif); font-size: calc(20px * var(--text)); line-height: 1.35; }
+.section-label.zen-label { margin-top: 24px; }
+.zen-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.zen-tile {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+.zen-tile:active { background: var(--wash); }
+.zen-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+.zen-tile-icon svg { width: 18px; height: 18px; }
+.zen-tile b { font-size: calc(15px * var(--text)); font-weight: 600; }
+.zen-tile > span:last-child { color: var(--ink-2); font-size: calc(12px * var(--text)); line-height: 1.35; }
+
+/* Prácticas: opciones, tiempo y controles */
+.tag[aria-checked="true"] { border-color: var(--sage); background: var(--sage-soft); color: var(--sage-ink); }
+.tag:disabled { opacity: 0.5; }
+.zen-choices { justify-content: center; margin-top: 14px; }
+.zen-phase {
+  min-height: 1.3em;
+  margin: 8px 0 0;
+  font-family: var(--serif);
+  font-size: calc(26px * var(--text));
+  line-height: 1.3;
+  text-align: center;
+}
+.zen-time {
+  min-height: 1.4em;
+  margin: 4px 0 0;
+  color: var(--ink-2);
+  font-size: calc(15px * var(--text));
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.zen-controls { display: grid; gap: 8px; margin-top: 18px; }
+.zen-controls .text-btn { justify-content: center; }
+
+/* Respiración: el círculo crece al inhalar y se encoge al exhalar, al ritmo de cada fase */
+.breath-stage {
+  display: grid;
+  place-items: center;
+  height: 220px;
+  margin-top: 16px;
+}
+.breath-circle {
+  width: 200px;
+  height: 200px;
+  border: 2px solid var(--sage);
+  border-radius: 50%;
+  background: var(--sage-soft);
+  transform: scale(0.5);
+  transition-property: transform;
+  transition-timing-function: ease-in-out;
+}
+.breath-circle.full { transform: scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .breath-circle,
+  .breath-circle.full { transform: scale(0.7); }
+}
+
+/* Meditación: el anillo se completa con el tiempo */
+.ring.zen-ring { --ring-w: 8px; width: 200px; height: 200px; margin: 8px auto 0; }
+.ring.zen-ring b { font-size: calc(40px * var(--text)); }
+
+/* Sonidos */
+.zen-sound {
+  min-height: 56px;
+  padding: 0 12px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: calc(15px * var(--text));
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.zen-sound[aria-checked="true"] { border-color: var(--sage); background: var(--sage-soft); color: var(--sage-ink); }
+.zen-volume { display: grid; gap: 4px; margin-top: 18px; }
+.zen-volume span { padding-left: 4px; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; }
+
+/* 5-4-3-2-1 */
+.zen-steps { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.zen-steps li {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: center;
+  gap: 12px;
+  font-size: calc(15px * var(--text));
+}
+.zen-steps b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+.zen-big {
+  margin: 12px 0 0;
+  font-family: var(--serif);
+  font-size: calc(72px * var(--text));
+  line-height: 1;
+  text-align: center;
+}
+.zen-dots { display: flex; justify-content: center; gap: 8px; }
+.zen-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--track); }
+.zen-dots .done { background: var(--sage); }
+.zen-dots .now { box-shadow: 0 0 0 2px var(--sage); background: var(--card); }
+
+/* Gratitud y emociones */
+.zen-fields { display: grid; gap: 12px; }
+.zen-history { display: grid; margin: 0; padding: 0; list-style: none; }
+.zen-history > li { padding: 10px 0; font-size: calc(14px * var(--text)); }
+.zen-history > li + li { border-top: 1px solid var(--hair); }
+.zen-history > li > b { display: block; margin-bottom: 4px; font-size: calc(13px * var(--text)); font-weight: 600; }
+.zen-history ul { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.45; }
+.zen-history.emotions > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.zen-emotion-text { display: grid; gap: 1px; min-width: 0; }
+.zen-emotion-text b { font-size: calc(15px * var(--text)); font-weight: 500; }
+.zen-emotion-text span { overflow-wrap: anywhere; color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.35; }
+.segmented.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.segmented.five button { padding: 0 2px; font-size: calc(12px * var(--text)); }
+.zen-summary { margin-top: 16px; }
+
+/* Al terminar una práctica */
+.zen-result { margin-top: 24px; text-align: center; }
+.zen-result h2 { margin: 16px 0 8px; font-family: var(--serif); font-size: calc(26px * var(--text)); font-weight: 500; }
+.zen-result p { margin: 0 0 6px; color: var(--ink-2); font-size: calc(15px * var(--text)); line-height: 1.45; }
+.zen-result .confirm-actions { margin-top: 20px; }
+
 /* ---------- Ajustes ---------- */
 .section-label.group {
   display: flex;

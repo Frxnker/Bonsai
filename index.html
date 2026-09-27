@@ -139,6 +139,15 @@
         </div>
       </section>
 
+      <!-- Zen: la reflexión del día y la entrada a respirar, meditar, sonidos, gratitud y emociones -->
+      <button type="button" class="zen-card" id="zen-card" hidden>
+        <span class="zen-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 19c-4 0-7-2.4-8-5.8 2.5-.4 5.2.5 8 2.9 2.8-2.4 5.5-3.3 8-2.9-1 3.4-4 5.8-8 5.8z"/><path d="M12 16.1c-1.9-2.2-2.6-4.7-2-7.6 1 .4 1.6 1 2 1.6.4-.6 1-1.2 2-1.6.6 2.9-.1 5.4-2 7.6z"/></svg>
+        </span>
+        <span class="zen-card-text"><b>Zen</b><span id="zen-card-quote"></span></span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+
       <!-- Bienvenida (solo cuando no hay hábitos) -->
       <div class="welcome" id="welcome" hidden>
         <div class="welcome-badge" aria-hidden="true">
@@ -262,6 +271,10 @@
         <label class="switch-row">
           <span class="switch-text"><b id="pref-journal">Diario en Hoy</b><span id="pref-journal-hint">«¿Qué tal el día?», debajo de tus hábitos. Lo que ya apuntaste se conserva.</span></span>
           <input type="checkbox" role="switch" data-pref="showJournal" aria-labelledby="pref-journal" aria-describedby="pref-journal-hint">
+        </label>
+        <label class="switch-row">
+          <span class="switch-text"><b id="pref-zen">Zen en Hoy</b><span id="pref-zen-hint">La tarjeta con la reflexión del día que abre respirar, meditar, sonidos, gratitud y emociones.</span></span>
+          <input type="checkbox" role="switch" data-pref="showZen" aria-labelledby="pref-zen" aria-describedby="pref-zen-hint">
         </label>
         <label class="switch-row">
           <span class="switch-text"><b id="pref-health">Pestaña Salud</b><span id="pref-health-hint">Si la ocultas, tus registros se conservan.</span></span>
@@ -596,6 +609,24 @@
         <button type="button" class="text-btn" id="health-cancel">Cancelar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Zen: prácticas de calma, gratitud y emociones, a pantalla completa -->
+  <dialog class="sheet" id="zen" aria-labelledby="zen-title">
+    <div class="sheet-frame">
+      <div class="sheet-head">
+        <span class="sheet-slot">
+          <button type="button" class="text-btn zen-back" id="zen-back" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+            Zen
+          </button>
+        </span>
+        <h2 id="zen-title" tabindex="-1">Zen</h2>
+        <button type="button" class="text-btn end" id="zen-close">Cerrar</button>
+      </div>
+      <p class="sr-only" id="zen-live" aria-live="polite"></p>
+      <div class="sheet-body" id="zen-body"></div>
+    </div>
   </dialog>
 
   <!-- Salud: qué medidas se ven y en qué unidad -->
