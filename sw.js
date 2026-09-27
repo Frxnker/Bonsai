@@ -2,7 +2,7 @@
 // Estrategia: responde al instante con la copia guardada y, en segundo plano,
 // descarga la versión nueva para la próxima vez que abras la app.
 
-const CACHE = 'bonsai-v17'; // al activarse se borran las cachés antiguas (también las 'racha-…')
+const CACHE = 'bonsai-v18'; // al activarse se borran las cachés antiguas (también las 'racha-…')
 const ASSETS = [
   './',
   './index.html',
