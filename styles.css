@@ -802,6 +802,7 @@ h1 {
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
 }
 .habit.qty .check svg { width: 14px; height: 14px; }
+.habit.target:not(.done) .check { color: transparent; }
 
 /* Descanso y pausa: se atenúan el icono y el nombre (el texto sigue siendo legible) */
 .habit.resting:not(.done) .name,
@@ -952,29 +953,27 @@ h1 {
   font-weight: 600;
 }
 
-.template-grid {
+/* ---------- Tipos de hábito (bienvenida y al crear uno) ---------- */
+.type-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  margin-bottom: 18px;
 }
-.template {
-  position: relative;
+.welcome .type-grid { margin-bottom: 8px; }
+.type-tile {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 56px;
-  padding: 10px 30px 10px 10px;
+  min-height: 60px;
+  padding: 10px;
   border: 1px solid var(--hair);
   border-radius: 12px;
   background: var(--card);
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.2;
   text-align: left;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
-.template:active { background: var(--wash); }
+.type-tile:active { background: var(--wash); }
+.type-tile[data-type="custom"] { grid-column: 1 / -1; }
 .t-emoji {
   display: grid;
   flex-shrink: 0;
@@ -983,31 +982,59 @@ h1 {
   height: 32px;
   border-radius: 8px;
   background: var(--wash);
-  background: color-mix(in srgb, var(--c, var(--sage)) 12%, var(--card));
+  color: var(--sage-ink);
   font-size: 18px;
   line-height: 1;
 }
-.template[aria-pressed="true"] { border-color: var(--sage); background: var(--sage-soft); }
-/* Marca de elegido: una uve dibujada con dos bordes */
-.template[aria-pressed="true"]::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 13px;
-  width: 5px;
-  height: 10px;
-  border: solid var(--sage-ink);
-  border-width: 0 2px 2px 0;
-  transform: translateY(-65%) rotate(45deg);
-}
+.t-emoji svg { width: 18px; height: 18px; }
+.type-text { display: grid; min-width: 0; }
+.type-name { font-size: 15px; font-weight: 500; line-height: 1.25; }
+.type-hint { color: var(--ink-2); font-size: 12px; line-height: 1.3; }
 
-/* El botón "Empezar" se queda siempre a la vista, encima de la barra de pestañas */
-#start-btn {
-  position: sticky;
-  bottom: calc(var(--above-bar) + 12px);
-  z-index: 5;
+.picker-title {
+  margin: 0 4px 16px;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
 }
-#start-btn:disabled { opacity: 1; background: var(--wash); color: var(--ink-2); }
+#type-groups .section-label { margin-top: 20px; }
+#type-groups .section-label:first-child { margin-top: 0; }
+.back-btn { margin: -12px 0 4px -6px; }
+.back-btn svg { width: 18px; height: 18px; }
+
+/* Deslizador de la meta (y de la cantidad real de un día) */
+.slider-card {
+  margin-top: 12px;
+  padding: 14px 16px 10px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--card);
+}
+#measure-type + .slider-card { margin-top: 10px; }
+.slider-value {
+  display: block;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+.slider-value.met { color: var(--sage-ink); }
+input[type="range"] {
+  display: block;
+  width: 100%;
+  height: 32px;
+  margin: 6px 0 0;
+  accent-color: var(--sage);
+  touch-action: pan-y;
+}
+.slider-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---------- Estado vacío ---------- */
 .empty {
@@ -1512,30 +1539,6 @@ h1 {
 .field input:focus { border-color: var(--sage); outline: none; box-shadow: 0 0 0 3px var(--sage-soft); }
 .unit-field { margin-top: 12px; }
 
-.ideas { margin-top: 22px; }
-.ideas-row {
-  display: flex;
-  gap: 8px;
-  margin: 0 calc(-16px - var(--safe-r)) 0 calc(-16px - var(--safe-l));
-  padding: 0 calc(16px + var(--safe-r)) 8px calc(16px + var(--safe-l));
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.ideas-row::-webkit-scrollbar { display: none; }
-.idea {
-  flex-shrink: 0;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--hair);
-  border-radius: 999px;
-  background: var(--card);
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background-color 0.15s ease;
-}
-.idea:active { background: var(--wash); }
-
 /* Control segmentado, como en iOS */
 .segmented {
   display: grid;
@@ -1770,6 +1773,12 @@ h1 {
   color: var(--sage-ink);
 }
 .sum-icon svg { width: 18px; height: 18px; }
+
+/* Apuntar la cantidad real de un día */
+.log-card .slider-value { margin-top: 16px; font-size: 34px; }
+.log-card input[type="range"] { margin-top: 10px; }
+.log-goal { margin: 10px 0 18px; color: var(--ink-2); font-size: 14px; font-variant-numeric: tabular-nums; }
+.log-card .text-btn { justify-content: center; }
 
 /* Confirmación */
 .confirm-icon {

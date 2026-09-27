@@ -119,14 +119,13 @@
         </div>
         <h2>Bienvenido a Bonsái</h2>
         <ol class="steps">
-          <li><span class="step-n">1</span><span>Elige los hábitos que quieres cumplir.</span></li>
-          <li><span class="step-n">2</span><span>Tócalos cada día cuando los hagas.</span></li>
+          <li><span class="step-n">1</span><span>Elige un hábito y ajústalo a tu medida.</span></li>
+          <li><span class="step-n">2</span><span>Tócalo cada día cuando lo hagas.</span></li>
           <li><span class="step-n">3</span><span>Gana XP, sube de nivel y mantén tu racha.</span></li>
         </ol>
         <p class="section-label">Elige con qué empezar</p>
-        <div class="template-grid" id="template-grid" role="group" aria-label="Hábitos sugeridos"></div>
-        <button type="button" class="primary-btn" id="start-btn" disabled>Elige al menos uno</button>
-        <button type="button" class="link-btn center" data-add>o crea uno a tu medida</button>
+        <div class="type-grid" id="template-grid" role="group" aria-label="Hábitos sugeridos"></div>
+        <button type="button" class="link-btn center" data-add>Ver todos los tipos</button>
       </div>
     </section>
 
@@ -247,27 +246,45 @@
         <button type="submit" class="save-btn" id="save-btn">Guardar</button>
       </div>
 
-      <div class="sheet-body">
+      <!-- Paso 1: elegir el tipo de hábito -->
+      <div class="sheet-body" id="type-picker" hidden>
+        <h3 class="picker-title">¿Qué quieres cultivar?</h3>
+        <div id="type-groups"></div>
+      </div>
+
+      <!-- Paso 2: su edición, adaptada al tipo -->
+      <div class="sheet-body" id="habit-editor">
+        <button type="button" class="link-btn back-btn" id="change-type">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          Otro tipo
+        </button>
         <input class="emoji-input" id="habit-emoji" aria-label="Emoji del hábito" inputmode="text" enterkeyhint="done">
         <p class="hint">Toca el emoji para escribir otro, o elige uno abajo.</p>
 
         <div id="kind-block">
-          <p class="section-label">Tipo</p>
+          <p class="section-label">Objetivo</p>
           <div class="segmented two" id="kind-type" role="radiogroup" aria-label="Tipo de hábito">
             <button type="button" role="radio" data-kind="build">Quiero empezar a…</button>
             <button type="button" role="radio" data-kind="quit">Quiero dejar de…</button>
           </div>
-          <p class="hint left" id="kind-hint" hidden></p>
         </div>
+        <p class="hint left" id="kind-hint" hidden></p>
 
         <label class="field spaced">
           <span>Nombre</span>
           <input id="habit-name" type="text" maxlength="40" placeholder="Ej. Beber 2 litros de agua" enterkeyhint="done" required>
         </label>
 
-        <div class="ideas" id="ideas">
-          <p class="section-label">Ideas rápidas</p>
-          <div class="ideas-row" id="ideas-row"></div>
+        <!-- Meta con deslizador (caminar 30 min, correr 5 km, dormir 8 h…) -->
+        <div id="measure-block" hidden>
+          <p class="section-label spaced">Meta de cada día</p>
+          <div class="segmented two" id="measure-type" role="radiogroup" aria-label="Cómo lo mides"></div>
+          <div class="slider-card">
+            <output class="slider-value" id="measure-value" for="measure-range"></output>
+            <input type="range" id="measure-range" aria-label="Meta de cada día">
+            <div class="slider-scale" aria-hidden="true"><span id="measure-min"></span><span id="measure-max"></span></div>
+          </div>
+          <p class="hint left" id="measure-hint"></p>
         </div>
 
         <div id="freq-block">
@@ -353,6 +370,23 @@
         </div>
       </div>
     </form>
+  </dialog>
+
+  <!-- Apuntar la cantidad real de un día (manteniendo pulsado un hábito de tiempo, distancia…) -->
+  <dialog class="modal" id="log" aria-labelledby="log-title">
+    <div class="modal-card log-card">
+      <p class="kicker" id="log-day">Hoy</p>
+      <h2 id="log-title"></h2>
+      <output class="slider-value" id="log-value" for="log-range"></output>
+      <input type="range" id="log-range" aria-labelledby="log-title">
+      <div class="slider-scale" aria-hidden="true"><span id="log-min"></span><span id="log-max"></span></div>
+      <p class="log-goal" id="log-goal"></p>
+      <div class="confirm-actions">
+        <button type="button" class="primary-btn" id="log-save">Guardar</button>
+        <button type="button" class="secondary-btn" id="log-clear">Borrar lo de este día</button>
+        <button type="button" class="text-btn" id="log-cancel">Cancelar</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- Subida de nivel: un anillo que se completa, sin fuegos artificiales -->

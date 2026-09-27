@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.0 beta';
+const APP_VERSION = '1.1 beta';
 const STORAGE_KEY = 'racha:v1'; // no cambia con el nombre de la app: así nadie pierde sus datos
 // Copias de seguridad que se aceptan al importar: las nuevas ('bonsai') y las de cuando la app se llamaba Racha.
 const BACKUP_APPS = ['bonsai', 'racha'];
@@ -62,30 +62,64 @@ const ACHIEVEMENTS = [
   { icon: 'target', name: 'Retador', desc: 'Completa 10 retos semanales', stat: 'challenges', goal: 10 },
 ];
 
-// Plantillas: las 8 primeras salen en la bienvenida. Los campos que faltan usan los valores por defecto.
-const TEMPLATES = [
-  { emoji: '💧', name: 'Beber agua', goal: 8, unit: 'vasos' },
-  { emoji: '🚶', name: 'Caminar 30 min' },
-  { emoji: '📚', name: 'Leer', goal: 10, unit: 'páginas' },
-  { emoji: '🧘', name: 'Meditar' },
-  { emoji: '😴', name: 'Dormir 8 horas' },
-  { emoji: '💪', name: 'Hacer ejercicio', schedule: { type: 'weekly', times: 3 } },
-  { emoji: '🍎', name: 'Comer fruta' },
-  { emoji: '📵', name: 'Menos redes', kind: 'quit' },
-  { emoji: '✍️', name: 'Escribir diario' },
-  { emoji: '🦷', name: 'Hilo dental' },
-  { emoji: '🚭', name: 'Dejar de fumar', kind: 'quit' },
-  { emoji: '🍬', name: 'Sin azúcar', kind: 'quit' },
+// ---------- Tipos de hábito ----------
+// Cómo se mide la meta de cada día:
+// - 'target': un toque marca que has cumplido la meta; manteniendo pulsado se apunta la cantidad real (20 de 30 min).
+// - 'count': cada toque suma 1 (vasos, piezas…) y manteniendo pulsado se resta 1.
+const MEASURES = {
+  min: { label: 'Tiempo', unit: 'min', mode: 'target', min: 5, max: 180, step: 5 },
+  steps: { label: 'Pasos', unit: 'pasos', mode: 'target', min: 1000, max: 30000, step: 500 },
+  km: { label: 'Distancia', unit: 'km', mode: 'target', min: 0.5, max: 50, step: 0.5 },
+  hours: { label: 'Horas', unit: 'h', mode: 'target', min: 4, max: 12, step: 0.5 },
+  pages: { label: 'Páginas', unit: 'páginas', mode: 'target', min: 5, max: 150, step: 5 },
+  glasses: { label: 'Vasos', unit: 'vasos', mode: 'count', min: 2, max: 16, step: 1 },
+  pieces: { label: 'Piezas', unit: 'piezas', mode: 'count', min: 1, max: 8, step: 1 },
+};
+
+// Tipos que se eligen al crear un hábito: cada uno trae nombre, emoji, frecuencia y forma de medir
+// (con su valor por defecto y, si hace falta, otros límites para el deslizador). 'custom' es el formulario libre.
+const HABIT_TYPES = [
+  { id: 'walk', group: 'move', emoji: '🚶', name: 'Caminar', measures: [{ id: 'min', def: 30 }, { id: 'steps', def: 8000 }] },
+  { id: 'run', group: 'move', emoji: '🏃', name: 'Correr', schedule: { type: 'weekly', times: 3 }, measures: [{ id: 'km', def: 5, max: 42 }, { id: 'min', def: 30 }] },
+  { id: 'bike', group: 'move', emoji: '🚴', name: 'Montar en bici', schedule: { type: 'weekly', times: 2 }, measures: [{ id: 'km', def: 15, min: 1, max: 100, step: 1 }, { id: 'min', def: 45 }] },
+  { id: 'workout', group: 'move', emoji: '💪', name: 'Hacer ejercicio', schedule: { type: 'weekly', times: 3 }, measures: [{ id: 'min', def: 45 }] },
+  { id: 'stretch', group: 'move', emoji: '🤸', name: 'Estirar', measures: [{ id: 'min', def: 10, max: 60 }] },
+  { id: 'meditate', group: 'mind', emoji: '🧘', name: 'Meditar', measures: [{ id: 'min', def: 10, min: 1, max: 60, step: 1 }] },
+  { id: 'read', group: 'mind', emoji: '📚', name: 'Leer', measures: [{ id: 'pages', def: 20 }, { id: 'min', def: 20 }] },
+  { id: 'study', group: 'mind', emoji: '🎓', name: 'Estudiar', measures: [{ id: 'min', def: 45 }] },
+  { id: 'language', group: 'mind', emoji: '🗣️', name: 'Practicar un idioma', measures: [{ id: 'min', def: 15 }] },
+  { id: 'music', group: 'mind', emoji: '🎸', name: 'Tocar un instrumento', measures: [{ id: 'min', def: 20 }] },
+  { id: 'journal', group: 'mind', emoji: '✍️', name: 'Escribir diario' },
+  { id: 'water', group: 'health', emoji: '💧', name: 'Beber agua', measures: [{ id: 'glasses', def: 8 }] },
+  { id: 'sleep', group: 'health', emoji: '😴', name: 'Dormir bien', measures: [{ id: 'hours', def: 8 }],
+    hint: 'Márcalo al despertar: un toque si has dormido tus horas, o mantén pulsado para apuntar las horas reales.' },
+  { id: 'fruit', group: 'health', emoji: '🍎', name: 'Comer fruta', measures: [{ id: 'pieces', def: 3 }] },
+  { id: 'floss', group: 'health', emoji: '🦷', name: 'Usar hilo dental' },
+  { id: 'vitamins', group: 'health', emoji: '💊', name: 'Tomar vitaminas' },
+  { id: 'smoke', group: 'quit', emoji: '🚭', name: 'Dejar de fumar', kind: 'quit' },
+  { id: 'sugar', group: 'quit', emoji: '🍬', name: 'Sin azúcar', kind: 'quit' },
+  { id: 'social', group: 'quit', emoji: '📵', name: 'Menos redes', kind: 'quit' },
+  { id: 'alcohol', group: 'quit', emoji: '🍷', name: 'Sin alcohol', kind: 'quit' },
+  { id: 'custom', group: 'custom', emoji: '', name: '' },
 ];
-// Campos de un hábito que se copian de una plantilla.
-const templateFields = (t) => ({
-  name: t.name,
-  emoji: t.emoji,
-  kind: t.kind || 'build',
-  goal: t.goal || 1,
-  unit: t.unit || '',
-  schedule: t.schedule || { type: 'daily' },
-});
+const TYPE_GROUPS = [['move', 'Moverte'], ['mind', 'Mente'], ['health', 'Salud'], ['quit', 'Dejar algo'], ['custom', 'A tu manera']];
+const WELCOME_TYPES = ['walk', 'water', 'read', 'meditate', 'sleep', 'workout', 'fruit', 'social'];
+const typeOf = (id) => HABIT_TYPES.find((t) => t.id === id) || HABIT_TYPES[HABIT_TYPES.length - 1];
+
+// Límites del deslizador de una medida dentro de un tipo (los del tipo mandan sobre los generales).
+function measureSpec(type, id) {
+  const base = MEASURES[id];
+  const own = (type.measures || []).find((m) => m.id === id) || {};
+  return { ...base, id, def: own.def ?? base.min, min: own.min ?? base.min, max: own.max ?? base.max, step: own.step ?? base.step };
+}
+
+// Lo que se lee debajo de cada tipo en la lista: «Tiempo o pasos», «Vasos», «Sí o no»…
+function typeHint(type) {
+  if (type.id === 'custom') return 'Cualquier hábito, como tú quieras';
+  if (type.kind === 'quit') return 'Días sin recaer';
+  if (!type.measures) return 'Sí o no';
+  return type.measures.map((m, i) => (i ? MEASURES[m.id].label.toLowerCase() : MEASURES[m.id].label)).join(' o ');
+}
 
 const SUGGESTED_EMOJIS = [
   '💧', '🏃', '📚', '🧘', '😴', '🥗', '💊', '🦷',
@@ -261,11 +295,15 @@ const normalizePauses = (list) => (Array.isArray(list) ? list : [])
 
 // Meta diaria: de 1 a 99 (1 = hábito de sí/no, como siempre).
 const clampGoal = (v) => Math.min(99, Math.max(1, Math.round(Number(v)) || 1));
+// En los de tiempo, distancia…: cualquier cantidad positiva (hasta 2 decimales, como 5,5 km).
+const round2 = (v) => Math.round(Number(v) * 100) / 100;
+const clampTarget = (v) => Math.min(100000, Math.max(0.1, round2(v) || 1));
 
 // Cada día marcado guarda un número (las versiones antiguas guardaban 1).
-const normalizeDone = (done) => Object.fromEntries(Object.entries(done || {})
+const normalizeDone = (done, target = false) => Object.fromEntries(Object.entries(done || {})
   .filter(([k, v]) => isDateKey(k) && Number(v) > 0)
-  .map(([k, v]) => [k, Math.min(999, Math.round(Number(v)) || 1)]));
+  .map(([k, v]) => [k, target ? Math.min(100000, round2(v)) : Math.min(999, Math.round(Number(v)) || 1)]));
+const isTargetData = (h) => h.kind !== 'quit' && h.mode === 'target';
 
 // { 'AAAA-MM-DD': 1 } con solo fechas válidas (recaídas y protectores).
 const dayFlags = (obj) => Object.fromEntries(Object.keys(obj || {}).filter(isDateKey).map((k) => [k, 1]));
@@ -285,13 +323,18 @@ function normalize(data) {
         : OLD_COLORS[h.color] || COLORS[i % COLORS.length].id,
       // Tipo: 'build' (empezar a hacer algo) o 'quit' (dejar algo). Los de dejar son diarios y sin cantidad.
       kind: h.kind === 'quit' ? 'quit' : 'build',
+      // Tipo elegido al crearlo (adapta su edición). Los de versiones anteriores son 'custom'.
+      type: HABIT_TYPES.some((t) => t.id === h.type) ? h.type : 'custom',
+      // 'target': un toque marca la meta; 'count': cada toque suma 1 (o sí/no, con meta 1).
+      mode: isTargetData(h) ? 'target' : 'count',
+      measure: typeof h.measure === 'string' && MEASURES[h.measure] ? h.measure : '',
       schedule: h.kind === 'quit' ? { type: 'daily' } : normalizeSchedule(h.schedule),
-      goal: h.kind === 'quit' ? 1 : clampGoal(h.goal),
+      goal: h.kind === 'quit' ? 1 : isTargetData(h) ? clampTarget(h.goal) : clampGoal(h.goal),
       unit: typeof h.unit === 'string' ? h.unit.trim().slice(0, 20) : '',
       pauses: normalizePauses(h.pauses),
       archived: isDateKey(h.archived) ? h.archived : null,
       created: isDateKey(h.created) ? h.created : todayKey(),
-      done: normalizeDone(h.done),
+      done: normalizeDone(h.done, isTargetData(h)),
       slips: dayFlags(h.slips),
       shields: dayFlags(h.shields), // días salvados con un protector
     }));
@@ -360,6 +403,9 @@ const findHabit = (id) => state.habits.find((h) => h.id === id);
 const newHabit = (fields) => ({
   id: uid(),
   kind: 'build',
+  type: 'custom',
+  mode: 'count',
+  measure: '',
   schedule: { type: 'daily' },
   goal: 1,
   unit: '',
@@ -437,6 +483,12 @@ function isDone(habit, key) {
 }
 // Cuánto se lleva ese día (sin pasar de la meta, por si se bajó después).
 const amountOn = (habit, key) => Math.min(habit.done[key] || 0, habit.goal);
+// De tiempo, distancia…: un toque marca la meta. Con cantidad: esos y los contadores (meta de 2 o más).
+const isTarget = (habit) => habit.mode === 'target' && habit.kind !== 'quit';
+const hasAmount = (habit) => habit.kind !== 'quit' && (isTarget(habit) || habit.goal > 1);
+const fmtAmount = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1, useGrouping: 'always' }); // «8.000 pasos», «5,5 km»
+// "30 min", "5,5 km", "8000 pasos"
+const qty = (habit, v) => `${fmtAmount.format(v)}${habit.unit ? ` ${habit.unit}` : ''}`;
 const hasSlip = (habit, key) => habit.kind === 'quit' && Boolean(habit.slips[key]) && isActive(habit, key);
 // Día salvado por un protector: tocaba, no se hizo y hay un protector apuntado. Si luego se marca, deja de contar.
 const isShielded = (habit, key) => Boolean(habit.shields[key]) && habit.kind !== 'quit' && isDue(habit, key) && !isDone(habit, key);
@@ -801,7 +853,7 @@ const CHALLENGES = [
   { id: 'weekly', icon: 'cycle', reward: 40, habit: (h) => h.kind === 'build' && h.schedule.type === 'weekly',
     text: (h) => `Cumple «${h.name}» ${plural(h.schedule.times, 'vez', 'veces')} esta semana`,
     target: (h) => h.schedule.times, value: (w, h) => countDays(w.past, (d) => isDone(h, d)) },
-  { id: 'qty', icon: 'drop', reward: 40, habit: (h) => isBuildDaily(h) && h.goal > 1,
+  { id: 'qty', icon: 'drop', reward: 40, habit: (h) => isBuildDaily(h) && hasAmount(h),
     text: (h, n) => `Llega a tu meta de «${h.name}» ${plural(n, 'día', 'días')}`,
     target: (h, hs, ws) => Math.min(5, countDays(weekKeys(ws), (d) => isDue(h, d))),
     value: (w, h) => countDays(w.past, (d) => isDone(h, d)) },
@@ -1020,7 +1072,12 @@ function quitMeta(habit) {
 }
 
 // Cantidad: "3/8 vasos"
-const amountText = (habit, key) => `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}`;
+// Contadores: "3/8 vasos". De tiempo, distancia…: "20/30 min" y, al cumplirla, lo hecho ("30 min"). Texto plano.
+function amountText(habit, key) {
+  if (!isTarget(habit)) return `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${habit.unit}` : ''}`;
+  const v = habit.done[key] || 0;
+  return v >= habit.goal ? qty(habit, v) : `${fmtAmount.format(v)}/${qty(habit, habit.goal)}`;
+}
 
 function pauseLabel(habit) {
   const p = habit.pauses.find((x) => ui.day >= x.from && (!x.to || ui.day <= x.to));
@@ -1068,14 +1125,20 @@ function habitRow(habit) {
     meta = quitMeta(habit);
     label = hasSlip(habit, day) ? `${safeName}: recaída apuntada. Toca para deshacer`
       : `${safeName}: ${plural(streakInfo(habit).current, 'día', 'días')} sin ${escapeHTML(quitWhat(habit))}. Toca si has recaído`;
-  } else if (habit.goal > 1) {
-    // Cantidad: un anillo alrededor de la casilla muestra lo que llevas (--fill, de 0 a 1).
+  } else if (hasAmount(habit)) {
+    // Con cantidad: un anillo alrededor de la casilla muestra lo que llevas (--fill, de 0 a 1).
     classes.push('qty');
     style += `;--fill:${(amountOn(habit, day) / habit.goal).toFixed(3)}`;
     const extra = rest ? (done ? 'Día extra' : rest) : shortStreak(habit);
-    meta = [`<b class="amount">${amountText(habit, day)}</b>`, extra].filter(Boolean).join(' · ');
-    if (!done) mark = ICONS.plus;
-    label = `${safeName}: ${amountOn(habit, day)} de ${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}. Toca para sumar 1; mantén pulsado para restar 1`;
+    const amount = escapeHTML(amountText(habit, day));
+    meta = [`<b class="amount">${amount}</b>`, extra].filter(Boolean).join(' · ');
+    if (isTarget(habit)) {
+      classes.push('target');
+      label = `${safeName}: ${done ? `hecho, ${amount}` : amount.replace('/', ' de ')}. Toca para ${done ? 'desmarcarlo' : 'marcar la meta'}; mantén pulsado para apuntar la cantidad`;
+    } else {
+      if (!done) mark = ICONS.plus;
+      label = `${safeName}: ${amountOn(habit, day)} de ${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}. Toca para sumar 1; mantén pulsado para restar 1`;
+    }
   } else {
     meta = rest ? (done ? 'Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
   }
@@ -1132,7 +1195,8 @@ function changeHabit(habit, button, mutate) {
   const after = computeStats();
   const step = (habit.done[day] || 0) - amountBefore;
   if (after.xp !== before.xp) floatXp(anchor, after.xp - before.xp);
-  else if (step) floatXp(anchor, step, step > 0 ? '+1' : '−1'); // pasos de cantidad que aún no llegan a la meta
+  // Pasos de cantidad que aún no llegan a la meta: "+1" o, en los de tiempo, distancia…, "+20 min"
+  else if (step) floatXp(anchor, step, isTarget(habit) ? `${step > 0 ? '+' : '−'}${qty(habit, Math.abs(step))}` : step > 0 ? '+1' : '−1');
   if (nowDone !== wasDone || step) haptic();
 
   const hadFocus = button && document.activeElement === button;
@@ -1171,6 +1235,14 @@ function toggleHabit(id, button) {
     toggleSlip(habit, button);
     return;
   }
+  if (isTarget(habit)) {
+    // Un toque marca la meta del día (o la desmarca si ya estaba cumplida).
+    changeHabit(habit, button, () => {
+      if (isDone(habit, day)) delete habit.done[day];
+      else habit.done[day] = habit.goal;
+    });
+    return;
+  }
   if (habit.goal > 1) {
     const amount = amountOn(habit, day);
     if (amount >= habit.goal) {
@@ -1186,9 +1258,13 @@ function toggleHabit(id, button) {
   });
 }
 
-// Mantener pulsado (o la tecla −) resta 1 en los hábitos con cantidad.
+// Mantener pulsado (o la tecla −) resta 1 en los contadores; en los de tiempo, distancia… abre el deslizador.
 function stepDown(habit, button) {
   const day = ui.day;
+  if (isTarget(habit)) {
+    if (!isPaused(habit, day)) openLog(habit);
+    return;
+  }
   const amount = amountOn(habit, day);
   if (!amount || habit.kind === 'quit' || isPaused(habit, day)) return;
   changeHabit(habit, button, () => {
@@ -1196,6 +1272,58 @@ function stepDown(habit, button) {
     else delete habit.done[day];
   });
 }
+
+// ---------- Apuntar la cantidad real de un día (tiempo, distancia…) ----------
+
+const logDialog = $('#log');
+const logRange = $('#log-range');
+let logFor = null;
+
+function openLog(habit) {
+  const day = ui.day;
+  const spec = measureSpec(typeOf(habit.type), MEASURES[habit.measure] ? habit.measure : 'min');
+  const max = Math.max(spec.max, Math.ceil((habit.goal * 2) / spec.step) * spec.step);
+  logFor = { id: habit.id, day };
+  $('#log-day').textContent = day === ui.today ? 'Hoy' : capitalize(fmtLong.format(parseKey(day)));
+  $('#log-title').textContent = habit.name;
+  logRange.min = 0;
+  logRange.max = max;
+  logRange.step = spec.step;
+  logRange.value = habit.done[day] || habit.goal;
+  $('#log-min').textContent = qty(habit, 0);
+  $('#log-max').textContent = qty(habit, max);
+  $('#log-goal').textContent = `Meta: ${qty(habit, habit.goal)}`;
+  $('#log-clear').hidden = !habit.done[day];
+  syncLog();
+  logDialog.showModal();
+  haptic();
+}
+
+function syncLog() {
+  const habit = findHabit(logFor.id);
+  const text = qty(habit, Number(logRange.value));
+  $('#log-value').textContent = text;
+  $('#log-value').classList.toggle('met', Number(logRange.value) >= habit.goal);
+  logRange.setAttribute('aria-valuetext', text);
+}
+logRange.addEventListener('input', syncLog);
+
+function saveLog(value) {
+  const habit = logFor && findHabit(logFor.id);
+  const day = logFor && logFor.day;
+  logDialog.close();
+  if (!habit || day !== ui.day) return;
+  changeHabit(habit, $(`.habit[data-id="${habit.id}"]`), () => {
+    if (value > 0) habit.done[day] = round2(value);
+    else delete habit.done[day];
+  });
+}
+$('#log-save').addEventListener('click', () => saveLog(Number(logRange.value)));
+$('#log-clear').addEventListener('click', () => saveLog(0));
+$('#log-cancel').addEventListener('click', () => logDialog.close());
+logDialog.addEventListener('click', (e) => {
+  if (e.target === logDialog) logDialog.close();
+});
 
 // Recaídas: apuntarla pide confirmación; volver a tocar la deshace.
 async function toggleSlip(habit, button) {
@@ -1220,41 +1348,20 @@ async function toggleSlip(habit, button) {
 
 // ---------- Bienvenida ----------
 
-const pickedTemplates = new Set();
+// Botón de un tipo (en la bienvenida y al crear un hábito)
+const typeTile = (t) => `<button type="button" class="type-tile" data-type="${t.id}">
+    <span class="t-emoji" aria-hidden="true">${t.id === 'custom' ? ICONS.plus : t.emoji}</span>
+    <span class="type-text"><span class="type-name">${t.id === 'custom' ? 'Personalizado' : escapeHTML(t.name)}</span> <span class="type-hint">${typeHint(t)}</span></span>
+  </button>`;
 
 function renderWelcome() {
-  $('#template-grid').innerHTML = TEMPLATES.slice(0, 8).map((t, i) => `
-    <button type="button" class="template" data-template="${i}" aria-pressed="${pickedTemplates.has(i)}" style="--c:${COLORS[i % COLORS.length].hex}">
-      <span class="t-emoji" aria-hidden="true">${t.emoji}</span><span>${escapeHTML(t.name)}</span>
-    </button>`).join('');
-  updateStartButton();
+  $('#template-grid').innerHTML = WELCOME_TYPES.map((id) => typeTile(typeOf(id))).join('');
 }
 
-function updateStartButton() {
-  const n = pickedTemplates.size;
-  $('#start-btn').disabled = n === 0;
-  $('#start-btn').textContent = n === 0 ? 'Elige al menos uno' : `Empezar con ${plural(n, 'hábito', 'hábitos')}`;
-}
-
+// Elegir un tipo no crea nada todavía: primero se abre su edición, ya adaptada.
 $('#template-grid').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-template]');
-  if (!btn) return;
-  const i = Number(btn.dataset.template);
-  if (pickedTemplates.has(i)) pickedTemplates.delete(i);
-  else pickedTemplates.add(i);
-  btn.setAttribute('aria-pressed', String(pickedTemplates.has(i)));
-  updateStartButton();
-});
-
-$('#start-btn').addEventListener('click', () => {
-  [...pickedTemplates].sort((a, b) => a - b).forEach((i) => {
-    const t = TEMPLATES[i];
-    state.habits.push(newHabit({ ...templateFields(t), color: nextColor(state.habits) }));
-  });
-  pickedTemplates.clear();
-  save();
-  render();
-  haptic();
+  const btn = e.target.closest('[data-type]');
+  if (btn) openSheet(null, btn.dataset.type);
 });
 
 // ---------- Pantalla "Progreso" ----------
@@ -1430,7 +1537,7 @@ function renderHistory() {
     const unit = s.unit === 'week' ? 'semanas' : 'días';
     const sub = [
       h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule),
-      h.goal > 1 ? `Meta: ${h.goal}${h.unit ? ` ${escapeHTML(h.unit)}` : ''}` : '',
+      hasAmount(h) ? `Meta: ${escapeHTML(qty(h, h.goal))}` : '',
       isPaused(h, ui.today) ? 'En pausa' : '',
     ].filter(Boolean).join(' · ');
     const third = h.kind === 'quit'
@@ -1524,8 +1631,7 @@ function dayCaption(habitId, key) {
   const habit = findHabit(habitId);
   if (!habit) return label;
   const status = dayStatus(habit, key);
-  const amount = habit.kind !== 'quit' && habit.goal > 1
-    ? `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${habit.unit}` : ''}` : '';
+  const amount = hasAmount(habit) ? amountText(habit, key) : '';
   if (hasSlip(habit, key)) return `${label} · Recaída`;
   if (isShielded(habit, key)) return `${label} · Protegido`;
   if (isDone(habit, key)) {
@@ -2278,11 +2384,83 @@ function setSheetKind(kind) {
   document.querySelectorAll('#kind-type [data-kind]').forEach((btn) => {
     btn.setAttribute('aria-checked', String(btn.dataset.kind === kind));
   });
+  const custom = ui.sheetType === 'custom';
   $('#freq-block').hidden = quit;
-  $('#goal-block').hidden = quit;
+  // El formulario libre usa el contador de siempre; los tipos, su deslizador (si se miden).
+  $('#goal-block').hidden = quit || !custom;
+  $('#measure-block').hidden = quit || custom || !typeOf(ui.sheetType).measures;
   $('#kind-hint').hidden = !quit;
   $('#kind-hint').textContent = 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca el hábito para apuntarlo.';
   nameInput.placeholder = quit ? 'Ej. Dejar de fumar' : 'Ej. Beber 2 litros de agua';
+}
+
+const measureRange = $('#measure-range');
+
+// Botones para elegir cómo se mide (si el tipo tiene varias formas) y el deslizador con su valor.
+function setSheetMeasure(habit, type) {
+  const list = type.measures || [];
+  const picker = $('#measure-type');
+  picker.hidden = list.length < 2;
+  picker.className = `segmented${list.length === 2 ? ' two' : ''}`;
+  picker.innerHTML = list.map((m) => `<button type="button" role="radio" data-measure="${m.id}">${MEASURES[m.id].label}</button>`).join('');
+  ui.sheetMeasure = null;
+  if (!list.length) return;
+  const own = habit && list.some((m) => m.id === habit.measure) ? habit.measure : null;
+  selectMeasure(own || list[0].id, own ? habit.goal : null);
+}
+
+function selectMeasure(id, value = null) {
+  const spec = measureSpec(typeOf(ui.sheetType), id);
+  ui.sheetMeasure = id;
+  document.querySelectorAll('#measure-type [data-measure]').forEach((btn) => {
+    btn.setAttribute('aria-checked', String(btn.dataset.measure === id));
+  });
+  measureRange.min = spec.min;
+  measureRange.max = Math.max(spec.max, value || 0);
+  measureRange.step = spec.step;
+  measureRange.value = value ?? spec.def;
+  $('#measure-min').textContent = `${fmtAmount.format(spec.min)} ${spec.unit}`;
+  $('#measure-max').textContent = `${fmtAmount.format(Number(measureRange.max))} ${spec.unit}`;
+  syncMeasure();
+}
+
+function syncMeasure() {
+  const type = typeOf(ui.sheetType);
+  const spec = measureSpec(type, ui.sheetMeasure);
+  const value = Number(measureRange.value);
+  const text = `${fmtAmount.format(value)} ${spec.unit}`;
+  $('#measure-value').textContent = text;
+  measureRange.setAttribute('aria-valuetext', text);
+  let hint = spec.mode === 'count'
+    ? 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.'
+    : type.hint || 'Un toque marca que lo has hecho. Si un día haces otra cantidad, mantén pulsado el hábito para apuntarla.';
+  const habit = ui.editingId && findHabit(ui.editingId);
+  if (habit && (habit.measure !== ui.sheetMeasure || habit.goal !== value)) {
+    hint += spec.mode === 'target'
+      ? ' Los días en los que marcaste la meta seguirán contando como cumplidos.'
+      : ' Los días pasados se recalcularán con la nueva meta.';
+  }
+  $('#measure-hint').textContent = hint;
+}
+
+$('#measure-type').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-measure]');
+  if (!btn || btn.dataset.measure === ui.sheetMeasure) return;
+  const habit = ui.editingId && findHabit(ui.editingId);
+  selectMeasure(btn.dataset.measure, habit && habit.measure === btn.dataset.measure ? habit.goal : null);
+  haptic();
+});
+measureRange.addEventListener('input', syncMeasure);
+
+// Al cambiar la meta de un hábito de tiempo, distancia…: los días marcados con un toque (justo la meta)
+// siguen contando como cumplidos. Si cambia la forma de medir (minutos → pasos), todo se pasa en proporción.
+function keepMetDays(habit, goal, measure) {
+  if (habit.goal === goal && habit.measure === measure) return;
+  const ratio = goal / habit.goal;
+  Object.entries(habit.done).forEach(([day, v]) => {
+    if (measure !== habit.measure) habit.done[day] = round2(v * ratio);
+    else if (v === habit.goal) habit.done[day] = goal;
+  });
 }
 
 function setSheetGoal(goal, unit) {
@@ -2327,40 +2505,66 @@ $('#goal-stepper').addEventListener('click', (e) => {
 goalInput.addEventListener('input', syncGoal);
 goalInput.addEventListener('change', () => { goalInput.value = clampGoal(goalInput.value); syncGoal(); });
 
-function renderIdeas() {
-  const used = new Set(state.habits.map((h) => h.name.toLowerCase()));
-  const ideas = TEMPLATES.filter((t) => !used.has(t.name.toLowerCase()));
-  $('#ideas').hidden = ui.editingId !== null || ideas.length === 0;
-  $('#ideas-row').innerHTML = ideas.map((t) => (
-    `<button type="button" class="idea" data-template="${TEMPLATES.indexOf(t)}">${t.emoji} ${escapeHTML(t.name)}</button>`
-  )).join('');
-}
+// Tipos para elegir al crear un hábito, por grupos
+$('#type-groups').innerHTML = TYPE_GROUPS.map(([group, label]) => `
+  <p class="section-label">${label}</p>
+  <div class="type-grid">${HABIT_TYPES.filter((t) => t.group === group).map(typeTile).join('')}</div>`).join('');
 
-function openSheet(id = null) {
+// Sin hábito ni tipo: se elige el tipo. Con tipo (o al editar): su edición, ya adaptada.
+function openSheet(id = null, typeId = null) {
   const habit = id ? findHabit(id) : null;
   ui.editingId = habit ? habit.id : null;
-
   $('#sheet-title').textContent = habit ? 'Editar hábito' : 'Nuevo hábito';
-  nameInput.value = habit ? habit.name : '';
+  saveBtn.textContent = habit ? 'Guardar' : 'Añadir';
+  if (habit || typeId) startEditor(habit, habit ? habit.type : typeId);
+  else showTypePicker();
+  document.documentElement.classList.add('locked');
+  if (!sheet.open) sheet.showModal();
+}
+
+function showTypePicker() {
+  ui.sheetStep = 'pick';
+  $('#type-picker').hidden = false;
+  $('#habit-editor').hidden = true;
+  saveBtn.hidden = true;
+  $('#type-picker').scrollTop = 0;
+}
+
+function startEditor(habit, typeId) {
+  const type = typeOf(typeId);
+  const custom = type.id === 'custom';
+  ui.sheetStep = 'edit';
+  ui.sheetType = type.id;
+  $('#type-picker').hidden = true;
+  $('#habit-editor').hidden = false;
+  saveBtn.hidden = false;
+  $('#change-type').hidden = Boolean(habit);
+
+  nameInput.value = habit ? habit.name : type.name;
   ui.defaultEmoji = SUGGESTED_EMOJIS.find((e) => !state.habits.some((h) => h.emoji === e)) || '⭐';
-  ui.emojiTouched = Boolean(habit);
-  emojiInput.value = habit ? habit.emoji : ui.defaultEmoji;
+  ui.emojiTouched = Boolean(habit) || !custom;
+  emojiInput.value = habit ? habit.emoji : custom ? ui.defaultEmoji : type.emoji;
   $('#delete-block').hidden = !habit;
   if (habit) syncPauseBox(habit);
-  // El tipo solo se elige al crear el hábito.
-  $('#kind-block').hidden = Boolean(habit);
-  setSheetKind(habit ? habit.kind : 'build');
-  setSheetGoal(habit ? habit.goal : 1, habit ? habit.unit : '');
+  // Empezar o dejar solo se elige en el formulario libre, y al crearlo.
+  $('#kind-block').hidden = Boolean(habit) || !custom;
+  setSheetKind(habit ? habit.kind : type.kind || 'build');
+  setSheetGoal(habit && custom ? habit.goal : 1, habit && custom ? habit.unit : '');
+  setSheetMeasure(habit, type);
   setSheetColor(habit ? habit.color : nextColor(state.habits));
-  setSheetSchedule(habit ? habit.schedule : { type: 'daily' });
-  renderIdeas();
+  setSheetSchedule(habit ? habit.schedule : type.schedule || { type: 'daily' });
   syncEmojiGrid();
   updateSaveButton();
-
-  document.documentElement.classList.add('locked');
-  sheet.showModal();
-  $('.sheet-body').scrollTop = 0;
+  $('#habit-editor').scrollTop = 0;
 }
+
+$('#type-groups').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-type]');
+  if (!btn) return;
+  startEditor(null, btn.dataset.type);
+  haptic();
+});
+$('#change-type').addEventListener('click', showTypePicker);
 
 function closeSheet() {
   sheet.close();
@@ -2397,38 +2601,34 @@ $('#emoji-grid').addEventListener('click', (e) => {
   syncEmojiGrid();
 });
 
-$('#ideas-row').addEventListener('click', (e) => {
-  const btn = e.target.closest('.idea');
-  if (!btn) return;
-  const t = templateFields(TEMPLATES[Number(btn.dataset.template)]);
-  nameInput.value = t.name;
-  emojiInput.value = t.emoji;
-  ui.emojiTouched = true;
-  setSheetKind(t.kind);
-  setSheetGoal(t.goal, t.unit);
-  setSheetSchedule(t.schedule);
-  syncEmojiGrid();
-  updateSaveButton();
-});
-
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const name = nameInput.value.trim();
-  if (!name) return;
+  if (!name || ui.sheetStep !== 'edit') return;
   const emoji = lastGrapheme(emojiInput.value) || '⭐';
 
   const habit = ui.editingId && findHabit(ui.editingId);
+  const type = typeOf(ui.sheetType);
   const kind = habit ? habit.kind : ui.sheetKind;
   const quit = kind === 'quit';
-  const goal = quit ? 1 : clampGoal(goalInput.value);
+  // La meta: la del formulario libre (contador), la del deslizador del tipo, o 1 (sí/no y dejar algo).
+  let measure = { goal: 1, unit: '', mode: 'count', measure: '' };
+  if (!quit && type.id === 'custom') {
+    const goal = clampGoal(goalInput.value);
+    measure = { goal, unit: goal > 1 ? unitInput.value.trim().slice(0, 20) : '', mode: 'count', measure: '' };
+  } else if (!quit && ui.sheetMeasure) {
+    const spec = measureSpec(type, ui.sheetMeasure);
+    measure = { goal: round2(measureRange.value), unit: spec.unit, mode: spec.mode, measure: spec.id };
+  }
+  if (habit && isTarget(habit) && measure.mode === 'target') keepMetDays(habit, measure.goal, measure.measure);
   const fields = {
     name,
     emoji,
     color: ui.sheetColor,
+    type: type.id,
     // Cambiar la frecuencia o la meta recalcula todo (también los días pasados) con lo nuevo.
     schedule: quit ? { type: 'daily' } : sheetScheduleValue(),
-    goal,
-    unit: goal > 1 ? unitInput.value.trim().slice(0, 20) : '',
+    ...measure,
   };
   if (habit) Object.assign(habit, fields);
   else state.habits.push(newHabit({ ...fields, kind }));
@@ -2661,7 +2861,7 @@ $('#habit-list').addEventListener('pointerdown', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn || ui.editing) return;
   const habit = findHabit(btn.dataset.id);
-  if (!habit || habit.kind === 'quit' || habit.goal <= 1) return;
+  if (!habit || !hasAmount(habit)) return;
   const { clientX: x, clientY: y } = e;
   const cancel = () => {
     clearTimeout(pressTimer);
@@ -2686,7 +2886,7 @@ $('#habit-list').addEventListener('pointerdown', (e) => {
   btn.addEventListener('pointermove', onMove);
 });
 
-// Sin menú contextual al mantener pulsado (Android) y con teclado: "−" o Retroceso restan 1.
+// Sin menú contextual al mantener pulsado (Android) y con teclado: "−" o Retroceso restan 1 (o abren el deslizador).
 $('#habit-list').addEventListener('contextmenu', (e) => {
   if (e.target.closest('.habit.qty')) e.preventDefault();
 });
@@ -2694,7 +2894,7 @@ $('#habit-list').addEventListener('keydown', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn || ui.editing || !['-', 'Backspace', 'Delete'].includes(e.key)) return;
   const habit = findHabit(btn.dataset.id);
-  if (!habit || habit.goal <= 1) return;
+  if (!habit || !hasAmount(habit)) return;
   e.preventDefault();
   stepDown(habit, btn);
 });

@@ -2,7 +2,7 @@
 
 Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
 
-Versión actual: **1.0 beta**.
+Versión actual: **1.1 beta**.
 
 > **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
 
@@ -22,14 +22,15 @@ Versión actual: **1.0 beta**.
 12. [Diario: ánimo y nota del día](#diario-ánimo-y-nota-del-día)
 13. [Resumen de la semana](#resumen-de-la-semana)
 14. [Recordatorios en el calendario](#recordatorios-en-el-calendario)
-15. [Pantalla Progreso](#pantalla-progreso)
-16. [Pantalla Historial](#pantalla-historial)
-17. [Pantalla Ajustes](#pantalla-ajustes)
-18. [Aspecto, accesibilidad y detalles](#aspecto-accesibilidad-y-detalles)
-19. [Tus datos](#tus-datos)
-20. [Archivos del proyecto](#archivos-del-proyecto)
-21. [Publicarla e instalarla](#paso-1-opcional-verla-en-tu-ordenador)
-22. [Tres cosas importantes](#tres-cosas-importantes)
+15. [Salud de Apple y Health Connect](#salud-de-apple-y-health-connect)
+16. [Pantalla Progreso](#pantalla-progreso)
+17. [Pantalla Historial](#pantalla-historial)
+18. [Pantalla Ajustes](#pantalla-ajustes)
+19. [Aspecto, accesibilidad y detalles](#aspecto-accesibilidad-y-detalles)
+20. [Tus datos](#tus-datos)
+21. [Archivos del proyecto](#archivos-del-proyecto)
+22. [Publicarla e instalarla](#paso-1-opcional-verla-en-tu-ordenador)
+23. [Tres cosas importantes](#tres-cosas-importantes)
 
 ---
 
@@ -37,7 +38,8 @@ Versión actual: **1.0 beta**.
 
 - Tocas un hábito cuando lo haces y ganas **XP**; subes de **nivel** y consigues **logros**.
 - Cada hábito lleva su **racha** (días seguidos, o semanas en los semanales).
-- Hay tres tipos de hábito: de **sí/no**, con **cantidad** («3/8 vasos») y para **dejar algo** («12 días sin fumar»).
+- **21 tipos de hábito** listos para usar (caminar, correr, leer, meditar, beber agua, dormir, dejar de fumar…), cada uno con su **edición a medida**: por ejemplo, un deslizador para elegir cuántos minutos quieres caminar. Y uno **personalizado** para cualquier otra cosa.
+- Se miden de cuatro formas: **sí/no**, **tiempo o distancia** («30 min», «5 km»: un toque marca la meta), **contador** («3/8 vasos») y **dejar algo** («12 días sin fumar»).
 - Eliges la **frecuencia**: cada día, algunos días de la semana o X veces por semana.
 - Puedes **pausar** un hábito (vacaciones, lesión…) sin romper la racha, o **archivarlo**.
 - Los **protectores** salvan tu racha si un día se te olvida.
@@ -48,24 +50,7 @@ Versión actual: **1.0 beta**.
 
 ## Primera vez: la bienvenida
 
-Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app y 8 hábitos sugeridos para elegir con un toque (puedes marcar varios). El botón **«Empezar con N hábitos»** se queda fijo abajo para que siempre lo veas. También puedes pulsar **«o crea uno a tu medida»**.
-
-**Plantillas disponibles** (las 8 primeras salen en la bienvenida; todas aparecen como «Ideas rápidas» al crear un hábito):
-
-| Plantilla | Tipo | Detalle |
-| --- | --- | --- |
-| 💧 Beber agua | Cantidad | Meta: 8 vasos |
-| 🚶 Caminar 30 min | Sí/no | Cada día |
-| 📚 Leer | Cantidad | Meta: 10 páginas |
-| 🧘 Meditar | Sí/no | Cada día |
-| 😴 Dormir 8 horas | Sí/no | Cada día |
-| 💪 Hacer ejercicio | Sí/no | 3 veces por semana |
-| 🍎 Comer fruta | Sí/no | Cada día |
-| 📵 Menos redes | Dejar algo | — |
-| ✍️ Escribir diario | Sí/no | Cada día |
-| 🦷 Hilo dental | Sí/no | Cada día |
-| 🚭 Dejar de fumar | Dejar algo | — |
-| 🍬 Sin azúcar | Dejar algo | — |
+Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app y 8 tipos de hábito sugeridos. **Al tocar uno no se crea todavía:** se abre su edición, ya adaptada (por ejemplo, Caminar con su deslizador de minutos), para que lo ajustes y pulses **Añadir**. **«Ver todos los tipos»** abre la lista completa.
 
 ## Pantalla Hoy
 
@@ -93,12 +78,14 @@ Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app
   - «6 días · próxima meta: 7» cuando ya lo has hecho. Las metas son 3, 7, 14, 30, 60, 100, 180 y 365 días.
   - «Empieza tu racha hoy» si aún no tienes racha.
   - Semanales: «2 semanas · 2/3 esta semana» (con ✓ al cumplir la semana).
-  - Cantidad: «3/8 vasos · 5 días», y un anillo fino alrededor de la casilla muestra lo que llevas.
+  - Contador: «3/8 vasos · 5 días», y un anillo fino alrededor de la casilla muestra lo que llevas.
+  - Tiempo, distancia…: «20/30 min · 5 días» (o «30 min» al cumplirla).
   - Dejar algo: «12 días sin fumar».
   - Descanso: «Hoy descansa · 5 días» o «Día extra» si lo haces igualmente.
   - Pausa: «En pausa hasta el 3 oct · reanudar».
   - Día salvado por un protector (al mirar días anteriores): «Protegido · la racha se mantuvo».
-- **Tocar un hábito:** marca o desmarca, suma 1 en los de cantidad, apunta una recaída en los de dejar algo, u ofrece reanudar si está en pausa.
+- **Tocar un hábito:** marca o desmarca (en los de tiempo o distancia, marca la meta), suma 1 en los contadores, apunta una recaída en los de dejar algo, u ofrece reanudar si está en pausa.
+- **Mantener pulsado:** en los de tiempo o distancia abre el deslizador para apuntar la cantidad real; en los contadores resta 1.
 - **Modo edición:** toca un hábito para editarlo, o arrástralo desde ☰ para cambiar el orden.
 
 **Al marcar** notarás, sin estridencias:
@@ -111,26 +98,56 @@ Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app
 
 ## Crear y editar hábitos
 
-Toca **+**. Lo mínimo es escribir el nombre y pulsar **Guardar**: así tienes un hábito diario de sí/no. El formulario está organizado por secciones:
+Toca **+**. Primero eliges **qué tipo de hábito** quieres y después se abre **su edición, adaptada a ese tipo**. No se crea nada hasta que pulsas **Añadir** (y **«‹ Otro tipo»** te devuelve a la lista).
 
-- **Emoji:** toca el grande para escribir cualquier emoji o elige uno de los 24 sugeridos. Si eliges «Quiero dejar de…» sin haber tocado el emoji, se pone 🚭.
-- **Tipo** (solo al crearlo): «Quiero empezar a…» o «Quiero dejar de…».
-- **Nombre:** hasta 40 caracteres.
-- **Ideas rápidas** (solo al crear): las plantillas que aún no usas. Rellenan nombre, emoji, tipo, meta y frecuencia de un toque.
-- **Frecuencia:** cada día, algunos días o X veces por semana (ver [Frecuencia](#frecuencia)).
-- **Meta de cada día:** de 1 a 99, con botones − y + o escribiendo el número, y una **unidad** opcional (hasta 20 caracteres: vasos, páginas, minutos…).
+**Los tipos**, por grupos:
+
+| Grupo | Tipo | Cómo se mide (y lo que propone) |
+| --- | --- | --- |
+| Moverte | 🚶 Caminar | Tiempo (5–180 min, 30) o pasos (1.000–30.000, 8.000) |
+| | 🏃 Correr | Distancia (0,5–42 km, 5) o tiempo · 3 veces por semana |
+| | 🚴 Montar en bici | Distancia (1–100 km, 15) o tiempo · 2 veces por semana |
+| | 💪 Hacer ejercicio | Tiempo (45 min) · 3 veces por semana |
+| | 🤸 Estirar | Tiempo (5–60 min, 10) |
+| Mente | 🧘 Meditar | Tiempo (1–60 min, 10) |
+| | 📚 Leer | Páginas (5–150, 20) o tiempo |
+| | 🎓 Estudiar | Tiempo (45 min) |
+| | 🗣️ Practicar un idioma | Tiempo (15 min) |
+| | 🎸 Tocar un instrumento | Tiempo (20 min) |
+| | ✍️ Escribir diario | Sí o no |
+| Salud | 💧 Beber agua | Contador de vasos (2–16, 8) |
+| | 😴 Dormir bien | Horas (4–12, de media en media, 8) |
+| | 🍎 Comer fruta | Contador de piezas (1–8, 3) |
+| | 🦷 Usar hilo dental | Sí o no |
+| | 💊 Tomar vitaminas | Sí o no |
+| Dejar algo | 🚭 Dejar de fumar · 🍬 Sin azúcar · 📵 Menos redes · 🍷 Sin alcohol | Días sin recaer |
+| A tu manera | Personalizado | El formulario libre: empezar o dejar algo, meta de 1 a 99 y unidad |
+
+**La edición** se adapta al tipo:
+
+- **Emoji y nombre**, ya puestos (puedes cambiarlos; el nombre admite hasta 40 caracteres).
+- **Meta de cada día:** un **deslizador** con los límites de ese tipo. Si se puede medir de dos formas, arriba eliges cuál (por ejemplo, «Tiempo | Pasos» al caminar). Debajo se explica cómo se marca.
+- **Frecuencia:** cada día, algunos días o X veces por semana (ver [Frecuencia](#frecuencia)). Algunos tipos traen una propuesta (correr, 3 veces por semana).
+- Los de **sí o no** no tienen meta, y los de **dejar algo** tampoco tienen frecuencia (son diarios).
+- **Personalizado** es el formulario de siempre: «Quiero empezar a…» o «Quiero dejar de…», y una meta de 1 a 99 con botones − y + y una unidad opcional.
 - **Color:** 8 tonos (Salvia, Jade, Niebla, Glicina, Sakura, Arcilla, Ocre y Piedra). Se usa en su icono, su casilla y su mapa de calor. Por defecto se propone uno que no uses aún.
 - **Recordatorio:** una hora y el botón **«Añadir al calendario»** (ver [Recordatorios](#recordatorios-en-el-calendario)).
-- **Solo al editar:** Pausa, Archivar y Eliminar.
+- **Solo al editar:** Pausa, Archivar y Eliminar. Al editar no se cambia el tipo.
 
-**Guardar** se desactiva si falta el nombre o si eliges «Algunos días» sin marcar ninguno. Al editar, si cambias la frecuencia o la meta, un aviso te recuerda que la racha y la XP se recalcularán (también la de los días pasados). **Cancelar** o tocar fuera de la hoja la cierra sin guardar.
+**Añadir/Guardar** se desactiva si falta el nombre o si eliges «Algunos días» sin marcar ninguno. Al editar, si cambias la frecuencia o la meta, un aviso te explica qué pasa con los días pasados. **Cancelar** o tocar fuera de la hoja la cierra sin guardar.
 
 ## Tipos de hábito
 
 ### Sí/no (meta 1)
 Un toque y listo. Tocar otra vez lo desmarca.
 
-### Con cantidad (meta de 2 a 99)
+### De tiempo, distancia, pasos, horas o páginas
+- **Un toque marca que has cumplido la meta** del día (por ejemplo, 30 min) y da su XP. Otro toque lo desmarca.
+- **Mantener pulsado** (medio segundo) abre un deslizador para **apuntar lo que hiciste de verdad**: por ejemplo, 20 de 30 min. Si llegas a la meta (o la pasas), cuenta como hecho; si no, se queda a medias y un anillo alrededor de la casilla muestra cuánto llevas. Desde ahí también puedes **borrar lo de ese día**. Con teclado, la tecla **−** abre el mismo deslizador.
+- Debajo del nombre verás «20/30 min» o, al cumplirla, lo que hiciste («35 min»).
+- **Si cambias la meta**, los días que marcaste con un toque siguen contando como cumplidos. Si cambias la forma de medir (de minutos a pasos, por ejemplo), los días pasados se convierten en proporción.
+
+### Contador (vasos, piezas… o una meta de 2 a 99 en Personalizado)
 - Cada toque **suma 1** hasta llegar a la meta. **Mantener pulsado** (medio segundo) **resta 1**. Con teclado, las teclas **−**, **Retroceso** o **Suprimir** también restan.
 - Muestra «3/8 vasos» y un **anillo alrededor de la casilla** se va completando con el color del hábito.
 - Solo cuenta como hecho (y da XP) **al llegar a la meta**. Si tocas cuando ya está completo, te recuerda que puedes mantener pulsado para restar.
@@ -279,6 +296,10 @@ Los logros de racha se miden en días, en cualquier hábito diario, de algunos d
 - **Android:** se abre el menú Compartir (o se descarga el archivo `.ics`); ábrelo con **Google Calendar** u otra app de calendario.
 - **Si cambias la frecuencia**, tendrás que volver a añadir el recordatorio y borrar el anterior del calendario.
 
+## Salud de Apple y Health Connect
+
+Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) y **Health Connect** (Android) a las apps nativas de la App Store o Google Play. Por eso **no puede leer tus pasos, minutos o sueño automáticamente**: los apuntas tú, con un toque o manteniendo pulsado para poner la cantidad exacta. Conectarla con Salud obligaría a convertir Bonsái en una app nativa.
+
 ## Pantalla Progreso
 
 - **Tu nivel:** anillo con el número de tu nivel, su título, barra de XP, cuánto falta para el siguiente, y tu **XP total**, tu **mejor racha** y tus **días perfectos**.
@@ -350,11 +371,11 @@ Los logros de racha se miden en días, en cualquier hábito diario, de algunos d
 
 - Todo se guarda en el propio móvil (`localStorage`, clave `racha:v1`: conserva el nombre antiguo para que nadie pierda sus datos). No hay servidor, cuenta ni seguimiento.
 - Solo se guarda lo que decides tú:
-  - tus hábitos y días marcados;
+  - tus hábitos (con su tipo y cómo se miden) y lo que marcas cada día;
   - recaídas, pausas y protectores usados;
   - diario y perfil.
 - La XP, los niveles, las rachas, los logros, los protectores ganados y los retos **se calculan a partir de tu historial**, así que siempre cuadran.
-- Los datos de versiones anteriores se actualizan solos al abrir la app nueva, sin perder nada.
+- Los datos de versiones anteriores se actualizan solos al abrir la app nueva, sin perder nada (los hábitos que ya tenías pasan a ser «Personalizado» y funcionan igual).
 
 ## Archivos del proyecto
 
