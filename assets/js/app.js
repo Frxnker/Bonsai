@@ -97,7 +97,6 @@ const PREF_CHOICES = {
   backupReminder: [0, 7, 14, 30],
 };
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
-const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52];
 
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -269,21 +268,44 @@ function parseKey(key) {
   return new Date(y, m - 1, d);
 }
 
-function shiftKey(key, days) {
+// Los cálculos de rachas, XP y retos recorren miles de fechas en cada pintado. Crear un Date para cada una
+// era lo más lento, así que el resultado de cada fecha (siempre el mismo) se recuerda. Con un tope, por si
+// la app pasa mucho tiempo abierta.
+const DATE_MEMO_MAX = 50000;
+function memoized(fn) {
+  const memo = new Map();
+  return (key) => {
+    let value = memo.get(key);
+    if (value === undefined) {
+      if (memo.size >= DATE_MEMO_MAX) memo.clear();
+      value = fn(key);
+      memo.set(key, value);
+    }
+    return value;
+  };
+}
+
+const addDays = (key, days) => {
   const d = parseKey(key);
   d.setDate(d.getDate() + days);
   return dateKey(d);
-}
+};
+const nextKey = memoized((key) => addDays(key, 1));
+const shiftedKey = memoized((id) => {
+  const [key, days] = id.split('|');
+  return addDays(key, Number(days));
+});
+const shiftKey = (key, days) => (days === 1 ? nextKey(key) : shiftedKey(`${key}|${days}`));
 
-const weekdayOf = (key) => (parseKey(key).getDay() + 6) % 7; // 0 = lunes
+const weekdayOf = memoized((key) => (parseKey(key).getDay() + 6) % 7); // 0 = lunes
 const weekStartOf = (key) => shiftKey(key, -weekdayOf(key));
 
 // Recorre los días de `from` a `to` (ambos incluidos) llamando a fn(clave, díaDeLaSemana).
 function forEachDay(from, to, fn) {
-  const d = parseKey(from);
-  for (let key = from; key <= to; key = dateKey(d)) {
-    fn(key, (d.getDay() + 6) % 7);
-    d.setDate(d.getDate() + 1);
+  let weekday = weekdayOf(from);
+  for (let key = from; key <= to; key = nextKey(key)) {
+    fn(key, weekday);
+    weekday = (weekday + 1) % 7;
   }
 }
 
@@ -2079,7 +2101,6 @@ const HEALTH_CHART_DOTS = 40; // con más registros en el periodo, solo se dibuj
 const HEALTH_AVG_DAYS = 7;
 const HEALTH_TAGS = ['en ayunas', 'por la mañana', 'por la noche', 'tras entrenar', 'tras comer'];
 const roundTo = (v, d) => Math.round((Number(v) + Number.EPSILON) * 10 ** d) / 10 ** d;
-const round1 = (v) => roundTo(v, 1);
 const healthFormats = {};
 const fmtHealthN = (d) => healthFormats[d]
   || (healthFormats[d] = new Intl.NumberFormat('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: 'always' }));

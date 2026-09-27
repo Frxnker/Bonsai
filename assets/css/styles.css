@@ -1425,8 +1425,7 @@ input[type="range"] {
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.period-picker,
-.unit-picker { margin-top: 12px; }
+.period-picker { margin-top: 12px; }
 .health-chart-empty { margin: 14px 0 0; }
 .health-chart {
   margin: 12px -4px 0;
@@ -1553,7 +1552,6 @@ input[type="range"] {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.health-range { margin: 4px 0 0; color: var(--ink-2); font-size: calc(13px * var(--text)); }
 .health-list {
   margin: 8px -16px -8px;
   padding: 0;
