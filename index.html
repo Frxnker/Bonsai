@@ -6,8 +6,8 @@
   <title>Bonsái</title>
   <meta name="description" content="Cultiva tus hábitos con calma: rachas, niveles, retos semanales y diario. Funciona sin conexión y sin cuenta.">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#F4F1E9" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#111713" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F6F5F1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161A18" media="(prefers-color-scheme: dark)">
 
   <!-- PWA e iPhone: abrir a pantalla completa al añadir a la pantalla de inicio -->
   <link rel="manifest" href="manifest.json">
@@ -78,7 +78,9 @@
 
       <!-- Retos de la semana (resumen; el detalle está en Progreso) -->
       <button type="button" class="challenge-strip" id="challenge-strip" data-goto-view="progress" hidden>
-        <span class="cs-icon" aria-hidden="true">🏆</span>
+        <span class="cs-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>
+        </span>
         <span class="cs-body">
           <span class="cs-title">Retos de la semana <b id="cs-count"></b></span>
           <span class="cs-bars" id="cs-bars" aria-hidden="true"></span>
@@ -99,13 +101,27 @@
       <section class="card journal" id="journal" aria-labelledby="journal-title" hidden>
         <div class="card-head"><h2 id="journal-title">¿Qué tal el día?</h2></div>
         <div class="mood-row" id="mood-row" role="radiogroup" aria-labelledby="journal-title">
-          <button type="button" role="radio" data-mood="1" aria-label="Mal">😞</button>
-          <button type="button" role="radio" data-mood="2" aria-label="Regular">😕</button>
-          <button type="button" role="radio" data-mood="3" aria-label="Normal">😐</button>
-          <button type="button" role="radio" data-mood="4" aria-label="Bien">🙂</button>
-          <button type="button" role="radio" data-mood="5" aria-label="Genial">😄</button>
+          <!-- Caras de línea: de peor (1) a mejor (5) -->
+          <button type="button" role="radio" data-mood="1" aria-label="Mal">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8.5 16.5c1-1.3 2.2-2 3.5-2s2.5.7 3.5 2"/></svg>
+          </button>
+          <button type="button" role="radio" data-mood="2" aria-label="Regular">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M9 15.9l6-1.3"/></svg>
+          </button>
+          <button type="button" role="radio" data-mood="3" aria-label="Normal">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M9 15.5h6"/></svg>
+          </button>
+          <button type="button" role="radio" data-mood="4" aria-label="Bien">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M9 14.5c.9.6 1.9.9 3 .9s2.1-.3 3-.9"/></svg>
+          </button>
+          <button type="button" role="radio" data-mood="5" aria-label="Genial">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8 13.5h8a4 4 0 0 1-8 0z"/></svg>
+          </button>
         </div>
-        <button type="button" class="link-btn" id="note-open">✏️ Añadir nota</button>
+        <button type="button" class="link-btn" id="note-open">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5h4l10-10-4-4-10 10v4z"/><path d="M13 7l4 4"/></svg>
+          Añadir nota
+        </button>
         <div class="note-box" id="note-box" hidden>
           <textarea id="note-input" maxlength="200" rows="3" placeholder="Algo que quieras recordar de este día…" aria-label="Nota del día (máximo 200 caracteres)"></textarea>
           <span class="note-count" id="note-count" aria-live="polite">0/200</span>

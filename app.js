@@ -133,6 +133,10 @@ const ICONS = {
   grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg>',
   pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
+  // Iconos de línea en lugar de emojis (racha, protector y día de descanso)
+  flame: '<svg viewBox="0 0 24 24" role="img" aria-label="Racha"><path d="M12 3c.4 2.6 2 4.3 3.6 6 1.5 1.6 2.4 3.2 2.4 5.2A6 6 0 0 1 6 14.2c0-2 .8-3.6 2.2-5 .2 1.5.9 2.6 2 3.2C10 9 10.6 5.8 12 3z"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.7v5.5c0 4.4-2.9 7.9-7 9.3-4.1-1.4-7-4.9-7-9.3V5.7L12 3z"/></svg>',
+  leaf: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18C6 10.5 10.5 6 19 5c-.6 8.3-5 13-13 13z"/><path d="M6 18l6-6"/></svg>',
 };
 
 // ---------- Fechas (siempre en hora local, formato AAAA-MM-DD) ----------
@@ -892,18 +896,18 @@ function renderToday() {
   const allDone = ring.total > 0 && ring.done === ring.total;
   const restDay = hasHabits && ring.total === 0;
   $('#day-ring').style.setProperty('--p', ring.total ? ring.done / ring.total : 0);
-  $('#progress-count').textContent = restDay ? '🌿' : `${ring.done}/${ring.total}`;
-  $('#day-ring-label').textContent = restDay ? 'descanso' : allDone ? '¡hecho!' : isToday ? 'hoy' : 'ese día';
+  $('#progress-count').innerHTML = restDay ? ICONS.leaf : `${ring.done}/${ring.total}`;
+  $('#day-ring-label').textContent = restDay ? 'descanso' : allDone ? 'hecho' : isToday ? 'hoy' : 'ese día';
   $('#progress-text').textContent = isToday ? 'Tus hábitos de hoy' : 'Hábitos de ese día';
   const note = $('#progress-note');
-  note.textContent = restDay ? 'Día de descanso 🌿'
-    : allDone ? (isToday ? '¡Todo hecho! 🎉' : '¡Día completo! 🎉')
+  note.textContent = restDay ? 'Día de descanso'
+    : allDone ? (isToday ? 'Todo hecho hoy' : 'Día completo')
     : `${ring.done} de ${ring.total} hechos`;
   note.classList.toggle('all-done', allDone);
 
   let coach = '';
   if (ui.editing) coach = 'Toca un hábito para editarlo, o arrástralo desde ☰ para cambiar el orden.';
-  else if (hasHabits && stats.checkins === 0) coach = '👆 Toca un hábito cuando lo completes';
+  else if (hasHabits && stats.checkins === 0) coach = 'Toca un hábito cuando lo completes.';
   $('#coach').textContent = coach;
   $('#coach').hidden = !coach;
 
@@ -937,7 +941,7 @@ function renderLevelCard(stats) {
   $('#level-fill').style.width = `${(inLevel / span) * 100}%`;
   $('#level-next').textContent = `${fmtNumber.format(stats.levelEnd - stats.xp)} XP para el nivel ${stats.level + 1}`;
   const chip = $('#shield-chip');
-  chip.textContent = `🛡️ ${stats.shields}`;
+  chip.innerHTML = `${ICONS.shield}${stats.shields}`;
   chip.setAttribute('aria-label', `${plural(stats.shields, 'protector de racha', 'protectores de racha')} de ${SHIELD_MAX}`);
 }
 
@@ -956,7 +960,7 @@ function renderChallengeStrip(hasHabits) {
   }).join('');
 }
 
-const flameHTML = (text) => `<span class="flame">🔥 ${text}</span>`;
+const flameHTML = (text) => `<span class="flame">${ICONS.flame}${text}</span>`;
 
 // Semanales: "✓ 3/3 esta semana"
 function weekText(habit) {
@@ -966,7 +970,7 @@ function weekText(habit) {
   return `${count >= times ? '✓ ' : ''}${count}/${times} ${sameWeek ? 'esta semana' : 'esa semana'}`;
 }
 
-// Racha corta, para acompañar a otros datos: "🔥 5 días" o "🔥 2 semanas · 1/3 esta semana".
+// Racha corta, para acompañar a otros datos: "5 días" o "2 semanas · 1/3 esta semana" (con el icono de racha).
 function shortStreak(habit) {
   const s = streakInfo(habit);
   if (s.unit === 'week') return [s.current ? flameHTML(plural(s.current, 'semana', 'semanas')) : '', weekText(habit)].filter(Boolean).join(' · ');
@@ -980,16 +984,16 @@ function streakMeta(habit) {
   if (s.unit === 'week') return shortStreak(habit);
   if (s.current === 0) return isDue(habit, today) ? 'Empieza tu racha hoy' : 'Empieza tu racha';
   const flame = flameHTML(plural(s.current, 'día', 'días'));
-  if (isDue(habit, today) && !isDone(habit, today)) return `${flame} · ¡no la pierdas!`;
+  if (isDue(habit, today) && !isDone(habit, today)) return `${flame} · pendiente hoy`;
   const next = MILESTONES.find((m) => m > s.current);
   return next ? `${flame} · próxima meta: ${next}` : flame;
 }
 
-// Los de dejar algo: "🚭 12 días sin fumar"
+// Los de dejar algo: "12 días sin fumar"
 function quitMeta(habit) {
   if (hasSlip(habit, ui.day)) return `Recaída${ui.day === ui.today ? ' hoy' : ''} · <u>deshacer</u>`;
   const days = plural(streakInfo(habit).current, 'día', 'días');
-  return `<span class="flame">${escapeHTML(habit.emoji)} ${days}</span> sin ${escapeHTML(quitWhat(habit))}`;
+  return `<span class="flame">${days}</span> sin ${escapeHTML(quitWhat(habit))}`;
 }
 
 // Cantidad: "3/8 vasos"
@@ -1042,21 +1046,21 @@ function habitRow(habit) {
     label = hasSlip(habit, day) ? `${safeName}: recaída apuntada. Toca para deshacer`
       : `${safeName}: ${plural(streakInfo(habit).current, 'día', 'días')} sin ${escapeHTML(quitWhat(habit))}. Toca si has recaído`;
   } else if (habit.goal > 1) {
-    // Cantidad: la tarjeta se va rellenando con el color del hábito.
+    // Cantidad: un anillo alrededor de la casilla muestra lo que llevas (--fill, de 0 a 1).
     classes.push('qty');
     style += `;--fill:${(amountOn(habit, day) / habit.goal).toFixed(3)}`;
-    const extra = rest ? (done ? '✨ Día extra' : rest) : shortStreak(habit);
+    const extra = rest ? (done ? 'Día extra' : rest) : shortStreak(habit);
     meta = [`<b class="amount">${amountText(habit, day)}</b>`, extra].filter(Boolean).join(' · ');
     if (!done) mark = ICONS.plus;
     label = `${safeName}: ${amountOn(habit, day)} de ${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}. Toca para sumar 1; mantén pulsado para restar 1`;
   } else {
-    meta = rest ? (done ? '✨ Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
+    meta = rest ? (done ? 'Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
   }
   if (rest) classes.push('resting');
   // Día pasado salvado por un protector (si lo marcas, el protector vuelve).
   if (isShielded(habit, day)) {
     classes.push('shielded');
-    meta = '🛡️ Protegido · tu racha siguió viva';
+    meta = `${ICONS.shield}Protegido · tu racha siguió viva`;
   }
 
   return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" style="${style}"${label ? ` aria-label="${label}"` : ''}>

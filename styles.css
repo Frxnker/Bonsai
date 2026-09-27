@@ -1,6 +1,8 @@
 /* =========================================================
-   Bonsái · estilo zen: tonos de jardín (salvia, arena, piedra)
-   con formas redondeadas y botones que se hunden al pulsarlos
+   Bonsái · tonos de jardín (papel, salvia, piedra)
+   En transición: la pantalla Hoy y la barra de pestañas ya usan
+   la estética nueva (plana y sobria, al final del archivo); el
+   resto de pantallas pasa a ella en la fase 3.
    ========================================================= */
 
 /* Permite animar los anillos de progreso */
@@ -62,13 +64,33 @@
   --toast-action: #D8B660;
 
   --radius: 22px;
-  --dock-h: 66px;
-  --dock-gap: 10px;
+  --dock-h: 50px;
+  --dock-gap: 0px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --above-dock: calc(var(--safe-b) + var(--dock-gap) + var(--dock-h));
+
+  /* Nueva estética (Bonsái): colores sobrios, superficies planas y un solo acento, usado poco.
+     De momento solo los usa la pantalla Hoy; en la fase 3 sustituirán a los de arriba. */
+  --paper: #F6F5F1;           /* fondo liso */
+  --card: #FFFFFF;
+  --wash: #F0EFEA;            /* rellenos suaves y estado pulsado */
+  --hair: #E3E1DA;            /* bordes de 1 px */
+  --hair-strong: #CBC8BF;
+  --ink: #1E2320;             /* texto principal */
+  --ink-2: #5A605B;           /* texto secundario (contraste AA sobre papel y tarjeta) */
+  --sage: #4F6F5C;            /* acento: salvia apagada */
+  --sage-ink: #3F5E4C;        /* texto en color de acento */
+  --sage-soft: #E6ECE7;
+  --on-sage: #FFFFFF;         /* texto e iconos sobre el acento */
+  --track: #E8E6E0;           /* fondo de anillos y barras */
+  --alert: #A5423C;           /* recaídas y avisos */
+  --bar-bg: rgba(246, 245, 241, 0.82);
+  --tab-idle: #5A605B;        /* pestañas no activas */
+  --serif: ui-serif, "New York", Georgia, "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
 
   color-scheme: light;
 }
@@ -124,6 +146,23 @@
     --toast-text: #19211C;
     --toast-action: #4E7A62;
 
+    /* Nueva estética: grafito verdoso, no negro puro */
+    --paper: #161A18;
+    --card: #1D2220;
+    --wash: #252B28;
+    --hair: #2F3632;
+    --hair-strong: #434B46;
+    --ink: #E6E9E5;
+    --ink-2: #A0A7A1;
+    --sage: #8DAE99;
+    --sage-ink: #A7C4B1;
+    --sage-soft: rgba(141, 174, 153, 0.14);
+    --on-sage: #121714;
+    --track: #2C332F;
+    --alert: #D98A82;
+    --bar-bg: rgba(22, 26, 24, 0.82);
+    --tab-idle: #8A918B;
+
     color-scheme: dark;
   }
 }
@@ -133,7 +172,7 @@
 [hidden] { display: none !important; }
 
 html {
-  background: var(--bg);
+  background: var(--paper);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -143,23 +182,11 @@ body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg);
+  background: var(--paper);
   color: var(--text);
   font: 500 17px/1.35 ui-rounded, "SF Pro Rounded", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Manchas de color suaves detrás de todo */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(520px 380px at 105% -8%, var(--glow-1), transparent 70%),
-    radial-gradient(460px 360px at -25% 38%, var(--glow-2), transparent 70%);
 }
 
 button, input { font: inherit; color: inherit; }
@@ -1180,24 +1207,22 @@ h1 {
 .empty h2 { margin: 16px 0 6px; font-size: 24px; font-weight: 900; }
 .empty p { margin: 0 0 24px; color: var(--text-2); font-weight: 600; }
 
-/* ---------- Barra de pestañas flotante ---------- */
+/* ---------- Barra de pestañas: de lado a lado, translúcida ---------- */
 .tabbar {
   position: fixed;
-  bottom: calc(var(--safe-b) + var(--dock-gap));
-  left: 50%;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 10;
   display: flex;
-  gap: 4px;
-  width: min(440px, calc(100% - 24px - var(--safe-l) - var(--safe-r)));
-  height: var(--dock-h);
-  padding: 6px;
-  border: 2px solid var(--line);
-  border-radius: 24px;
-  background: var(--dock-bg);
-  box-shadow: 0 5px 0 var(--edge), var(--dock-shadow);
-  transform: translateX(-50%);
-  -webkit-backdrop-filter: saturate(160%) blur(18px);
-  backdrop-filter: saturate(160%) blur(18px);
+  height: calc(var(--dock-h) + var(--safe-b));
+  /* En pantallas anchas los botones se quedan centrados, a la anchura del contenido */
+  padding: 0 max(var(--safe-r), calc(50% - 280px)) var(--safe-b) max(var(--safe-l), calc(50% - 280px));
+  border-top: 1px solid var(--hair);
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  font-family: var(--sans);
 }
 .tab {
   display: flex;
@@ -1205,19 +1230,18 @@ h1 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  border-radius: 18px;
-  color: var(--text-2);
-  font-size: 11px;
-  font-weight: 800;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  gap: 3px;
+  color: var(--tab-idle);
+  font-size: 10px;
+  font-weight: 500;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
-.tab svg { width: 24px; height: 24px; stroke-width: 2.3; }
-.tab[aria-current="page"] {
-  background: var(--accent);
-  box-shadow: inset 0 -3px 0 var(--accent-edge);
-  color: var(--accent-ink);
-}
+.tab svg { width: 24px; height: 24px; stroke-width: 1.5; }
+.tab:active { opacity: 0.6; }
+/* La activa: color del acento, algo más gruesa y con el icono relleno a medio tono */
+.tab[aria-current="page"] { color: var(--sage-ink); font-weight: 600; }
+.tab[aria-current="page"] svg { fill: color-mix(in srgb, currentColor 18%, transparent); }
+.tab:focus-visible { outline: 2px solid var(--sage); outline-offset: -4px; border-radius: 10px; }
 
 /* ---------- Hoja para crear / editar ---------- */
 .sheet {
@@ -2120,6 +2144,410 @@ h1 {
   min-height: 36px;
   color: var(--toast-action);
   font-weight: 900;
+}
+
+/* =========================================================
+   Nueva estética · pantalla Hoy (fase 2)
+   Plana y sobria: letra del sistema, bordes de 1 px, sin sombras,
+   sin degradados y el acento solo donde hace falta.
+   Va aquí, separada, para poder compararla; en la fase 3 el resto de
+   pantallas pasa a este estilo y se borran las reglas antiguas.
+   ========================================================= */
+
+#view-today > :not(.welcome) {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-weight: 400;
+}
+#view-today svg { stroke-width: 1.5; }
+#view-today :focus-visible { outline: 2px solid var(--sage); outline-offset: 2px; }
+
+/* Barra superior */
+#view-today .topbar { gap: 12px; min-height: 56px; }
+#view-today .avatar-bubble {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--hair);
+  background: var(--card);
+  box-shadow: none;
+  font-size: 20px;
+  transition: background-color 0.15s ease;
+}
+#view-today .greeting { line-height: 1.25; }
+#view-today .greeting-hello { color: var(--ink-2); font-size: 13px; font-weight: 400; }
+#view-today .greeting-name { font-size: 15px; font-weight: 600; }
+#view-today .topbar-actions { gap: 4px; }
+#view-today .pill-btn {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  box-shadow: none;
+  color: var(--sage-ink);
+  font-size: 16px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+#view-today .pill-btn.active { font-weight: 600; }
+#view-today .add-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--sage);
+  box-shadow: none;
+  color: var(--on-sage);
+  transition: opacity 0.15s ease;
+}
+#view-today .add-btn svg { width: 20px; height: 20px; stroke-width: 1.75; }
+
+/* Título y navegación entre días */
+#view-today .title-row { margin-top: 8px; }
+#view-today h1 {
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+#view-today .subtitle { margin-top: 4px; color: var(--ink-2); font-size: 15px; font-weight: 400; }
+#view-today .day-nav {
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: none;
+}
+#view-today .day-nav button { width: 44px; height: 38px; transition: background-color 0.15s ease; }
+#view-today .day-nav button + button { border-left: 1px solid var(--hair); }
+#view-today .day-nav svg { width: 18px; height: 18px; stroke-width: 1.75; }
+#view-today .chip {
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 12px 0 9px;
+  border: 0;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+#view-today .chip svg { width: 16px; height: 16px; stroke-width: 1.75; }
+
+/* Tarjeta principal: superficie normal con un borde fino */
+#view-today .hero-card {
+  grid-template-columns: 76px 1fr;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: none;
+  color: var(--ink);
+  transition: background-color 0.15s ease;
+}
+#view-today .hero-card::after { display: none; }
+#view-today .day-ring {
+  width: 76px;
+  height: 76px;
+  transition: --p 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+#view-today .day-ring::before {
+  background: conic-gradient(var(--sage) calc(var(--p) * 1turn), var(--track) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6.5px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 6.5px), #000 calc(100% - 6px));
+}
+#view-today .day-ring-count { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+#view-today .day-ring-count svg { display: block; width: 22px; height: 22px; margin: 0 auto; color: var(--sage); }
+#view-today .day-ring-label {
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#view-today .hero-kicker { color: var(--ink-2); font-size: 13px; font-weight: 400; }
+#view-today #level-emoji { display: none; }
+#view-today #level-name { font-weight: 500; }
+#view-today .level-xp {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+#view-today .hero-level-title {
+  margin-top: 1px;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+#view-today .xp-track { height: 4px; margin: 10px 0 8px; border-radius: 2px; background: var(--track); }
+#view-today .xp-fill { background: var(--sage); box-shadow: none; }
+#view-today .level-next { color: var(--ink-2); font-size: 13px; font-weight: 400; }
+#view-today .shield-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+#view-today .shield-chip svg { width: 15px; height: 15px; }
+
+/* Retos de la semana */
+#view-today .challenge-strip {
+  grid-template-columns: 32px 1fr 16px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: none;
+  color: var(--ink);
+  transition: background-color 0.15s ease;
+}
+#view-today .cs-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+#view-today .cs-icon svg { width: 18px; height: 18px; }
+#view-today .cs-body { gap: 8px; }
+#view-today .cs-title { font-size: 15px; font-weight: 500; }
+#view-today .cs-title b { color: var(--ink-2); font-weight: 500; }
+#view-today .cs-bars { gap: 4px; }
+#view-today .cs-bar { height: 4px; border-radius: 2px; background: var(--track); }
+/* En curso, a medio tono; completado, en el color del acento */
+#view-today .cs-bar > span { background: color-mix(in srgb, var(--sage) 55%, var(--track)); }
+#view-today .cs-bar.done > span { background: var(--sage); }
+#view-today .cs-bar.failed > span { background: var(--hair-strong); }
+#view-today .challenge-strip .chevron { width: 16px; height: 16px; color: var(--ink-2); stroke-width: 1.75; }
+
+/* Pista para empezar */
+#view-today .coach {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wash);
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  animation: none;
+}
+
+/* Cabecera de la lista: pequeña y en gris, sin mayúsculas */
+#view-today .list-head { margin: 28px 4px 8px; }
+#view-today .list-head h2 { color: var(--ink-2); font-size: 14px; font-weight: 500; }
+#view-today .list-note { color: var(--ink-2); font-size: 14px; font-weight: 400; font-variant-numeric: tabular-nums; }
+#view-today .list-note.all-done {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--sage-ink);
+  font-weight: 500;
+}
+
+/* Lista de hábitos: una sola tarjeta con separadores finos */
+#view-today .habit-list {
+  gap: 0;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+}
+#view-today .habit-list:empty { display: none; }
+#view-today .habit-list li + li::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 64px;
+  z-index: 1;
+  height: 1px;
+  background: var(--hair);
+  pointer-events: none;
+}
+#view-today .habit-list li.dragging {
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--hair), 0 8px 24px rgba(20, 26, 22, 0.14);
+}
+#view-today .habit-list li.dragging::before { display: none; }
+#view-today .habit-list li.dragging .habit { box-shadow: none; transform: none; }
+
+#view-today .habit {
+  /* La casilla hecha usa el color del hábito, un poco más oscuro para que la marca se lea bien */
+  --c-fill: color-mix(in srgb, var(--c) 80%, #1E2320);
+  --on-c: #FFFFFF;
+  grid-template-columns: 36px 1fr auto;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  transition: background-color 0.15s ease;
+}
+#view-today .habit-list li:first-child .habit { border-radius: 13px 13px 0 0; }
+#view-today .habit-list li:last-child .habit { border-radius: 0 0 13px 13px; }
+#view-today .habit-list li:only-child .habit { border-radius: 13px; }
+
+#view-today .emoji {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--wash);
+  background: color-mix(in srgb, var(--c, var(--sage)) 12%, var(--card));
+  font-size: 20px;
+}
+#view-today .name { font-size: 16px; font-weight: 500; }
+#view-today .meta {
+  margin-top: 1px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+#view-today .meta svg { width: 13px; height: 13px; margin-right: 3px; vertical-align: -1.5px; stroke-width: 1.75; }
+#view-today .flame { color: var(--ink); font-weight: 500; }
+#view-today .habit .amount { color: var(--ink); font-weight: 600; }
+#view-today .habit .meta u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+/* Casilla redonda: se rellena con el color del hábito */
+#view-today .check {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--hair-strong);
+  border-radius: 50%;
+  color: transparent;
+}
+#view-today .check svg { width: 15px; height: 15px; stroke-width: 2; }
+#view-today .habit.done .check { border-color: var(--c-fill); background: var(--c-fill); color: var(--on-c); }
+#view-today .habit.pop .check { animation: check-fill 0.2s ease-out; }
+#view-today .habit.pop .emoji { animation: none; }
+@keyframes check-fill {
+  from { border-color: var(--hair-strong); background-color: transparent; color: transparent; transform: scale(0.88); }
+}
+
+/* Cantidad: un anillo fino alrededor de la casilla muestra lo que llevas */
+#view-today .habit.qty:not(.done) .check { border-color: var(--track); color: var(--c-fill); }
+#view-today .habit.qty:not(.done) .check::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 50%;
+  background: conic-gradient(var(--c-fill) calc(var(--fill, 0) * 1turn), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+}
+#view-today .habit.qty .check svg { width: 14px; height: 14px; stroke-width: 2; }
+
+/* Descanso y pausa: se atenúan el icono y el nombre (el texto sigue siendo legible) */
+#view-today .habit.resting:not(.done),
+#view-today .habit.paused { opacity: 1; }
+#view-today .habit.resting:not(.done) .name,
+#view-today .habit.paused .name { color: var(--ink-2); font-weight: 400; }
+#view-today .habit.resting:not(.done) .emoji { opacity: 0.55; }
+#view-today .habit.resting:not(.done) .check { border-color: var(--hair); }
+#view-today .habit.paused .emoji { opacity: 0.55; filter: grayscale(1); }
+#view-today .check.pause-mark { border-style: dashed; color: var(--ink-2); }
+#view-today .check.pause-mark svg { width: 12px; height: 12px; stroke-width: 2; }
+
+/* Recaídas y días protegidos */
+#view-today .habit.slipped .meta { color: var(--alert); }
+#view-today .habit.slipped .check { border-color: var(--alert); }
+#view-today .habit.shielded .meta { color: var(--sage-ink); }
+
+/* Modo edición */
+#view-today .grip-space { width: 30px; }
+#view-today .grip { right: 4px; width: 44px; height: 48px; color: var(--ink-2); transform: translateY(-50%); }
+#view-today .grip svg { width: 20px; height: 20px; }
+
+/* Diario: ánimo y nota */
+#view-today .journal {
+  margin-top: 28px;
+  padding: 16px 16px 6px; /* abajo queda el botón «Añadir nota», que ya tiene su altura */
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: none;
+}
+#view-today .journal .card-head h2 { font-size: 15px; font-weight: 600; }
+#view-today .mood-row { gap: 8px; margin-top: 12px; }
+#view-today .mood-row button {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-2);
+  filter: none;
+  opacity: 1;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+#view-today .mood-row svg { width: 24px; height: 24px; }
+#view-today .mood-row button[aria-checked="true"] {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+  box-shadow: none;
+  color: var(--sage-ink);
+  transform: none;
+}
+#view-today .journal .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0 2px;
+  color: var(--sage-ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+#view-today .journal .link-btn svg { width: 16px; height: 16px; }
+#view-today .note-box { margin-bottom: 10px; }
+#view-today .note-box textarea {
+  padding: 10px 12px 24px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 400;
+}
+#view-today .note-box textarea:focus { border-color: var(--sage); box-shadow: 0 0 0 3px var(--sage-soft); }
+#view-today .note-box textarea::placeholder { color: var(--ink-2); opacity: 1; }
+#view-today .note-count { color: var(--ink-2); font-weight: 400; }
+
+/* Al pulsar: el fondo se oscurece un poco (nada se hunde ni se mueve) */
+#view-today .avatar-bubble:active,
+#view-today .pill-btn:active,
+#view-today .day-nav button:active,
+#view-today .hero-card:active,
+#view-today .challenge-strip:active,
+#view-today .habit:active,
+#view-today .mood-row button:active {
+  background: var(--wash);
+  box-shadow: none;
+  transform: none;
+}
+#view-today .add-btn:active { opacity: 0.75; box-shadow: none; transform: none; }
+#view-today .journal .link-btn:active,
+#view-today .chip:active { opacity: 0.6; }
+
+/* En oscuro la casilla usa el color tal cual y la marca va en oscuro */
+@media (prefers-color-scheme: dark) {
+  #view-today .habit { --c-fill: var(--c); --on-c: #161A18; }
+  #view-today .habit-list li.dragging { box-shadow: 0 0 0 1px var(--hair), 0 8px 24px rgba(0, 0, 0, 0.45); }
 }
 
 @media (prefers-reduced-motion: reduce) {
