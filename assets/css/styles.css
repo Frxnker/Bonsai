@@ -1664,7 +1664,7 @@ input[type="range"] {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  -moz-appearance: textfield;
+  appearance: textfield;
 }
 .stepper input::-webkit-outer-spin-button,
 .stepper input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
