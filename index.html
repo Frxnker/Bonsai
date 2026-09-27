@@ -90,18 +90,22 @@
       </button>
 
       <p class="coach" id="coach" hidden></p>
+      <p class="sr-only" id="reorder-hint">Con teclado, Alt más flecha arriba o abajo cambia el orden.</p>
 
       <div class="list-head" id="progress">
         <div class="list-title">
           <h2 id="progress-text">Tus hábitos de hoy</h2>
           <span class="list-note" id="progress-note"></span>
         </div>
-        <span class="habit-total" id="habit-total" aria-label="0 hábitos activos">
-          <strong id="habit-total-count">0</strong><span>activos</span>
+        <span class="habit-total" id="habit-total">
+          <strong id="habit-total-count">0</strong> <span>activos</span>
         </span>
       </div>
 
-      <ul class="habit-list" id="habit-list"></ul>
+      <div id="habit-area">
+        <div id="routine-groups"></div>
+        <ul class="habit-list" id="habit-list"></ul>
+      </div>
 
       <!-- Diario: ánimo y nota del día que se está viendo -->
       <section class="card journal" id="journal" aria-labelledby="journal-title" hidden>
@@ -112,8 +116,8 @@
           Añadir nota
         </button>
         <div class="note-box" id="note-box" hidden>
-          <textarea id="note-input" maxlength="200" rows="3" placeholder="Algo que quieras recordar de este día…" aria-label="Nota del día (máximo 200 caracteres)"></textarea>
-          <span class="note-count" id="note-count" aria-live="polite">0/200</span>
+          <textarea id="note-input" maxlength="200" rows="3" placeholder="Algo que quieras recordar de este día…" aria-label="Nota del día (máximo 200 caracteres)" aria-describedby="note-count"></textarea>
+          <span class="note-count" id="note-count">0/200</span>
         </div>
         <div class="note-actions" id="note-actions" hidden>
           <button type="button" class="link-btn" id="note-clear">
@@ -160,6 +164,18 @@
       <div id="history"></div>
     </section>
 
+    <!-- Pantalla: Salud -->
+    <section id="view-health" class="view" hidden>
+      <header class="topbar"></header>
+      <div class="title-row">
+        <div class="title-text">
+          <h1>Salud</h1>
+          <p class="subtitle">Tus medidas, solo en este dispositivo</p>
+        </div>
+      </div>
+      <div id="health-view"></div>
+    </section>
+
     <!-- Pantalla: Ajustes -->
     <section id="view-settings" class="view" hidden>
       <header class="topbar"></header>
@@ -193,6 +209,16 @@
         <p class="hint left">También puedes tocar tu avatar de arriba y escribir cualquier emoji.</p>
       </article>
 
+      <p class="section-label group">Rutinas</p>
+      <article class="card">
+        <p class="card-text first">Agrupa hábitos, por ejemplo «Mañana» o «Noche», para verlos juntos en Hoy. Son opcionales y no cambian tus rachas ni tu XP.</p>
+        <ul class="routine-list" id="routine-list"></ul>
+        <button type="button" class="secondary-btn wide" id="routine-add">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+          Nueva rutina
+        </button>
+      </article>
+
       <p class="section-label group">Copia de seguridad</p>
       <article class="card">
         <p class="card-text first">Tus datos solo viven en este móvil. Guarda una copia de vez en cuando (en Archivos o iCloud) para no perderlos si borras la app o cambias de iPhone.</p>
@@ -201,6 +227,20 @@
           <button type="button" class="secondary-btn" data-import>Importar copia</button>
         </div>
         <p class="backup-date" id="backup-date"></p>
+        <div class="backup-note" id="pre-import" hidden>
+          <p class="card-text first" id="pre-import-text"></p>
+          <div class="btn-row">
+            <button type="button" class="secondary-btn" id="pre-import-restore">Volver a ellos</button>
+            <button type="button" class="secondary-btn" id="pre-import-discard">Descartar</button>
+          </div>
+        </div>
+        <div class="backup-note" id="rescue" hidden>
+          <p class="card-text first">Al abrir Bonsái había datos guardados que no se podían leer. Se han apartado para que no se pierdan: puedes descargarlos para intentar recuperarlos.</p>
+          <div class="btn-row">
+            <button type="button" class="secondary-btn" id="rescue-download">Descargar</button>
+            <button type="button" class="secondary-btn danger-text" id="rescue-discard">Borrar</button>
+          </div>
+        </div>
       </article>
 
       <div id="archived-section" hidden>
@@ -240,6 +280,10 @@
     <button type="button" class="tab" data-view="history">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/></svg>
       <span>Historial</span>
+    </button>
+    <button type="button" class="tab" data-view="health">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/></svg>
+      <span>Salud</span>
     </button>
     <button type="button" class="tab" data-view="settings">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -332,6 +376,13 @@
           <p class="hint left" id="goal-hint"></p>
         </div>
 
+        <div id="routine-block" hidden>
+          <label class="field spaced">
+            <span>Rutina (opcional)</span>
+            <select id="habit-routine"></select>
+          </label>
+        </div>
+
         <p class="section-label spaced">Color</p>
         <div class="color-row" id="color-row" role="radiogroup" aria-label="Color del hábito"></div>
 
@@ -402,6 +453,71 @@
     </div>
   </dialog>
 
+  <!-- Salud: registrar o editar una medida -->
+  <dialog class="modal" id="health-entry" aria-labelledby="health-entry-title">
+    <form class="modal-card form-card" id="health-form" novalidate>
+      <h2 id="health-entry-title">Registrar peso</h2>
+      <label class="field">
+        <span id="health-value-label">Peso</span>
+        <input id="health-value" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" aria-describedby="health-value-error">
+      </label>
+      <p class="field-error" id="health-value-error" hidden></p>
+      <label class="field">
+        <span>Fecha</span>
+        <input id="health-date" type="date" aria-describedby="health-date-error">
+      </label>
+      <p class="field-error" id="health-date-error" hidden></p>
+      <label class="field">
+        <span>Nota (opcional)</span>
+        <input id="health-note" type="text" maxlength="200" enterkeyhint="done" placeholder="Por ejemplo, en ayunas">
+      </label>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Guardar</button>
+        <button type="button" class="secondary-btn danger-text" id="health-delete">Borrar este registro</button>
+        <button type="button" class="text-btn" id="health-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Exportar una copia: qué lleva y si incluye Salud -->
+  <dialog class="modal" id="export-dialog" aria-labelledby="export-title">
+    <form class="modal-card form-card scroll" id="export-form">
+      <h2 id="export-title">Exportar copia</h2>
+      <div class="confirm-body" id="export-body"></div>
+      <label class="check-row plain" id="export-health-row">
+        <span class="check-text"><b>Incluir Salud</b><span id="export-health-count"></span></span>
+        <input type="checkbox" id="export-health" checked aria-describedby="export-hint">
+      </label>
+      <p class="hint left" id="export-hint"></p>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Exportar</button>
+        <button type="button" class="text-btn" id="export-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Crear o editar una rutina (solo agrupa hábitos) -->
+  <dialog class="modal" id="routine-dialog" aria-labelledby="routine-title">
+    <form class="modal-card form-card scroll" id="routine-form" novalidate>
+      <h2 id="routine-title">Nueva rutina</h2>
+      <label class="field">
+        <span>Nombre</span>
+        <input id="routine-name" type="text" maxlength="30" placeholder="Por ejemplo, Mañana" enterkeyhint="done" aria-describedby="routine-name-error">
+      </label>
+      <p class="field-error" id="routine-name-error" hidden></p>
+      <fieldset class="check-list">
+        <legend>Hábitos</legend>
+        <div id="routine-habits"></div>
+      </fieldset>
+      <p class="hint left">Cada hábito puede estar en una sola rutina. Quitarlo de una rutina no lo borra.</p>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Guardar</button>
+        <button type="button" class="secondary-btn danger-text" id="routine-delete">Eliminar rutina</button>
+        <button type="button" class="text-btn" id="routine-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Subida de nivel: un anillo que se completa, sin fuegos artificiales -->
   <dialog class="modal" id="levelup" aria-labelledby="levelup-title">
     <div class="modal-card levelup-card">
@@ -421,6 +537,20 @@
       <h2 class="summary-title" id="summary-title"></h2>
       <div id="summary-body"></div>
       <button type="button" class="primary-btn" id="summary-close">Empezar la semana</button>
+      <button type="button" class="link-btn center" id="summary-review">Revisar la semana con calma</button>
+    </div>
+  </dialog>
+
+  <!-- Revisión semanal: cómo fue una semana y ajustes para la actual -->
+  <dialog class="sheet" id="review" aria-labelledby="review-title">
+    <div class="sheet-frame">
+      <div class="sheet-head">
+        <span></span>
+        <h2 id="review-title">Revisión semanal</h2>
+        <button type="button" class="text-btn end" id="review-close">Cerrar</button>
+      </div>
+      <p class="sr-only" id="review-status" aria-live="polite"></p>
+      <div class="sheet-body" id="review-body"></div>
     </div>
   </dialog>
 

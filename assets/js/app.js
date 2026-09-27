@@ -1,8 +1,11 @@
 'use strict';
 
-const APP_VERSION = '0.4 beta';
+const APP_VERSION = '0.5 beta';
 const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
+const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
+const PRE_IMPORT_KEY = `${STORAGE_KEY}:antes-de-importar`; // tus datos justo antes de la última importación
+const RESCUE_KEY = `${STORAGE_KEY}:rescate`;               // datos guardados que no se pudieron leer
 const HEATMAP_WEEKS = 53;
 const LONG_PRESS_MS = 500;
 
@@ -22,6 +25,20 @@ const MOOD_MOUTHS = [
   'M8 13.5h8a4 4 0 0 1-8 0z',
 ];
 const NOTE_MAX = 200;
+// Salud: medidas personales, privadas y solo en este dispositivo (y en las copias que exportes).
+// No dan XP ni cuentan para rachas o retos. Otra medida (cintura, pulso…) sería otra entrada aquí;
+// `toBase` pasa cada unidad a la primera, para comparar registros hechos en unidades distintas.
+const HEALTH_METRICS = {
+  weight: {
+    label: 'Peso',
+    units: {
+      kg: { label: 'Kilos', min: 20, max: 400, toBase: 1 },
+      lb: { label: 'Libras', min: 44, max: 880, toBase: 0.45359237 },
+    },
+  },
+};
+const HEALTH_NOTE_MAX = 200;
+const HEALTH_MIN_DATE = '1900-01-01';
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
 const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52];
 
@@ -175,6 +192,11 @@ const ICONS = {
   rotate: svg('<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/>'),
   download: svg('<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 19.5h15"/>'),
   trash: svg('<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/>'),
+  note: svg('<path d="M4.5 19.5h4l10-10-4-4-10 10v4z"/><path d="M13 7l4 4"/>'),
+  chevronLeft: svg('<path d="M15 5l-7 7 7 7"/>'),
+  chevronRight: svg('<path d="M9 5l7 7-7 7"/>'),
+  chevronUp: svg('<path d="M5 15l7-7 7 7"/>'),
+  chevronDown: svg('<path d="M5 9l7 7 7-7"/>'),
 };
 const moodIcon = (mood) => svg(`<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="${MOOD_MOUTHS[mood - 1]}"/>`);
 
@@ -239,7 +261,82 @@ const emptyState = () => ({
   challengesSince: null, // lunes de la primera semana con retos (se fija al abrir la 0.8 por primera vez)
   days: {},              // diario: { 'AAAA-MM-DD': { mood: 1–5, note } }
   lastSummary: null,     // lunes de la última semana en la que se enseñó el resumen
+  health: emptyHealth(), // medidas de Salud
+  routines: [],          // rutinas: [{ id, name, habitIds }], en el orden en que se ven
 });
+
+// Rutinas: solo agrupan hábitos para verlos juntos en Hoy (sin XP ni rachas propias).
+// Cada hábito está como mucho en una; los ids que ya no existen se descartan.
+const ROUTINE_MAX = 12;
+const ROUTINE_NAME_MAX = 30;
+function normalizeRoutines(list, habits) {
+  const known = new Set(habits.map((h) => h.id));
+  const used = new Set();
+  const ids = new Set();
+  return (Array.isArray(list) ? list : [])
+    .filter((r) => r && typeof r.name === 'string' && r.name.trim())
+    .slice(0, ROUTINE_MAX)
+    .map((r) => {
+      let id = typeof r.id === 'string' && r.id ? r.id.slice(0, 64) : uid();
+      if (ids.has(id)) id = uid();
+      ids.add(id);
+      const habitIds = (Array.isArray(r.habitIds) ? r.habitIds : []).map(String)
+        .filter((hid) => known.has(hid) && !used.has(hid) && used.add(hid));
+      return { id, name: r.name.trim().slice(0, ROUTINE_NAME_MAX), habitIds };
+    });
+}
+
+// Unidad preferida de cada medida (la primera de su lista, por defecto) y los registros, por fecha.
+function emptyHealth() {
+  const units = Object.fromEntries(Object.entries(HEALTH_METRICS).map(([id, m]) => [id, Object.keys(m.units)[0]]));
+  return { units, entries: [] };
+}
+
+const isRealDate = (key) => isDateKey(key) && key >= HEALTH_MIN_DATE && dateKey(parseKey(key)) === key;
+const inHealthRange = (metric, value, unit) => {
+  const range = Object.hasOwn(HEALTH_METRICS[metric].units, unit) && HEALTH_METRICS[metric].units[unit];
+  return Boolean(range) && Number.isFinite(value) && value >= range.min && value <= range.max;
+};
+// Por fecha y, el mismo día, por orden de creación.
+const byHealthDate = (a, b) => (a.date === b.date ? a.created - b.created : a.date < b.date ? -1 : 1);
+
+// Un registro: { id, metric, date, value, unit, note, created }. Se guarda en la unidad en que se apuntó.
+// Los de medidas que esta versión no conoce se conservan, para no perderlos al importar una copia más nueva.
+function normalizeHealthEntry(e) {
+  if (!e || typeof e.metric !== 'string' || !isRealDate(e.date)) return null;
+  const value = round2(e.value);
+  const unit = typeof e.unit === 'string' ? e.unit : '';
+  const valid = Object.hasOwn(HEALTH_METRICS, e.metric)
+    ? inHealthRange(e.metric, value, unit)
+    : /^[a-z][\w-]{0,31}$/i.test(e.metric) && value > 0 && value < 1e6 && unit.length > 0 && unit.length <= 12;
+  if (!valid) return null;
+  const id = typeof e.id === 'string' || typeof e.id === 'number' ? String(e.id).slice(0, 64) : '';
+  return {
+    id: id || uid(),
+    metric: e.metric,
+    date: e.date,
+    value,
+    unit,
+    note: typeof e.note === 'string' ? e.note.trim().slice(0, HEALTH_NOTE_MAX) : '',
+    created: Math.max(0, Number(e.created) || 0),
+  };
+}
+
+// Las copias anteriores a Salud no traen esta sección: se quedan con la vacía.
+function normalizeHealth(data) {
+  const health = emptyHealth();
+  if (!data || typeof data !== 'object') return health;
+  Object.keys(health.units).forEach((id) => {
+    const unit = data.units && data.units[id];
+    if (typeof unit === 'string' && Object.hasOwn(HEALTH_METRICS[id].units, unit)) health.units[id] = unit;
+  });
+  const ids = new Set();
+  health.entries = (Array.isArray(data.entries) ? data.entries : [])
+    .map(normalizeHealthEntry)
+    .filter((e) => e && !ids.has(e.id) && ids.add(e.id))
+    .sort(byHealthDate);
+  return health;
+}
 
 // Diario: solo días válidos con ánimo (1–5) y/o nota (hasta 200 caracteres).
 function normalizeDays(days) {
@@ -333,6 +430,8 @@ function normalize(data) {
   clean.challengesSince = isDateKey(data.challengesSince) ? weekStartOf(data.challengesSince) : null;
   clean.days = normalizeDays(data.days);
   clean.lastSummary = isDateKey(data.lastSummary) ? weekStartOf(data.lastSummary) : null;
+  clean.health = normalizeHealth(data.health);
+  clean.routines = normalizeRoutines(data.routines, clean.habits);
 
   // Perfil. Si no hay fecha de inicio (datos de versiones anteriores), usamos el día más antiguo que conste.
   const profile = data.profile || {};
@@ -347,22 +446,38 @@ function normalize(data) {
   return clean;
 }
 
+let loadProblem = false; // había datos guardados que no se podían leer
+
 function load() {
+  let raw = null;
   try {
-    const data = normalize(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+    raw = localStorage.getItem(STORAGE_KEY);
+    const data = normalize(JSON.parse(raw));
     if (data) return data;
   } catch (err) {
     console.warn('No se pudieron leer los datos guardados', err);
   }
+  // Si había algo guardado que no se puede leer, se aparta antes de que el primer guardado lo pise.
+  if (raw !== null) {
+    loadProblem = true;
+    try {
+      if (localStorage.getItem(RESCUE_KEY) === null) localStorage.setItem(RESCUE_KEY, raw);
+    } catch (err) {
+      console.warn('No se pudieron apartar los datos', err);
+    }
+  }
   return emptyState();
 }
 
+// Devuelve si se pudo guardar.
 function save() {
   invalidate(); // los datos han cambiado: hay que recalcular
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
   } catch (err) {
     toast('No se pudo guardar. ¿Estás en navegación privada?');
+    return false;
   }
 }
 
@@ -374,8 +489,11 @@ function replaceState(data) {
   state.challengesSince = data.challengesSince || state.challengesSince || weekStartOf(ui.today);
   state.days = data.days;
   state.lastSummary = data.lastSummary || state.lastSummary;
-  save();
+  state.health = data.health;
+  state.routines = data.routines;
+  const saved = save();
   render();
+  return saved;
 }
 
 const findHabit = (id) => state.habits.find((h) => h.id === id);
@@ -441,6 +559,9 @@ const ui = {
   editing: false,
   editingId: null,
   pop: null,
+  healthPeriod: 30, // días que se ven en la gráfica de Salud
+  healthSel: null,  // registro elegido en la gráfica
+  healthShown: 10,  // registros que se ven en la lista
 };
 
 // ---------- Cálculos: rachas, XP y nivel ----------
@@ -955,6 +1076,15 @@ function renderToday() {
   $('#day-ring').style.setProperty('--p', ring.total ? ring.done / ring.total : 0);
   $('#progress-count').innerHTML = restDay ? ICONS.leaf : `${ring.done}/${ring.total}`;
   $('#day-ring-label').textContent = restDay ? 'descanso' : allDone ? 'hecho' : isToday ? 'hoy' : 'ese día';
+  // La tarjeta es un botón: su nombre tiene que contar lo mismo que se ve dentro.
+  const when = isToday ? 'Hoy' : 'Ese día';
+  $('#level-card').setAttribute('aria-label', [
+    restDay ? `${when}, día de descanso` : `${when}: ${ring.done} de ${ring.total} hechos`,
+    `Nivel ${stats.level}, ${levelInfo(stats.level).title}, ${fmtNumber.format(stats.xp - stats.levelStart)} de ${
+      fmtNumber.format(stats.levelEnd - stats.levelStart)} XP`,
+    `${plural(stats.shields, 'protector de racha', 'protectores de racha')} de ${SHIELD_MAX}`,
+    'Ver tu progreso',
+  ].join('. '));
   $('#progress-text').textContent = isToday ? 'Tus hábitos de hoy' : 'Hábitos de ese día';
   const note = $('#progress-note');
   const statuses = habits.map((h) => dayStatus(h, day));
@@ -962,7 +1092,6 @@ function renderToday() {
   const pausedCount = statuses.filter((status) => status === 'paused').length;
   const restCount = statuses.filter((status) => status === 'rest').length;
   $('#habit-total-count').textContent = activeCount;
-  $('#habit-total').setAttribute('aria-label', `${activeCount} hábitos activos`);
   const emptyNote = restCount
     ? `<strong>Día de descanso</strong>${pausedCount ? ` · ${pausedCount} en pausa` : ''}`
     : pausedCount
@@ -984,8 +1113,26 @@ function renderToday() {
   // En modo edición se respeta el orden real, para poder arrastrar.
   const group = (h) => ({ active: 0, off: 0, rest: 1, paused: 2 }[dayStatus(h, day)]);
   const ordered = ui.editing ? habits : [...habits].sort((a, b) => group(a) - group(b));
-  $('#habit-list').innerHTML = ordered.map(habitRow).join('');
+  // Con rutinas, cada una va en su propio bloque (salvo en modo edición, para poder arrastrar).
+  const { groups, rest } = ui.editing ? { groups: [], rest: ordered } : routineGroups(ordered);
+  $('#routine-groups').innerHTML = groups.map((g, i) => routineGroupHTML(g, i, day)).join('')
+    + (groups.length && rest.length ? '<h3 class="routine-title others">Otros hábitos</h3>' : '');
+  $('#habit-list').innerHTML = rest.map(habitRow).join('');
   if (!hasHabits) renderWelcome();
+}
+
+// Cabecera de una rutina: su nombre y cuántos lleva ese día. Solo informa: no marca nada ni da XP.
+function routineGroupHTML({ routine, habits }, index, day) {
+  const { total, done } = ringTotals(day, habits);
+  const complete = total > 0 && done === total;
+  const count = !total ? 'Descanso' : complete ? `${ICONS.check}Completa` : `${done} de ${total}`;
+  return `<section class="routine" aria-labelledby="routine-${index}">
+    <div class="routine-head">
+      <h3 class="routine-title" id="routine-${index}">${escapeHTML(routine.name)}</h3>
+      <span class="routine-count${complete ? ' done' : ''}">${count}</span>
+    </div>
+    <ul class="habit-list">${habits.map(habitRow).join('')}</ul>
+  </section>`;
 }
 
 // "Buenos días," en pequeño y el nombre en grande (o solo el saludo si no hay nombre).
@@ -1084,7 +1231,7 @@ function habitRow(habit) {
   let style = `--c:${colorHex(habit.color)}`;
 
   if (ui.editing) {
-    return `<li><button type="button" class="habit" data-id="${habit.id}" style="${style}">
+    return `<li><button type="button" class="habit" data-id="${habit.id}" style="${style}" aria-describedby="reorder-hint">
       ${emoji}
       <span class="info">${name}<span class="meta">Toca para editar</span></span>
       <span class="grip-space"></span>
@@ -1501,17 +1648,167 @@ function renderProgress() {
   const lastWeek = shiftKey(weekStartOf(ui.today), -7);
   const summaryCard = hasWeekHistory(lastWeek) ? `<article class="card">
     <div class="card-head"><h2>Tu semana pasada</h2></div>
-    <p class="card-text">${weekRange(lastWeek)}: cumplimiento, días perfectos, XP, retos y ánimo.</p>
-    <button type="button" class="secondary-btn wide" data-summary>${ICONS.chart}Resumen de la semana pasada</button>
+    <p class="card-text">${weekRange(lastWeek)}: tus hábitos día a día, tu diario y las últimas semanas. Desde ahí también puedes preparar esta.</p>
+    <button type="button" class="secondary-btn wide" data-review>${ICONS.chart}Revisar la semana pasada</button>
+    <button type="button" class="link-btn center" data-summary>Ver el resumen breve</button>
   </article>` : '';
 
-  $('#progress-view').innerHTML = hero + challengesCard + summaryCard + shieldsCard + rules + roadCard + badgesCard;
+  $('#progress-view').innerHTML = hero + challengesCard + summaryCard + trendsCard() + shieldsCard + rules + roadCard + badgesCard;
 
   // Centrar el nivel actual en el camino.
   const roadEl = $('#road');
   const current = roadEl.querySelector('.current');
   if (current) roadEl.scrollLeft = current.offsetLeft - (roadEl.clientWidth - current.offsetWidth) / 2;
 }
+
+// ---------- Tendencias (en Progreso, plegadas) ----------
+
+// Describen tus registros de semanas completas; no buscan causas ni predicen nada.
+// Sin datos suficientes no se enseña ninguna cifra.
+const TREND_PERIODS = [[4, '4 semanas'], [12, '12 semanas']];
+const TREND_MIN_WEEKDAY = 3; // veces que tuvo que tocar algo un día de la semana para tenerlo en cuenta
+const TREND_MIN_HABIT = 7;   // días (o veces) que tocaba un hábito en el periodo
+const TREND_MIN_MOOD = 7;    // días con ánimo apuntado
+const TREND_GAP = 15;        // puntos de diferencia para señalar un día de la semana
+const TREND_SIMILAR = 10;    // por debajo, «parecido»
+const WEEKDAY_PLURALS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
+
+// Las últimas `weeks` semanas completas, y las `weeks` anteriores para comparar cada hábito.
+function trendData(weeks) {
+  return cachedGlobal(`trends:${weeks}`, () => {
+    const thisWeek = weekStartOf(ui.today);
+    const from = shiftKey(thisWeek, -7 * weeks);
+    const to = shiftKey(thisWeek, -1);
+
+    // Por día de la semana: lo que tocaba y lo hecho, en los hábitos para empezar algo (sin los semanales).
+    const due = Array(7).fill(0);
+    const done = Array(7).fill(0);
+    forEachDay(from, to, (key, weekday) => {
+      for (const h of state.habits) {
+        if (h.kind !== 'build' || !isDue(h, key, weekday)) continue;
+        due[weekday]++;
+        if (isDone(h, key)) done[weekday]++;
+      }
+    });
+    const rates = due.map((n, i) => (n >= TREND_MIN_WEEKDAY ? done[i] / n : null));
+
+    // Por hábito, con las mismas cuentas que el resumen de cada semana.
+    const totals = (start) => {
+      const map = new Map();
+      for (let i = 0; i < weeks; i++) {
+        weekSummary(shiftKey(start, 7 * i)).rows.forEach((r) => {
+          const t = map.get(r.habit) || { due: 0, done: 0 };
+          t.due += r.due;
+          t.done += r.done;
+          map.set(r.habit, t);
+        });
+      }
+      return map;
+    };
+    const now = totals(from);
+    const before = totals(shiftKey(from, -7 * weeks));
+    const habits = visibleHabits().filter((h) => now.has(h) && now.get(h).due >= TREND_MIN_HABIT).map((h) => {
+      const n = now.get(h);
+      const b = before.get(h);
+      return { habit: h, now: n.done / n.due, before: b && b.due >= TREND_MIN_HABIT ? b.done / b.due : null };
+    });
+
+    const moods = [];
+    forEachDay(from, to, (key) => {
+      const mood = (state.days[key] || {}).mood;
+      if (mood) moods.push(mood);
+    });
+    return {
+      from,
+      to,
+      weekday: { rates, due, enough: rates.filter((r) => r !== null).length >= 2 },
+      habits,
+      mood: {
+        count: moods.length,
+        avg: moods.length ? moods.reduce((a, b) => a + b, 0) / moods.length : null,
+        enough: moods.length >= TREND_MIN_MOOD,
+      },
+    };
+  });
+}
+
+const pctText = (r) => `${Math.round(r * 100)} %`;
+
+function weekdayObservation(rates) {
+  const known = rates.map((r, i) => [r, i]).filter(([r]) => r !== null);
+  const [maxR, maxI] = known.reduce((a, b) => (b[0] > a[0] ? b : a));
+  const [minR, minI] = known.reduce((a, b) => (b[0] < a[0] ? b : a));
+  if (Math.round(maxR * 100) - Math.round(minR * 100) < TREND_GAP) {
+    return `Entre días de la semana hay poca diferencia: del ${pctText(minR)} al ${pctText(maxR)} de lo que tocaba.`;
+  }
+  return `Los ${WEEKDAY_PLURALS[maxI]} completaste el ${pctText(maxR)} de lo que tocaba; los ${WEEKDAY_PLURALS[minI]}, el ${pctText(minR)}.`;
+}
+
+function habitTrendText({ habit, now, before }, weeks) {
+  const base = habit.kind === 'quit' ? `${pctText(now)} de los días sin ${escapeHTML(quitWhat(habit))}` : `${pctText(now)} de lo que tocaba`;
+  if (before === null) return `${base} · aún no hay datos suficientes de las ${weeks} semanas anteriores`;
+  const diff = Math.round(now * 100) - Math.round(before * 100);
+  const how = diff >= TREND_SIMILAR ? 'más que en' : diff <= -TREND_SIMILAR ? 'menos que en' : 'parecido a';
+  return `${base} · ${how} las ${weeks} semanas anteriores (${pctText(before)})`;
+}
+
+function trendsCard() {
+  if (!visibleHabits().length) return '';
+  const weeks = ui.trendWeeks || TREND_PERIODS[0][0];
+  const t = trendData(weeks);
+  const picker = `<div class="segmented two" role="radiogroup" aria-label="Periodo analizado">${
+    TREND_PERIODS.map(([n, text]) => `<button type="button" role="radio" data-trend-weeks="${n}" aria-checked="${n === weeks}">${text}</button>`).join('')}</div>`;
+  const notEnough = (text) => `<p class="trend-empty">${text}</p>`;
+
+  const weekday = t.weekday.enough
+    ? `${miniBars(t.weekday.rates.map((r, i) => ({
+      value: r, text: r === null ? '—' : pctText(r), empty: 'pocos datos', label: WEEKDAYS[i], name: WEEKDAY_NAMES[i], em: true,
+    })), 'Lo completado de lo que tocaba, por día de la semana')}
+      <p class="trend-text">${weekdayObservation(t.weekday.rates)}</p>`
+    : notEnough('Aún no hay datos suficientes para comparar los días de la semana en este periodo.');
+
+  const habitItems = t.habits.map((x) => `<li style="--c:${colorHex(x.habit.color)}">
+      <span class="emoji" aria-hidden="true">${escapeHTML(x.habit.emoji)}</span>
+      <span class="review-habit"><b>${escapeHTML(x.habit.name)}</b><span>${habitTrendText(x, weeks)}</span></span>
+    </li>`).join('');
+  const habits = habitItems ? `<ul class="review-list trend-list">${habitItems}</ul>`
+    : notEnough(`Aún no hay datos suficientes de ningún hábito: hace falta que toque al menos ${TREND_MIN_HABIT} veces en este periodo.`);
+
+  const mood = t.mood.enough
+    ? `<p class="trend-text">Apuntaste tu ánimo ${t.mood.count} de ${weeks * 7} días. Media: ${t.mood.avg.toFixed(1).replace('.', ',')} de 5.</p>`
+    : notEnough(`${t.mood.count ? `Hay ${plural(t.mood.count, 'día', 'días')} con ánimo apuntado` : 'No hay días con ánimo apuntado'}; con ${TREND_MIN_MOOD} o más verás aquí la media.`);
+
+  return `<details class="card trends" id="trends"${ui.trendsOpen ? ' open' : ''}>
+    <summary class="trends-summary">
+      <span class="card-title"><h2>Tendencias</h2><span class="card-sub">Observaciones de tus registros</span></span>
+      ${ICONS.chevronRight}
+    </summary>
+    <div class="trends-body">
+      ${picker}
+      <p class="card-text">Del ${shortDate(t.from)} al ${shortDate(t.to)}: ${weeks} semanas completas. Describen lo que registraste; no explican por qué ni predicen nada.</p>
+      <h3 class="trend-title">Por día de la semana</h3>
+      ${weekday}
+      <h3 class="trend-title">Por hábito</h3>
+      ${habits}
+      <h3 class="trend-title">Ánimo</h3>
+      ${mood}
+    </div>
+  </details>`;
+}
+
+const progressView = $('#progress-view');
+// El evento «toggle» no sube: se escucha en la fase de captura.
+progressView.addEventListener('toggle', (e) => {
+  if (e.target.id === 'trends') ui.trendsOpen = e.target.open;
+}, true);
+progressView.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-trend-weeks]');
+  if (!btn) return;
+  ui.trendWeeks = Number(btn.dataset.trendWeeks);
+  renderProgress();
+  haptic();
+  progressView.querySelector(`[data-trend-weeks="${ui.trendWeeks}"]`)?.focus();
+});
 
 // ---------- Pantalla "Historial" ----------
 
@@ -1618,14 +1915,17 @@ function heatmapHTML(id, classOf) {
       if (w > 0 && date.getDate() === 1) monthLabel = fmtMonth.format(date).replace('.', '');
       if (key > today) {
         cells += '<i class="future"></i>';
+      } else if (key === today) {
+        // Hoy es la casilla por la que se entra con el tabulador; desde ella, las flechas recorren los días.
+        cells += `<i class="${classOf(key)} today" data-k="${key}" tabindex="0" role="button" aria-label="${escapeHTML(dayCaption(id, key))}"></i>`;
       } else {
-        cells += `<i class="${classOf(key)}${key === today ? ' today' : ''}" data-k="${key}"></i>`;
+        cells += `<i class="${classOf(key)}" data-k="${key}"></i>`;
       }
     }
     months += `<span>${monthLabel}</span>`;
   }
 
-  return `<div class="heatmap" data-habit="${id}" role="img" aria-label="Mapa de calor de los últimos 12 meses">
+  return `<div class="heatmap" data-habit="${id}" role="group" aria-label="Mapa de calor de los últimos 12 meses. Usa las flechas para moverte por los días e Intro para abrir uno.">
       <div class="hm-days" aria-hidden="true"><span></span><span>L</span><span></span><span>X</span><span></span><span>V</span><span></span><span></span></div>
       <div class="hm-scroll">
         <div class="hm-months" aria-hidden="true">${months}</div>
@@ -1666,6 +1966,549 @@ function dayCaption(habitId, key) {
   return `${label} · ${text}`;
 }
 
+// ---------- Pantalla "Salud" ----------
+
+// Solo describe tus medidas: sin XP ni rachas, sin consejos y sin juicios sobre si suben o bajan.
+const HEALTH_PERIODS = [[30, '30 días'], [90, '90 días'], [365, '1 año']];
+const HEALTH_PAGE = 20;
+const HEALTH_CHART_DOTS = 40; // con más registros en el periodo, solo se dibuja la línea
+const round1 = (v) => Math.round((Number(v) + Number.EPSILON) * 10) / 10;
+const fmtHealth = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtHealthInput = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2, useGrouping: false });
+
+function convertHealth(metric, value, from, to) {
+  if (from === to) return value;
+  const { units } = HEALTH_METRICS[metric];
+  return (value * units[from].toBase) / units[to].toBase;
+}
+
+// Registros de una medida, del más antiguo al más reciente, con `shown` en la unidad preferida.
+function healthSeries(metric) {
+  const unit = state.health.units[metric];
+  return state.health.entries
+    .filter((e) => e.metric === metric)
+    .map((e) => ({ ...e, shown: convertHealth(metric, e.value, e.unit, unit) }));
+}
+
+// Último registro y su diferencia con el anterior, con el mismo redondeo que se ve en pantalla.
+function healthLatest(metric) {
+  const series = healthSeries(metric);
+  const last = series.at(-1) || null;
+  const prev = series.at(-2) || null;
+  return { last, prev, diff: last && prev ? round1(round1(last.shown) - round1(prev.shown)) : null };
+}
+
+const healthText = (value, unit) => `${fmtHealth.format(round1(value))} ${unit}`;
+// "+0,4 kg" o "−0,3 kg", siempre con el mismo tono: ni subir ni bajar es bueno o malo.
+const healthDiffText = (diff, unit) => (diff === 0 ? 'Sin cambios' : `${diff > 0 ? '+' : '−'}${fmtHealth.format(Math.abs(diff))} ${unit}`);
+const healthInputText = (entry, unit) => fmtHealthInput.format(round2(convertHealth(entry.metric, entry.value, entry.unit, unit)));
+// "72,4" o "72.4" → 72.4. NaN si no es un número con 2 decimales como mucho.
+const parseDecimal = (text) => (/^\s*\d{1,4}([.,]\d{1,2})?\s*$/.test(String(text)) ? Number(String(text).trim().replace(',', '.')) : NaN);
+
+function healthDateLabel(key) {
+  if (key === ui.today) return 'Hoy';
+  if (key === shiftKey(ui.today, -1)) return 'Ayer';
+  const date = parseKey(key);
+  const fmt = date.getFullYear() === parseKey(ui.today).getFullYear() ? fmtCaption : fmtCaptionYear;
+  return capitalize(fmt.format(date).replace(/\./g, ''));
+}
+
+// Mensaje de error de cada campo del formulario (sin la clave, si está bien).
+function healthErrors(metric, { value, unit, date }) {
+  const range = HEALTH_METRICS[metric].units[unit];
+  const errors = {};
+  if (!Number.isFinite(value)) errors.value = 'Escribe un número, por ejemplo 72,5.';
+  else if (!inHealthRange(metric, value, unit)) errors.value = `Escribe un valor entre ${fmtAmount.format(range.min)} y ${fmtAmount.format(range.max)} ${unit}.`;
+  if (!isRealDate(date)) errors.date = 'Elige una fecha.';
+  else if (date > ui.today) errors.date = 'La fecha no puede ser posterior a hoy.';
+  return errors;
+}
+
+// Guarda un registro nuevo (sin id) o editado, en la unidad preferida. Devuelve { errors } o { entry }.
+function saveHealthEntry(metric, { id = null, valueText, date, note = '' }) {
+  const unit = state.health.units[metric];
+  const value = parseDecimal(valueText);
+  const errors = healthErrors(metric, { value, unit, date });
+  if (Object.keys(errors).length) return { errors };
+  const fields = { date, note: note.trim().slice(0, HEALTH_NOTE_MAX) };
+  let entry = id && state.health.entries.find((e) => e.id === id);
+  if (entry) {
+    // Si no se ha tocado el valor, se queda tal como se apuntó (quizá en la otra unidad).
+    if (String(valueText).trim() !== healthInputText(entry, unit)) Object.assign(fields, { value: round2(value), unit });
+    Object.assign(entry, fields);
+  } else {
+    entry = { id: uid(), metric, value: round2(value), unit, created: Date.now(), ...fields };
+    state.health.entries.push(entry);
+  }
+  state.health.entries.sort(byHealthDate);
+  save();
+  return { entry };
+}
+
+function deleteHealthEntry(id) {
+  state.health.entries = state.health.entries.filter((e) => e.id !== id);
+  save();
+}
+
+// Escala limpia para el eje: 0,5 · 1 · 2 · 2,5 · 5 · 10…
+function niceStep(range, count = 3) {
+  const raw = range / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+}
+
+// Línea con los registros del periodo (de `from` a hoy) y dónde queda cada punto, para tocarlos o recorrerlos.
+function healthChart(series, from, width) {
+  const height = 176;
+  const pad = { top: 10, right: 12, bottom: 26, left: 38 };
+  const values = series.map((e) => round1(e.shown));
+  let lo = Math.min(...values);
+  let hi = Math.max(...values);
+  if (hi - lo < 1) {
+    const mid = (hi + lo) / 2;
+    lo = mid - 0.5;
+    hi = mid + 0.5;
+  }
+  const step = niceStep(hi - lo);
+  const y0 = Math.floor(lo / step) * step;
+  const y1 = Math.ceil(hi / step) * step;
+  const span = parseKey(ui.today) - parseKey(from) || 1;
+  const x = (key) => pad.left + ((parseKey(key) - parseKey(from)) / span) * (width - pad.left - pad.right);
+  const y = (v) => pad.top + (1 - (v - y0) / (y1 - y0)) * (height - pad.top - pad.bottom);
+  const r = (n) => n.toFixed(1);
+
+  const ticks = Array.from({ length: Math.round((y1 - y0) / step) + 1 }, (_, i) => round2(y0 + i * step));
+  const grid = ticks.map((v) => `<line class="hc-grid" x1="${pad.left}" x2="${width - pad.right}" y1="${r(y(v))}" y2="${r(y(v))}"/>
+    <text class="hc-axis" x="${pad.left - 8}" y="${r(y(v))}" dy="0.35em" text-anchor="end">${fmtAmount.format(v)}</text>`).join('');
+  const base = height - pad.bottom;
+  const axis = `<text class="hc-axis" x="${pad.left}" y="${base + 18}">${shortDate(from)}</text>
+    <text class="hc-axis" x="${width - pad.right}" y="${base + 18}" text-anchor="end">Hoy</text>`;
+  const points = series.map((e) => ({ id: e.id, shown: e.shown, x: x(e.date), y: y(round1(e.shown)) }));
+  const line = `<path class="hc-line" d="M${points.map((p) => `${r(p.x)},${r(p.y)}`).join('L')}"/>`;
+  const dot = (p) => `<circle class="hc-dot" cx="${r(p.x)}" cy="${r(p.y)}" r="4"/>`;
+  const dots = points.length <= HEALTH_CHART_DOTS ? points.map(dot).join('') : dot(points.at(-1));
+  const svgText = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${grid}${axis}
+    <line class="hc-cross" y1="${pad.top}" y2="${base}"/>${line}${dots}<circle class="hc-sel" r="5"/></svg>`;
+  return { svg: svgText, points };
+}
+
+let healthPoints = [];
+
+function renderHealth() {
+  const root = $('#health-view');
+  const metric = 'weight';
+  const { label } = HEALTH_METRICS[metric];
+  const unit = state.health.units[metric];
+  const series = healthSeries(metric);
+  const settings = healthSettingsCard(metric, unit);
+  healthPoints = [];
+
+  if (!series.length) {
+    root.innerHTML = `<div class="empty health-empty">
+      <div class="empty-icon">${ICONS.heart}</div>
+      <h2>Aún no hay registros</h2>
+      <p>Apunta tu peso cuando quieras. Es opcional y no cuenta para tu XP ni tus rachas.</p>
+      <button type="button" class="primary-btn" data-health-add>Registrar peso</button>
+    </div>${settings}`;
+    return;
+  }
+
+  const { last, prev, diff } = healthLatest(metric);
+  const when = !prev ? '' : prev.date === ui.today ? 'de hoy'
+    : prev.date === shiftKey(ui.today, -1) ? 'de ayer' : `del ${shortDate(prev.date)}`;
+  const summary = `<article class="card">
+    <div class="card-head"><h2>${label}</h2><span class="card-count">${healthDateLabel(last.date)}</span></div>
+    <p class="health-value">${fmtHealth.format(round1(last.shown))}<span>${unit}</span></p>
+    <p class="health-diff">${prev ? `${healthDiffText(diff, unit)} respecto al registro anterior, ${when}` : 'Es tu primer registro.'}</p>
+    ${last.note ? `<p class="health-note">${escapeHTML(last.note)}</p>` : ''}
+    <button type="button" class="secondary-btn wide spaced" data-health-add>${ICONS.plus}Registrar peso</button>
+  </article>`;
+
+  const period = ui.healthPeriod;
+  const from = shiftKey(ui.today, -(period - 1));
+  const inPeriod = series.filter((e) => e.date >= from && e.date <= ui.today);
+  const periodName = HEALTH_PERIODS.find(([d]) => d === period)[1];
+  const picker = `<div class="segmented period-picker" role="radiogroup" aria-label="Periodo de la gráfica">${
+    HEALTH_PERIODS.map(([d, text]) => `<button type="button" role="radio" data-health-period="${d}" aria-checked="${d === period}">${text}</button>`).join('')}</div>`;
+  let chartBody;
+  if (inPeriod.length < 2) {
+    chartBody = `<p class="card-text health-chart-empty">${inPeriod.length
+      ? `En este periodo solo hay 1 registro. Con 2 o más verás aquí la evolución.`
+      : 'No hay registros en este periodo.'}</p>`;
+  } else {
+    const width = Math.max(260, Math.round((root.clientWidth || 358) - 34));
+    const chart = healthChart(inPeriod, from, width);
+    healthPoints = chart.points;
+    const shown = inPeriod.map((e) => e.shown);
+    const range = `entre ${healthText(Math.min(...shown), unit)} y ${healthText(Math.max(...shown), unit)}`;
+    chartBody = `<div class="health-chart" id="health-chart" tabindex="0" role="group"
+        aria-label="Gráfica de ${label.toLowerCase()}, ${periodName}: ${plural(inPeriod.length, 'registro', 'registros')}, ${range}. Usa las flechas para recorrerlos."
+        aria-describedby="health-caption">${chart.svg}</div>
+      <p class="health-caption" id="health-caption" aria-live="polite">Toca la gráfica para ver cada registro</p>
+      <p class="health-range">${plural(inPeriod.length, 'registro', 'registros')} en este periodo, ${range}</p>`;
+  }
+  const chartCard = `<article class="card">
+    <div class="card-head"><h2>Evolución</h2></div>
+    ${picker}${chartBody}
+  </article>`;
+
+  const rows = [...series].reverse().slice(0, ui.healthShown).map((e) => {
+    const text = healthText(e.shown, unit);
+    const note = e.note ? escapeHTML(e.note) : '';
+    return `<li><button type="button" class="health-row" data-health-edit="${escapeHTML(e.id)}"
+        aria-label="${healthDateLabel(e.date)}: ${text}${note ? `. ${note}` : ''}. Editar">
+      <span class="health-row-text"><b>${healthDateLabel(e.date)}</b>${note ? `<span>${note}</span>` : ''}</span>
+      <span class="health-row-value">${text}</span>
+      <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button></li>`;
+  }).join('');
+  const rest = series.length - ui.healthShown;
+  const listCard = `<article class="card">
+    <div class="card-head"><h2>Registros</h2><span class="card-count">${series.length}</span></div>
+    <ul class="health-list">${rows}</ul>
+    ${rest > 0 ? `<button type="button" class="link-btn center" data-health-more>Mostrar ${Math.min(rest, HEALTH_PAGE)} más</button>` : ''}
+  </article>`;
+
+  root.innerHTML = summary + chartCard + listCard + settings;
+  if (ui.healthSel) selectHealthPoint(ui.healthSel);
+}
+
+function healthSettingsCard(metric, unit) {
+  const count = state.health.entries.length;
+  const units = Object.entries(HEALTH_METRICS[metric].units).map(([id, u]) => (
+    `<button type="button" role="radio" data-health-unit="${id}" aria-checked="${id === unit}">${u.label} (${id})</button>`
+  )).join('');
+  return `<article class="card">
+    <div class="card-head"><h2>Unidad y privacidad</h2></div>
+    <div class="segmented two unit-picker" role="radiogroup" aria-label="Unidad del peso">${units}</div>
+    <p class="card-text">Tus registros de Salud solo se guardan en este dispositivo y en las copias que exportes. No dan XP ni cuentan para rachas o retos, y Bonsái no los interpreta ni da consejos médicos. Si cambias de unidad, se muestran convertidos sin modificarlos.</p>
+    ${count ? '<button type="button" class="danger-btn in-card" data-health-clear>Borrar registros de Salud</button>' : ''}
+  </article>`;
+}
+
+// Marca un punto de la gráfica: línea vertical, punto resaltado y el registro en el pie.
+function selectHealthPoint(id) {
+  const chart = $('#health-chart');
+  const point = healthPoints.find((p) => p.id === id);
+  const entry = state.health.entries.find((e) => e.id === id);
+  if (!chart || !point || !entry) return;
+  ui.healthSel = id;
+  const cross = chart.querySelector('.hc-cross');
+  cross.setAttribute('x1', point.x);
+  cross.setAttribute('x2', point.x);
+  const sel = chart.querySelector('.hc-sel');
+  sel.setAttribute('cx', point.x);
+  sel.setAttribute('cy', point.y);
+  chart.classList.add('has-sel');
+  const unit = state.health.units[entry.metric];
+  $('#health-caption').textContent = [healthDateLabel(entry.date), healthText(point.shown, unit), entry.note].filter(Boolean).join(' · ');
+}
+
+// El punto más cercano (en horizontal) al dedo o al puntero.
+function nearestHealthPoint(e) {
+  const svgEl = $('#health-chart svg');
+  if (!svgEl || !healthPoints.length) return null;
+  const rect = svgEl.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * svgEl.viewBox.baseVal.width;
+  return healthPoints.reduce((best, p) => (Math.abs(p.x - x) <= Math.abs(best.x - x) ? p : best));
+}
+
+const healthView = $('#health-view');
+
+['pointerdown', 'pointermove'].forEach((type) => {
+  healthView.addEventListener(type, (e) => {
+    if (!e.target.closest('#health-chart')) return;
+    const point = nearestHealthPoint(e);
+    if (point && point.id !== ui.healthSel) selectHealthPoint(point.id);
+  });
+});
+
+healthView.addEventListener('keydown', (e) => {
+  if (e.target.id !== 'health-chart' || !healthPoints.length) return;
+  const index = healthPoints.findIndex((p) => p.id === ui.healthSel);
+  const last = healthPoints.length - 1;
+  const next = { ArrowLeft: index < 0 ? last : index - 1, ArrowRight: index + 1, Home: 0, End: last }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  selectHealthPoint(healthPoints[Math.min(last, Math.max(0, next))].id);
+});
+
+healthView.addEventListener('click', (e) => {
+  const target = e.target.closest('[data-health-add], [data-health-edit], [data-health-period], [data-health-unit], [data-health-more], [data-health-clear]');
+  if (!target) return;
+  const { healthEdit, healthPeriod, healthUnit } = target.dataset;
+  if (target.hasAttribute('data-health-add')) openHealthEntry();
+  else if (healthEdit) openHealthEntry(healthEdit);
+  else if (target.hasAttribute('data-health-clear')) clearHealth();
+  else if (target.hasAttribute('data-health-more')) {
+    const shown = ui.healthShown;
+    ui.healthShown += HEALTH_PAGE;
+    renderHealth();
+    healthView.querySelectorAll('.health-row')[shown]?.focus();
+  } else {
+    // Periodo o unidad: se vuelve a pintar y el foco sigue en el mismo botón.
+    if (healthPeriod) {
+      ui.healthPeriod = Number(healthPeriod);
+      ui.healthSel = null;
+    } else {
+      state.health.units.weight = healthUnit;
+      save();
+    }
+    renderHealth();
+    haptic();
+    const selector = healthPeriod ? `[data-health-period="${healthPeriod}"]` : `[data-health-unit="${healthUnit}"]`;
+    healthView.querySelector(selector)?.focus();
+  }
+});
+
+async function clearHealth() {
+  const count = state.health.entries.length;
+  const ok = await askConfirm({
+    icon: 'trash',
+    title: '¿Borrar tus registros de Salud?',
+    body: `<p>${count === 1 ? 'Se borrará 1 registro' : `Se borrarán ${fmtNumber.format(count)} registros`} de este dispositivo. Tus hábitos, tu progreso y tu diario no cambian.</p>
+      <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
+    confirmText: 'Sí, borrar',
+    danger: true,
+  });
+  if (!ok) return;
+  const snapshot = JSON.stringify(state);
+  state.health.entries = [];
+  ui.healthSel = null;
+  save();
+  render();
+  haptic();
+  toast('Registros de Salud borrados', { action: 'Deshacer', onAction: undoTo(snapshot) });
+}
+
+// ---------- Registrar o editar una medida ----------
+
+const healthDialog = $('#health-entry');
+const healthValue = $('#health-value');
+const healthDate = $('#health-date');
+
+function showHealthErrors(errors) {
+  [['value', healthValue], ['date', healthDate]].forEach(([field, input]) => {
+    const el = $(`#health-${field}-error`);
+    el.textContent = errors[field] || '';
+    el.hidden = !errors[field];
+    if (errors[field]) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  });
+}
+
+function openHealthEntry(id = null) {
+  const metric = 'weight';
+  const entry = id ? state.health.entries.find((e) => e.id === id) : null;
+  const unit = state.health.units[metric];
+  const { last } = healthLatest(metric);
+  ui.healthEdit = entry ? entry.id : null;
+  $('#health-entry-title').textContent = entry ? 'Editar registro' : `Registrar ${HEALTH_METRICS[metric].label.toLowerCase()}`;
+  $('#health-value-label').textContent = `${HEALTH_METRICS[metric].label} (${unit})`;
+  healthValue.value = entry ? healthInputText(entry, unit) : '';
+  healthValue.placeholder = last ? healthInputText(last, unit) : '';
+  healthDate.value = entry ? entry.date : ui.today;
+  healthDate.min = HEALTH_MIN_DATE;
+  healthDate.max = ui.today;
+  $('#health-note').value = entry ? entry.note : '';
+  $('#health-delete').hidden = !entry;
+  showHealthErrors({});
+  healthDialog.showModal();
+}
+
+$('#health-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const editing = Boolean(ui.healthEdit);
+  const result = saveHealthEntry('weight', {
+    id: ui.healthEdit,
+    valueText: healthValue.value,
+    date: healthDate.value,
+    note: $('#health-note').value,
+  });
+  showHealthErrors(result.errors || {});
+  if (result.errors) {
+    (result.errors.value ? healthValue : healthDate).focus();
+    return;
+  }
+  healthDialog.close();
+  ui.healthSel = result.entry.id;
+  render();
+  haptic();
+  toast(editing ? 'Registro actualizado' : 'Peso registrado');
+});
+
+$('#health-delete').addEventListener('click', () => {
+  const id = ui.healthEdit;
+  if (!id) return;
+  const snapshot = JSON.stringify(state);
+  healthDialog.close();
+  deleteHealthEntry(id);
+  render();
+  toast('Registro borrado', { action: 'Deshacer', onAction: undoTo(snapshot) });
+});
+$('#health-cancel').addEventListener('click', () => healthDialog.close());
+healthDialog.addEventListener('click', (e) => {
+  if (e.target === healthDialog) healthDialog.close();
+});
+
+// ---------- Rutinas ----------
+
+// Crear, editar, ordenar o borrar rutinas nunca toca los hábitos ni sus días: solo cambia cómo se agrupan en Hoy.
+const findRoutine = (id) => state.routines.find((r) => r.id === id);
+const routineOf = (habitId) => state.routines.find((r) => r.habitIds.includes(habitId)) || null;
+
+// Reparte los hábitos (ya ordenados) entre sus rutinas; las que no tienen ninguno visible no se enseñan.
+function routineGroups(habits) {
+  const groups = state.routines
+    .map((routine) => ({ routine, habits: habits.filter((h) => routine.habitIds.includes(h.id)) }))
+    .filter((g) => g.habits.length);
+  const grouped = new Set(groups.flatMap((g) => g.habits));
+  return { groups, rest: habits.filter((h) => !grouped.has(h)) };
+}
+
+// Guarda una rutina nueva (sin id) o editada. Un hábito elegido deja la rutina en la que estuviera.
+function saveRoutine({ id = null, name, habitIds = [] }) {
+  const clean = String(name || '').trim().slice(0, ROUTINE_NAME_MAX);
+  const same = state.routines.find((r) => r.id !== id && r.name.toLocaleLowerCase('es') === clean.toLocaleLowerCase('es'));
+  if (!clean) return { errors: { name: 'Ponle un nombre, por ejemplo «Mañana».' } };
+  if (same) return { errors: { name: 'Ya tienes una rutina con ese nombre.' } };
+  let routine = id && findRoutine(id);
+  if (!routine) {
+    if (state.routines.length >= ROUTINE_MAX) return { errors: { name: `Puedes tener hasta ${ROUTINE_MAX} rutinas.` } };
+    routine = { id: uid(), name: clean, habitIds: [] };
+    state.routines.push(routine);
+  }
+  const chosen = [...new Set(habitIds.map(String))].filter((hid) => findHabit(hid));
+  state.routines.forEach((r) => {
+    if (r !== routine) r.habitIds = r.habitIds.filter((hid) => !chosen.includes(hid));
+  });
+  // Los archivados que ya estaban se quedan: no se ven en la lista, pero vuelven con su rutina al restaurarlos.
+  const archived = routine.habitIds.filter((hid) => findHabit(hid)?.archived && !chosen.includes(hid));
+  routine.name = clean;
+  routine.habitIds = [...chosen, ...archived];
+  save();
+  return { routine };
+}
+
+function deleteRoutine(id) {
+  state.routines = state.routines.filter((r) => r.id !== id);
+  save();
+}
+
+function moveRoutine(id, step) {
+  const from = state.routines.findIndex((r) => r.id === id);
+  const to = from + step;
+  if (from < 0 || to < 0 || to >= state.routines.length) return;
+  const [routine] = state.routines.splice(from, 1);
+  state.routines.splice(to, 0, routine);
+  save();
+}
+
+// Rutina de un hábito desde su hoja de edición ('' = ninguna).
+function setHabitRoutine(habitId, routineId) {
+  state.routines.forEach((r) => { r.habitIds = r.habitIds.filter((hid) => hid !== habitId); });
+  const routine = routineId && findRoutine(routineId);
+  if (routine) routine.habitIds.push(habitId);
+}
+
+function renderRoutineList() {
+  const last = state.routines.length - 1;
+  $('#routine-list').innerHTML = state.routines.map((r, i) => {
+    const habits = r.habitIds.map(findHabit).filter((h) => h && !h.archived);
+    const name = escapeHTML(r.name);
+    const emojis = habits.map((h) => escapeHTML(h.emoji)).join(' ');
+    return `<li>
+      <span class="routine-info"><b>${name}</b><span>${habits.length ? `${plural(habits.length, 'hábito', 'hábitos')} · ${emojis}` : 'Sin hábitos'}</span></span>
+      <button type="button" class="icon-btn" data-routine-move="-1" data-id="${escapeHTML(r.id)}" aria-label="Subir «${name}»"${i === 0 ? ' disabled' : ''}>${ICONS.chevronUp}</button>
+      <button type="button" class="icon-btn" data-routine-move="1" data-id="${escapeHTML(r.id)}" aria-label="Bajar «${name}»"${i === last ? ' disabled' : ''}>${ICONS.chevronDown}</button>
+      <button type="button" class="pill-btn small" data-routine-edit="${escapeHTML(r.id)}" aria-label="Editar «${name}»">Editar</button>
+    </li>`;
+  }).join('');
+  $('#routine-add').disabled = state.routines.length >= ROUTINE_MAX;
+}
+
+$('#routine-list').addEventListener('click', (e) => {
+  const move = e.target.closest('[data-routine-move]');
+  const edit = e.target.closest('[data-routine-edit]');
+  if (edit) {
+    openRoutine(edit.dataset.routineEdit);
+    return;
+  }
+  if (!move) return;
+  const { id } = move.dataset;
+  const step = Number(move.dataset.routineMove);
+  moveRoutine(id, step);
+  renderRoutineList();
+  haptic();
+  // El foco sigue en la misma flecha; si ya no se puede mover más hacia ahí, pasa a la otra.
+  const same = $(`#routine-list [data-routine-move="${step}"][data-id="${CSS.escape(id)}"]`);
+  (same && !same.disabled ? same : $(`#routine-list [data-routine-move="${-step}"][data-id="${CSS.escape(id)}"]`))?.focus();
+});
+$('#routine-add').addEventListener('click', () => openRoutine());
+
+const routineDialog = $('#routine-dialog');
+const routineName = $('#routine-name');
+
+function showRoutineError(message) {
+  const el = $('#routine-name-error');
+  el.textContent = message || '';
+  el.hidden = !message;
+  if (message) routineName.setAttribute('aria-invalid', 'true');
+  else routineName.removeAttribute('aria-invalid');
+}
+
+function openRoutine(id = null) {
+  const routine = id ? findRoutine(id) : null;
+  ui.routineEdit = routine ? routine.id : null;
+  $('#routine-title').textContent = routine ? 'Editar rutina' : 'Nueva rutina';
+  routineName.value = routine ? routine.name : '';
+  $('#routine-delete').hidden = !routine;
+  const habits = visibleHabits();
+  $('#routine-habits').innerHTML = habits.length ? habits.map((h) => {
+    const other = routineOf(h.id);
+    const where = other && other !== routine ? `<span>Ahora en «${escapeHTML(other.name)}»</span>` : '';
+    return `<label class="check-row" style="--c:${colorHex(h.color)}">
+      <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
+      <span class="check-text"><b>${escapeHTML(h.name)}</b>${where}</span>
+      <input type="checkbox" value="${escapeHTML(h.id)}"${routine && routine.habitIds.includes(h.id) ? ' checked' : ''}>
+    </label>`;
+  }).join('') : '<p class="card-text">Aún no tienes hábitos. Puedes crear la rutina y añadirlos después.</p>';
+  showRoutineError('');
+  routineDialog.showModal();
+}
+
+$('#routine-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const editing = Boolean(ui.routineEdit);
+  const habitIds = [...document.querySelectorAll('#routine-habits input:checked')].map((input) => input.value);
+  const result = saveRoutine({ id: ui.routineEdit, name: routineName.value, habitIds });
+  if (result.errors) {
+    showRoutineError(result.errors.name);
+    routineName.focus();
+    return;
+  }
+  routineDialog.close();
+  render();
+  haptic();
+  toast(editing ? 'Rutina guardada' : `Rutina «${result.routine.name}» creada`);
+});
+
+$('#routine-delete').addEventListener('click', () => {
+  const routine = findRoutine(ui.routineEdit);
+  if (!routine) return;
+  const snapshot = JSON.stringify(state);
+  routineDialog.close();
+  deleteRoutine(routine.id);
+  render();
+  haptic();
+  toast(`Rutina «${routine.name}» eliminada; tus hábitos siguen igual`, { action: 'Deshacer', onAction: undoTo(snapshot) });
+});
+$('#routine-cancel').addEventListener('click', () => routineDialog.close());
+routineDialog.addEventListener('click', (e) => {
+  if (e.target === routineDialog) routineDialog.close();
+});
+
 // ---------- Pantalla "Ajustes" ----------
 
 const fmtMonthYear = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
@@ -1702,6 +2545,9 @@ function renderSettings() {
   document.querySelectorAll('#avatar-grid button').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.avatar === profile.avatar));
   });
+
+  renderRoutineList();
+  renderBackupNotes();
 
   $('#backup-date').textContent = state.lastBackup
     ? `Última copia: ${fmtCaptionYear.format(parseKey(state.lastBackup)).replace(/\./g, '')}`
@@ -1753,12 +2599,16 @@ function archiveHabit(habit) {
   toast(`«${habit.name}» archivado`, { action: 'Deshacer', onAction: undoTo(snapshot) });
 }
 
-function restoreHabit(habit) {
-  if (!habit) return;
-  // Los días que estuvo archivado cuentan como una pausa, para que no rompan la racha.
+// Los días que estuvo archivado cuentan como una pausa, para que no rompan la racha.
+function unarchive(habit) {
   const yesterday = shiftKey(ui.today, -1);
   if (habit.archived <= yesterday) habit.pauses.push({ from: habit.archived, to: yesterday });
   habit.archived = null;
+}
+
+function restoreHabit(habit) {
+  if (!habit) return;
+  unarchive(habit);
   save();
   render();
   haptic();
@@ -1772,6 +2622,7 @@ function deleteHabit(habit) {
   const before = computeStats();
   const s = streakInfo(habit);
   state.habits = state.habits.filter((h) => h !== habit);
+  state.routines.forEach((r) => { r.habitIds = r.habitIds.filter((id) => id !== habit.id); });
   invalidate(); // los retos y protectores dependen de todos los hábitos
   const after = computeStats();
   // Borrar no cambia la XP total: ni se pierde la que dio, ni se gana por los días que ahora serían perfectos.
@@ -1840,7 +2691,7 @@ $('#reset-btn').addEventListener('click', async () => {
         <li>${ICONS.x}<span>Tu XP y tu nivel vuelven a cero</span></li>
         <li>${ICONS.x}<span>Todos los logros se bloquean otra vez</span></li>
         <li>${ICONS.x}<span>Se borra el historial de días y las rachas</span></li>
-        <li class="keep">${ICONS.check}<span>Tus hábitos, tu perfil y tu diario se mantienen</span></li>
+        <li class="keep">${ICONS.check}<span>Tus hábitos, rutinas, perfil, diario y Salud se mantienen</span></li>
       </ul>
       <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
     confirmText: 'Sí, restablecer',
@@ -2009,7 +2860,7 @@ function weekSummary(ws) {
       }
       due += hDue;
       done += hDone;
-      if (hDue) rows.push({ habit: h, pct: hDone / hDue, done: hDone });
+      if (hDue) rows.push({ habit: h, pct: hDone / hDue, done: hDone, due: hDue });
     }
     const w = weekData(ws);
     xp += w.perfectCount * XP_PERFECT_DAY;
@@ -2031,6 +2882,8 @@ function weekSummary(ws) {
       best,
       hardest: hardest && hardest !== best ? hardest : null,
       mood: moods.length ? moods.reduce((a, b) => a + b, 0) / moods.length : null,
+      moodDays: moods.length,
+      rows,
     };
   });
 }
@@ -2038,6 +2891,7 @@ function weekSummary(ws) {
 const summaryDialog = $('#summary');
 
 function showSummary(ws) {
+  ui.summaryWeek = ws;
   const sum = weekSummary(ws);
   const prev = hasWeekHistory(shiftKey(ws, -7)) ? weekSummary(shiftKey(ws, -7)) : null;
   const pct = sum.pct === null ? null : Math.round(sum.pct * 100);
@@ -2085,6 +2939,217 @@ $('#summary-close').addEventListener('click', () => summaryDialog.close());
 summaryDialog.addEventListener('click', (e) => {
   if (e.target === summaryDialog) summaryDialog.close();
 });
+$('#summary-review').addEventListener('click', () => {
+  summaryDialog.close();
+  openReview(ui.summaryWeek);
+});
+
+// ---------- Revisión semanal ----------
+
+// Semanas completas que se pueden revisar: de la primera con historial (hasta un año atrás) a la pasada.
+function reviewBounds() {
+  const last = shiftKey(weekStartOf(ui.today), -7);
+  let first = last;
+  for (let i = 0; i < 52 && hasWeekHistory(shiftKey(first, -7)); i++) first = shiftKey(first, -7);
+  return { first, last };
+}
+
+// Columnas pequeñas de una sola serie: el valor encima, la etiqueta debajo; `em` resalta una.
+function miniBars(items, label) {
+  const aria = `${label}: ${items.map((i) => `${i.name}, ${i.value === null ? i.empty : i.text}`).join('; ')}`;
+  return `<div class="mini-bars" role="img" aria-label="${escapeHTML(aria)}">${items.map((i) => `<div class="mini-bar${i.em ? ' em' : ''}">
+      <span class="mb-value">${i.text}</span>
+      <span class="mb-track"><span class="mb-fill" style="height:${i.value === null ? 0 : Math.max(3, Math.round(i.value * 100))}%"></span></span>
+      <span class="mb-label">${i.label}</span>
+    </div>`).join('')}</div>`;
+}
+
+const reviewDialog = $('#review');
+const reviewBody = $('#review-body');
+
+function openReview(ws = shiftKey(weekStartOf(ui.today), -7)) {
+  ui.reviewWeek = ws;
+  ui.reviewArchived = new Set(); // los archivados desde la revisión siguen en la lista, para poder restaurarlos
+  $('#review-status').textContent = '';
+  renderReview();
+  document.documentElement.classList.add('locked');
+  if (!reviewDialog.open) reviewDialog.showModal();
+  reviewBody.scrollTop = 0;
+}
+
+function renderReview() {
+  const ws = ui.reviewWeek;
+  const { first, last } = reviewBounds();
+  const sum = weekSummary(ws);
+  const prev = hasWeekHistory(shiftKey(ws, -7)) ? weekSummary(shiftKey(ws, -7)) : null;
+  const pct = sum.pct === null ? null : Math.round(sum.pct * 100);
+  const weeksAgo = Math.round((parseKey(weekStartOf(ui.today)) - parseKey(ws)) / (7 * 864e5));
+
+  const nav = `<div class="review-nav">
+    <button type="button" class="icon-btn" data-review-week="-7" aria-label="Semana anterior"${ws <= first ? ' disabled' : ''}>${ICONS.chevronLeft}</button>
+    <div class="review-week"><b>${weekRange(ws)}</b><span>${weeksAgo === 1 ? 'La semana pasada' : `Hace ${weeksAgo} semanas`}</span></div>
+    <button type="button" class="icon-btn" data-review-week="7" aria-label="Semana siguiente"${ws >= last ? ' disabled' : ''}>${ICONS.chevronRight}</button>
+  </div>`;
+
+  // Cómo fue: lo mismo que el resumen, dicho sin juicios, y las últimas semanas para ver la tendencia.
+  let delta = '';
+  if (pct !== null && prev && prev.pct !== null) {
+    const diff = pct - Math.round(prev.pct * 100);
+    delta = diff > 0 ? `${plural(diff, 'punto', 'puntos')} más que la semana anterior`
+      : diff < 0 ? `${plural(-diff, 'punto', 'puntos')} menos que la semana anterior`
+      : 'Igual que la semana anterior';
+  }
+  const recent = [-21, -14, -7, 0].map((d) => shiftKey(ws, d)).filter(hasWeekHistory);
+  const bars = recent.length >= 2 ? `<p class="review-sub">Las últimas semanas</p>${miniBars(recent.map((w) => {
+    const p = weekSummary(w).pct;
+    return {
+      value: p, text: p === null ? '—' : `${Math.round(p * 100)} %`, empty: 'no tocaba nada',
+      label: shortDate(w), name: `semana del ${shortDate(w)}`, em: w === ws,
+    };
+  }), 'Cumplimiento de cada semana')}` : '';
+  const overview = `<section class="review-section" aria-labelledby="rv-overview">
+    <h3 class="section-label" id="rv-overview">Cómo fue</h3>
+    <article class="card">
+      <div class="review-overview">
+        <div class="summary-ring" style="--p:${sum.pct || 0}"><b>${pct === null ? '—' : `${pct} %`}</b></div>
+        <div class="review-overview-text">
+          <p>${pct === null ? 'Esa semana no tocaba ningún hábito.' : `Hiciste ${sum.done} de ${sum.due} de lo que tocaba.`}</p>
+          ${delta ? `<span class="delta">${delta}</span>` : ''}
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${sum.perfect}</b><span>Días perfectos</span></div>
+        <div class="stat"><b>+${fmtNumber.format(sum.xp)}</b><span>XP ganada</span></div>
+        <div class="stat"><b>${sum.challenges}</b><span>Retos</span></div>
+      </div>
+      ${bars}
+    </article>
+  </section>`;
+
+  // Cada hábito, día a día, en el orden de siempre (sin clasificar el mejor ni el peor).
+  const days = weekKeys(ws);
+  const habitItems = sum.rows.map(({ habit: h, done, due }) => {
+    const clean = `${plural(done, 'día', 'días')} sin ${escapeHTML(quitWhat(h))}`;
+    const what = h.kind === 'quit' ? (done === due ? clean : `${plural(due - done, 'recaída', 'recaídas')} · ${clean}`)
+      : h.schedule.type === 'weekly' ? `${done} de ${plural(due, 'vez', 'veces')}`
+      : `${done} de ${plural(due, 'día', 'días')} que tocaban`;
+    return `<li style="--c:${colorHex(h.color)}">
+      <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
+      <span class="review-habit"><b>${escapeHTML(h.name)}</b><span>${what}${h.archived ? ' · archivado' : ''}</span></span>
+      <span class="hm-grid review-days" aria-hidden="true">${days.map((d) => `<i class="${habitCellClass(h, d)}"></i>`).join('')}</span>
+    </li>`;
+  }).join('');
+  const habits = `<section class="review-section" aria-labelledby="rv-habits">
+    <h3 class="section-label" id="rv-habits">Tus hábitos</h3>
+    <article class="card">
+      ${habitItems ? `<ul class="review-list">${habitItems}</ul>
+      <p class="rules-note">Cada casilla es un día, de lunes a domingo: con color, hecho; más clara, a medias; con contorno, descanso; gris, en pausa.</p>`
+        : '<p class="card-text">Esa semana no tocaba ningún hábito.</p>'}
+    </article>
+  </section>`;
+
+  // Diario de la semana: ánimo y notas.
+  const entries = days.filter((d) => state.days[d]).map((d) => {
+    const { mood, note } = state.days[d];
+    const label = `${capitalize(fmtWeekday.format(parseKey(d)))} ${parseKey(d).getDate()}${mood ? ` · ${MOOD_NAMES[mood - 1]}` : ''}`;
+    return `<li><span class="sum-icon">${mood ? moodIcon(mood) : ICONS.note}</span><span><b>${label}</b>${note ? escapeHTML(note) : 'Sin nota'}</span></li>`;
+  }).join('');
+  const moodLine = sum.mood ? `<p class="review-sub">Ánimo medio: ${sum.mood.toFixed(1).replace('.', ',')} de 5 (${plural(sum.moodDays, 'día', 'días')})</p>` : '';
+  const journal = `<section class="review-section" aria-labelledby="rv-journal">
+    <h3 class="section-label" id="rv-journal">Tu diario</h3>
+    <article class="card">
+      ${entries ? `${moodLine}<ul class="summary-list">${entries}</ul>` : '<p class="card-text">Esa semana no apuntaste ánimo ni notas.</p>'}
+    </article>
+  </section>`;
+
+  reviewBody.innerHTML = nav + overview + habits + journal + (ws === last ? reviewPlan() : '');
+}
+
+// Ajustes para la semana en curso. Empiezan hoy (o mañana, si hoy ya está hecho) y no tocan los días anteriores.
+function reviewPlan() {
+  const sunday = shiftKey(weekStartOf(ui.today), 6);
+  const button = (h, action, text) => `<button type="button" class="pill-btn small" data-review-action="${action}" data-id="${h.id}">${text}</button>`;
+  const items = state.habits.filter((h) => !h.archived || ui.reviewArchived.has(h.id)).map((h) => {
+    const pause = h.pauses.find((p) => !p.to || p.to >= ui.today);
+    let status;
+    let actions;
+    if (h.archived) {
+      status = 'Archivado desde la revisión';
+      actions = button(h, 'restore', 'Restaurar');
+    } else if (pause) {
+      status = pauseText(pause);
+      actions = button(h, 'resume', 'Reanudar');
+    } else {
+      status = h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule);
+      actions = (firstFreeDay(h) <= sunday ? button(h, 'pause', 'Pausar esta semana') : '') + button(h, 'archive', 'Archivar');
+    }
+    return `<li style="--c:${colorHex(h.color)}">
+      <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
+      <span class="review-habit"><b>${escapeHTML(h.name)}</b><span>${status}</span></span>
+      <span class="review-actions">${actions}</span>
+    </li>`;
+  }).join('');
+  if (!items) return '';
+  return `<section class="review-section" aria-labelledby="rv-plan">
+    <h3 class="section-label" id="rv-plan">Esta semana</h3>
+    <article class="card">
+      <p class="card-text first">${weekRange(weekStartOf(ui.today))}. Si algo no encaja estos días, puedes pausarlo o archivarlo: empieza hoy (o mañana, si hoy ya lo has hecho) y no cambia los días anteriores.</p>
+      <ul class="review-list plan">${items}</ul>
+      <p class="rules-note">Para cambiar la frecuencia o la meta, edita el hábito; su racha y su XP se recalculan con lo nuevo.</p>
+    </article>
+  </section>`;
+}
+
+reviewBody.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-review-week]');
+  if (nav) {
+    const step = nav.dataset.reviewWeek;
+    ui.reviewWeek = shiftKey(ui.reviewWeek, Number(step));
+    renderReview();
+    const again = reviewBody.querySelector(`[data-review-week="${step}"]`);
+    (again.disabled ? reviewBody.querySelector('[data-review-week]:not(:disabled)') : again)?.focus();
+    $('#review-status').textContent = weekRange(ui.reviewWeek);
+    return;
+  }
+  const btn = e.target.closest('[data-review-action]');
+  const habit = btn && findHabit(btn.dataset.id);
+  if (!habit) return;
+  const message = applyReviewAction(habit, btn.dataset.reviewAction);
+  render();
+  renderReview();
+  haptic();
+  $('#review-status').textContent = message;
+  reviewBody.querySelector(`[data-review-action][data-id="${habit.id}"]`)?.focus();
+});
+
+// Pausar, reanudar, archivar o restaurar desde la revisión. Devuelve el mensaje para anunciarlo.
+function applyReviewAction(habit, action) {
+  const sunday = shiftKey(weekStartOf(ui.today), 6);
+  let message;
+  if (action === 'pause') {
+    habit.pauses.push({ from: firstFreeDay(habit), to: sunday });
+    message = `«${habit.name}» en pausa hasta el ${shortDate(sunday)}`;
+  } else if (action === 'resume') {
+    resumeHabit(habit);
+    message = `«${habit.name}» reanudado`;
+  } else if (action === 'archive') {
+    habit.archived = firstFreeDay(habit);
+    ui.reviewArchived.add(habit.id);
+    message = `«${habit.name}» archivado. Puedes restaurarlo aquí o en Ajustes`;
+  } else {
+    unarchive(habit);
+    ui.reviewArchived.delete(habit.id);
+    message = `«${habit.name}» vuelve a estar en Hoy`;
+  }
+  save();
+  return message;
+}
+
+$('#review-close').addEventListener('click', () => reviewDialog.close());
+reviewDialog.addEventListener('click', (e) => {
+  if (e.target === reviewDialog) reviewDialog.close();
+});
+reviewDialog.addEventListener('close', () => document.documentElement.classList.remove('locked'));
 
 // ---------- Recordatorios (archivo .ics para el calendario) ----------
 
@@ -2211,6 +3276,7 @@ function render() {
   if (ui.view === 'today') renderToday();
   else if (ui.view === 'progress') renderProgress();
   else if (ui.view === 'history') renderHistory();
+  else if (ui.view === 'health') renderHealth();
   else renderSettings();
 }
 
@@ -2219,7 +3285,7 @@ function showView(view) {
   if (view === 'today' && ui.view === 'today') ui.day = ui.today;
   ui.view = view;
   ui.editing = false;
-  ['today', 'progress', 'history', 'settings'].forEach((v) => { $(`#view-${v}`).hidden = v !== view; });
+  ['today', 'progress', 'history', 'health', 'settings'].forEach((v) => { $(`#view-${v}`).hidden = v !== view; });
   document.querySelectorAll('.tab').forEach((tab) => {
     if (tab.dataset.view === view) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');
@@ -2599,6 +3665,11 @@ function startEditor(habit, typeId) {
   setSheetMeasure(habit, type);
   setSheetColor(habit ? habit.color : nextColor(state.habits));
   setSheetSchedule(habit ? habit.schedule : type.schedule || { type: 'daily' });
+  $('#routine-block').hidden = !state.routines.length;
+  const current = habit ? routineOf(habit.id) : null;
+  $('#habit-routine').innerHTML = `<option value="">Ninguna</option>${state.routines.map((r) => (
+    `<option value="${escapeHTML(r.id)}"${r === current ? ' selected' : ''}>${escapeHTML(r.name)}</option>`
+  )).join('')}`;
   syncEmojiGrid();
   updateSaveButton();
   $('#habit-editor').scrollTop = 0;
@@ -2676,8 +3747,10 @@ form.addEventListener('submit', (e) => {
     schedule: quit ? { type: 'daily' } : sheetScheduleValue(),
     ...measure,
   };
+  const saved = habit || newHabit({ ...fields, kind });
   if (habit) Object.assign(habit, fields);
-  else state.habits.push(newHabit({ ...fields, kind }));
+  else state.habits.push(saved);
+  if (state.routines.length) setHabitRoutine(saved.id, $('#habit-routine').value);
   save();
   closeSheet();
   render();
@@ -2693,6 +3766,15 @@ $('#delete-btn').addEventListener('click', () => {
 });
 
 // ---------- Reordenar arrastrando (modo edición) ----------
+
+// La lista solo muestra los visibles: los archivados se quedan al final.
+function reorderHabit(from, to) {
+  const visible = visibleHabits();
+  const [moved] = visible.splice(from, 1);
+  visible.splice(to, 0, moved);
+  state.habits = [...visible, ...state.habits.filter((h) => h.archived)];
+  save();
+}
 
 $('#habit-list').addEventListener('pointerdown', (e) => {
   const grip = e.target.closest('.grip');
@@ -2730,12 +3812,7 @@ $('#habit-list').addEventListener('pointerdown', (e) => {
     grip.removeEventListener('pointerup', end);
     grip.removeEventListener('pointercancel', end);
     if (to !== from) {
-      // La lista solo muestra los visibles: los archivados se quedan al final.
-      const visible = visibleHabits();
-      const [moved] = visible.splice(from, 1);
-      visible.splice(to, 0, moved);
-      state.habits = [...visible, ...state.habits.filter((h) => h.archived)];
-      save();
+      reorderHabit(from, to);
       haptic();
     }
     renderToday();
@@ -2807,9 +3884,135 @@ function haptic() {
 
 // ---------- Copia de seguridad ----------
 
-async function exportData() {
-  const payload = { app: 'bonsai', version: 1, exportedAt: new Date().toISOString(), data: state };
-  const fileName = `bonsai-copia-${ui.today}.json`;
+// Contenido del archivo. Sin Salud, la copia no lleva esa sección (y al importarla no se tocan
+// los registros de Salud del dispositivo).
+function backupPayload({ health = true } = {}) {
+  const data = { ...state };
+  if (!health) delete data.health;
+  return { app: 'bonsai', version: 2, exportedAt: new Date().toISOString(), data };
+}
+
+// Lee y valida una copia sin tocar tus datos: { data, hasHealth, exportedAt, dropped } o { error }.
+function readBackup(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    return { error: 'Ese archivo no se puede leer: no es una copia de Bonsái.' };
+  }
+  const isObject = (v) => Boolean(v) && typeof v === 'object';
+  // Si la copia dice de qué app es, tiene que ser de Bonsái (o de cuando se llamaba Racha).
+  if (isObject(parsed) && parsed.app && !BACKUP_APPS.includes(parsed.app)) return { error: 'Ese archivo es de otra app, no una copia de Bonsái.' };
+  const raw = isObject(parsed) && isObject(parsed.data) ? parsed.data : parsed;
+  const data = isObject(raw) ? normalize(raw) : null;
+  if (!data) return { error: 'Ese archivo no tiene el formato de una copia de Bonsái.' };
+  const hasHealth = isObject(raw.health);
+  const count = (list) => (Array.isArray(list) ? list.length : 0);
+  return {
+    data,
+    hasHealth,
+    exportedAt: typeof parsed.exportedAt === 'string' && !Number.isNaN(Date.parse(parsed.exportedAt)) ? parsed.exportedAt : null,
+    // Lo que no era válido y se queda fuera, para avisar antes de importar.
+    dropped: {
+      habits: count(raw.habits) - data.habits.length,
+      health: hasHealth ? count(raw.health.entries) - data.health.entries.length : 0,
+    },
+  };
+}
+
+function backupCounts(data) {
+  return {
+    habits: data.habits.length,
+    marked: data.habits.reduce((n, h) => n + Object.keys(h.done).length, 0),
+    diary: Object.keys(data.days).length,
+    health: data.health.entries.length,
+    routines: data.routines.length,
+  };
+}
+
+// Qué lleva una copia, en frases cortas.
+function backupItems(c, { health = true } = {}) {
+  return [
+    `${plural(c.habits, 'hábito', 'hábitos')}${c.marked ? ` y ${plural(c.marked, 'día marcado', 'días marcados')}` : ''}`,
+    c.diary ? `Diario: ${plural(c.diary, 'día', 'días')} con ánimo o nota` : '',
+    c.routines ? plural(c.routines, 'rutina', 'rutinas') : '',
+    health && c.health ? `Salud: ${plural(c.health, 'registro', 'registros')}` : '',
+    'Tu perfil y tu progreso',
+  ].filter(Boolean);
+}
+const keepList = (items) => `<ul class="confirm-list">${items.map((item) => `<li class="keep">${ICONS.check}<span>${escapeHTML(item)}</span></li>`).join('')}</ul>`;
+
+// Reemplaza tus datos por los de una copia. Antes guarda los actuales en este dispositivo, para poder volver.
+function importBackup(data) {
+  const previous = JSON.stringify(state);
+  try {
+    localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), data: state }));
+  } catch (err) {
+    return { error: 'No hay espacio para guardar tus datos actuales antes de importar. Exporta una copia y vuelve a intentarlo.' };
+  }
+  if (replaceState(data)) return { ok: true };
+  // No se pudo guardar la copia: todo vuelve a como estaba.
+  try {
+    localStorage.removeItem(PRE_IMPORT_KEY);
+  } catch (err) {
+    // no hay nada más que liberar
+  }
+  replaceState(normalize(JSON.parse(previous)));
+  return { error: 'No se pudo guardar la copia importada; tus datos siguen como estaban.' };
+}
+
+function readPreImport() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PRE_IMPORT_KEY));
+    const data = saved && normalize(saved.data);
+    return data ? { savedAt: saved.savedAt, data } : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function restorePreImport() {
+  const saved = readPreImport();
+  if (!saved || !replaceState(saved.data)) return false;
+  localStorage.removeItem(PRE_IMPORT_KEY);
+  render(); // Ajustes deja de ofrecer volver a ellos
+  return true;
+}
+
+const exportDialog = $('#export-dialog');
+const exportHealth = $('#export-health');
+
+function syncExportHint() {
+  const withHealth = exportHealth.checked || $('#export-health-row').hidden;
+  $('#export-hint').textContent = `${withHealth ? '' : 'Sin Salud: al importar esta copia se conservarán los registros de Salud que haya en ese dispositivo. '
+  }Contiene tus datos personales: guárdala en un sitio privado, como Archivos, iCloud Drive o Google Drive.`;
+}
+
+function openExport() {
+  const counts = backupCounts(state);
+  $('#export-body').innerHTML = `<p>Se guarda un archivo con:</p>${keepList(backupItems(counts, { health: false }))}`;
+  $('#export-health-row').hidden = !counts.health;
+  $('#export-health-count').textContent = plural(counts.health, 'registro', 'registros');
+  exportHealth.checked = true;
+  syncExportHint();
+  exportDialog.showModal();
+}
+
+exportHealth.addEventListener('change', syncExportHint);
+$('#export-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const health = exportHealth.checked || $('#export-health-row').hidden;
+  exportDialog.close();
+  exportData({ health });
+});
+$('#export-cancel').addEventListener('click', () => exportDialog.close());
+exportDialog.addEventListener('click', (e) => {
+  if (e.target === exportDialog) exportDialog.close();
+});
+
+async function exportData({ health = true } = {}) {
+  const payload = backupPayload({ health });
+  const fileName = `bonsai-copia-${ui.today}${health ? '' : '-sin-salud'}.json`;
   const file = new File([JSON.stringify(payload, null, 2)], fileName, { type: 'application/json' });
 
   const markDone = () => {
@@ -2828,31 +4031,122 @@ $('#import-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  let data;
-  try {
-    const parsed = JSON.parse(await file.text());
-    // Si la copia dice de qué app es, tiene que ser de Bonsái (o de cuando se llamaba Racha).
-    const known = !parsed || !parsed.app || BACKUP_APPS.includes(parsed.app);
-    data = known ? normalize(parsed && parsed.data ? parsed.data : parsed) : null;
-  } catch (err) {
-    data = null;
-  }
-  if (!data) {
-    toast('Ese archivo no es una copia de Bonsái');
+  // Todo se comprueba antes de tocar nada: si algo falla, tus datos siguen como estaban.
+  if (file.size > BACKUP_MAX_BYTES) {
+    toast('Ese archivo es demasiado grande para ser una copia de Bonsái');
     return;
   }
+  let backup;
+  try {
+    backup = readBackup(await file.text());
+  } catch (err) {
+    backup = { error: 'No se pudo leer el archivo. Prueba a elegirlo otra vez.' };
+  }
+  if (backup.error) {
+    toast(backup.error);
+    return;
+  }
+  const { data } = backup;
+  const counts = backupCounts(data);
+  const local = backupCounts(state);
+  const when = backup.exportedAt ? `Copia del ${fmtCaptionYear.format(new Date(backup.exportedAt)).replace(/\./g, '')}` : 'Copia sin fecha';
+  const notes = [];
+  const localHealth = local.health === 1 ? 'el registro de Salud de este dispositivo' : `los ${local.health} registros de Salud de este dispositivo`;
+  if (!backup.hasHealth) {
+    notes.push(local.health ? `La copia no incluye Salud: se ${local.health === 1 ? 'conserva' : 'conservan'} ${localHealth}.` : 'La copia no incluye Salud.');
+  } else if (local.health) {
+    notes.push(`${capitalize(localHealth)} se ${local.health === 1 ? 'sustituye' : 'sustituyen'} por lo que traiga la copia.`);
+  }
+  const dropped = [
+    backup.dropped.habits > 0 ? plural(backup.dropped.habits, 'hábito', 'hábitos') : '',
+    backup.dropped.health > 0 ? plural(backup.dropped.health, 'registro de Salud', 'registros de Salud') : '',
+  ].filter(Boolean);
+  if (dropped.length) notes.push(`Algunos datos no son válidos y no se importarán: ${dropped.join(' y ')}.`);
   const ok = await askConfirm({
     icon: 'download',
     title: '¿Importar esta copia?',
-    body: `<p>Tus datos actuales se reemplazarán por los de la copia (${
-      plural(data.habits.length, 'hábito', 'hábitos')}${data.profile.name ? `, perfil de ${escapeHTML(data.profile.name)}` : ''}).</p>`,
+    body: `<p><b>${when}</b>${data.profile.name ? `, de ${escapeHTML(data.profile.name)}` : ''}. Contiene:</p>
+      ${keepList(backupItems(counts, { health: backup.hasHealth }))}
+      <p>Reemplaza lo que hay ahora en este dispositivo (${plural(local.habits, 'hábito', 'hábitos')}${
+        local.diary ? `, diario de ${plural(local.diary, 'día', 'días')}` : ''}). Antes se guardan tus datos actuales, por si quieres volver a ellos.</p>
+      ${notes.map((n) => `<p>${escapeHTML(n)}</p>`).join('')}`,
     confirmText: 'Importar',
   });
   if (!ok) return;
+  if (!backup.hasHealth) data.health = state.health;
   // La fecha de la última copia es de este móvil: nos quedamos con la más reciente.
   data.lastBackup = [data.lastBackup, state.lastBackup].filter(Boolean).sort().pop() || null;
-  replaceState(data);
-  toast('Copia restaurada');
+  const result = importBackup(data);
+  if (result.error) {
+    toast(result.error);
+    return;
+  }
+  toast('Copia restaurada', {
+    action: 'Deshacer',
+    onAction: () => toast(restorePreImport() ? 'Has vuelto a tus datos anteriores' : 'No se pudo deshacer la importación'),
+  });
+});
+
+// Ajustes: volver a los datos de antes de la última importación, o sacar los datos que no se pudieron leer.
+const fmtStamp = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+function renderBackupNotes() {
+  const pre = readPreImport();
+  $('#pre-import').hidden = !pre;
+  if (pre) {
+    const at = Date.parse(pre.savedAt);
+    $('#pre-import-text').textContent = `Antes de la última importación${Number.isNaN(at) ? '' : ` (${fmtStamp.format(at).replace(/\./g, '')})`
+    } se guardaron tus datos anteriores en este dispositivo: ${plural(pre.data.habits.length, 'hábito', 'hábitos')}.`;
+  }
+  let rescued = null;
+  try {
+    rescued = localStorage.getItem(RESCUE_KEY);
+  } catch (err) {
+    rescued = null;
+  }
+  $('#rescue').hidden = rescued === null;
+}
+
+$('#pre-import-restore').addEventListener('click', async () => {
+  const ok = await askConfirm({
+    icon: 'rotate',
+    title: '¿Volver a tus datos anteriores?',
+    body: '<p>Se sustituyen tus datos actuales por los que tenías antes de la última importación.</p>',
+    confirmText: 'Volver a ellos',
+  });
+  if (!ok) return;
+  toast(restorePreImport() ? 'Has vuelto a tus datos anteriores' : 'No se pudieron recuperar');
+});
+
+$('#pre-import-discard').addEventListener('click', async () => {
+  const ok = await askConfirm({
+    icon: 'trash',
+    title: '¿Descartar tus datos anteriores?',
+    body: '<p>Se borra la copia guardada antes de la última importación. Tus datos actuales no cambian.</p>',
+    confirmText: 'Descartar',
+    danger: true,
+  });
+  if (!ok) return;
+  localStorage.removeItem(PRE_IMPORT_KEY);
+  renderSettings();
+});
+
+$('#rescue-download').addEventListener('click', () => {
+  const raw = localStorage.getItem(RESCUE_KEY);
+  if (raw !== null) downloadFile(new File([raw], `bonsai-datos-apartados-${ui.today}.json`, { type: 'application/json' }));
+});
+
+$('#rescue-discard').addEventListener('click', async () => {
+  const ok = await askConfirm({
+    icon: 'trash',
+    title: '¿Borrar los datos apartados?',
+    body: '<p>Son los datos que no se pudieron leer. Si no los has descargado, se perderán.</p>',
+    confirmText: 'Borrar',
+    danger: true,
+  });
+  if (!ok) return;
+  localStorage.removeItem(RESCUE_KEY);
+  renderSettings();
 });
 
 // ---------- Aviso flotante ----------
@@ -2889,8 +4183,10 @@ $('#toast-action').addEventListener('click', () => {
 // Tras mantener pulsado no queremos que el "clic" del final sume otra vez.
 let pressTimer = null;
 let skipClick = false;
+// Toda la lista de Hoy: los bloques de las rutinas y los hábitos sin rutina.
+const habitArea = $('#habit-area');
 
-$('#habit-list').addEventListener('click', (e) => {
+habitArea.addEventListener('click', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn) return;
   if (skipClick) {
@@ -2902,7 +4198,7 @@ $('#habit-list').addEventListener('click', (e) => {
 });
 
 // Mantener pulsado ~500 ms resta 1 en los hábitos con cantidad.
-$('#habit-list').addEventListener('pointerdown', (e) => {
+habitArea.addEventListener('pointerdown', (e) => {
   skipClick = false;
   const btn = e.target.closest('.habit');
   if (!btn || ui.editing) return;
@@ -2933,10 +4229,25 @@ $('#habit-list').addEventListener('pointerdown', (e) => {
 });
 
 // Sin menú contextual al mantener pulsado (Android) y con teclado: "−" o Retroceso restan 1 (o abren el deslizador).
-$('#habit-list').addEventListener('contextmenu', (e) => {
+habitArea.addEventListener('contextmenu', (e) => {
   if (e.target.closest('.habit.qty')) e.preventDefault();
 });
-$('#habit-list').addEventListener('keydown', (e) => {
+// En modo edición, Alt + flecha arriba o abajo mueve el hábito: la alternativa a arrastrarlo.
+habitArea.addEventListener('keydown', (e) => {
+  const btn = e.target.closest('.habit');
+  if (!btn || !ui.editing || !e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  e.preventDefault();
+  const visible = visibleHabits();
+  const from = visible.findIndex((h) => h.id === btn.dataset.id);
+  const to = from + (e.key === 'ArrowUp' ? -1 : 1);
+  if (from < 0 || to < 0 || to >= visible.length) return;
+  reorderHabit(from, to);
+  renderToday();
+  $(`.habit[data-id="${btn.dataset.id}"]`)?.focus();
+  toast(`«${visible[from].name}» en el puesto ${to + 1} de ${visible.length}`);
+});
+
+habitArea.addEventListener('keydown', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn || ui.editing || !['-', 'Backspace', 'Delete'].includes(e.key)) return;
   const habit = findHabit(btn.dataset.id);
@@ -2949,11 +4260,12 @@ $('#add-btn').addEventListener('click', () => openSheet());
 
 // Botones repartidos por la app con data-*.
 document.addEventListener('click', (e) => {
-  const target = e.target.closest('[data-add], [data-export], [data-import], [data-goto-view], [data-summary]');
+  const target = e.target.closest('[data-add], [data-export], [data-import], [data-goto-view], [data-summary], [data-review]');
   if (!target) return;
   if (target.hasAttribute('data-summary')) showSummary(shiftKey(weekStartOf(ui.today), -7));
+  else if (target.hasAttribute('data-review')) openReview();
   else if (target.hasAttribute('data-add')) openSheet();
-  else if (target.hasAttribute('data-export')) exportData();
+  else if (target.hasAttribute('data-export')) openExport();
   else if (target.hasAttribute('data-import')) $('#import-file').click();
   else showView(target.dataset.gotoView);
 });
@@ -2995,22 +4307,71 @@ $('#history').addEventListener('click', (e) => {
     return;
   }
   const cell = e.target.closest('.hm-grid i[data-k]');
-  if (!cell) return;
+  if (cell) selectHeatCell(cell);
+});
+
+// Elegir un día del mapa (tocándolo o con el teclado): su resumen debajo y el botón para ir a él.
+function selectHeatCell(cell) {
   const map = cell.closest('.heatmap');
   const foot = map.nextElementSibling;
   const selected = map.querySelector('.sel');
   if (selected) selected.classList.remove('sel');
   cell.classList.add('sel');
-  foot.querySelector('.hm-caption').textContent = dayCaption(map.dataset.habit, cell.dataset.k);
+  const caption = dayCaption(map.dataset.habit, cell.dataset.k);
+  foot.querySelector('.hm-caption').textContent = caption;
   const noteEl = foot.nextElementSibling;
+  const note = map.dataset.habit === 'all' ? (state.days[cell.dataset.k] || {}).note : '';
   if (noteEl && noteEl.classList.contains('hm-note')) {
-    const note = (state.days[cell.dataset.k] || {}).note;
     noteEl.hidden = !note;
     noteEl.textContent = note || '';
   }
   const gotoBtn = foot.querySelector('[data-goto]');
   gotoBtn.dataset.goto = cell.dataset.k;
   gotoBtn.hidden = false;
+  // Solo la casilla elegida entra en el orden del tabulador, con su resumen como nombre.
+  const previous = map.querySelector('.hm-grid [tabindex]');
+  if (previous && previous !== cell) ['tabindex', 'role', 'aria-label'].forEach((a) => previous.removeAttribute(a));
+  cell.tabIndex = 0;
+  cell.setAttribute('role', 'button');
+  cell.setAttribute('aria-label', note ? `${caption}. Nota: ${note}` : caption);
+}
+
+$('#history').addEventListener('focusin', (e) => {
+  const cell = e.target.closest('.hm-grid i[data-k]');
+  if (cell && !cell.classList.contains('sel')) selectHeatCell(cell);
+});
+
+// Flechas: arriba y abajo cambian de día; izquierda y derecha, de semana. Intro o espacio abren ese día en Hoy.
+$('#history').addEventListener('keydown', (e) => {
+  const cell = e.target.closest('.hm-grid i[data-k]');
+  if (!cell) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    ui.day = cell.dataset.k;
+    showView('today');
+    return;
+  }
+  const step = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 }[e.key];
+  if (!step) return;
+  e.preventDefault();
+  const next = cell.parentElement.querySelector(`[data-k="${shiftKey(cell.dataset.k, step)}"]`);
+  if (!next) return;
+  selectHeatCell(next);
+  next.focus();
+});
+
+// Grupos de opciones (role="radio"): las flechas pasan a la opción de al lado y la eligen, como en los controles nativos.
+document.addEventListener('keydown', (e) => {
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  const radio = step && !e.altKey && e.target.closest('[role="radio"]');
+  const group = radio && radio.closest('[role="radiogroup"]');
+  if (!group) return;
+  const radios = [...group.querySelectorAll('[role="radio"]')].filter((r) => !r.disabled && !r.hidden);
+  const next = radios[(radios.indexOf(radio) + step + radios.length) % radios.length];
+  e.preventDefault();
+  next.click();
+  // Algunos grupos se vuelven a pintar al elegir; entonces es su propio código el que pone el foco.
+  if (next.isConnected) next.focus();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -3028,6 +4389,7 @@ if (!state.challengesSince) {
 useShields();
 render();
 maybeShowSummary();
+if (loadProblem) toast('No se pudieron leer tus datos guardados. Se han apartado sin borrarlos: míralo en Ajustes');
 
 // Pide al navegador que no borre nuestros datos si le falta espacio.
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
