@@ -16,9 +16,15 @@ const SHIELD_EVERY = 7;      // 1 protector por cada 7 días seguidos de racha
 const SHIELD_MAX = 3;        // como mucho 3 guardados
 const SHIELD_MIN_STREAK = 3; // solo se gastan para salvar rachas de 3 días o más
 
-// Ánimo del día (1–5) y nota corta
-const MOODS = ['😞', '😕', '😐', '🙂', '😄'];
+// Ánimo del día (1–5) y nota corta. Cada ánimo es una cara de línea: solo cambia la boca.
 const MOOD_NAMES = ['Mal', 'Regular', 'Normal', 'Bien', 'Genial'];
+const MOOD_MOUTHS = [
+  'M8.5 16.5c1-1.3 2.2-2 3.5-2s2.5.7 3.5 2',
+  'M9 15.9l6-1.3',
+  'M9 15.5h6',
+  'M9 14.5c.9.6 1.9.9 3 .9s2.1-.3 3-.9',
+  'M8 13.5h8a4 4 0 0 1-8 0z',
+];
 const NOTE_MAX = 200;
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
 const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52]; // metas para los hábitos de "X veces por semana"
@@ -27,43 +33,33 @@ const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52]; // metas para los hábitos de "X 
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
+// Títulos de nivel: el crecimiento de un bonsái, de la semilla al maestro.
+// Del 16 en adelante se repite el último con número («Maestro 2», «Maestro 3»…).
 const LEVELS = [
-  { emoji: '🌱', title: 'Semilla' },
-  { emoji: '🌿', title: 'Brote' },
-  { emoji: '🪴', title: 'Planta' },
-  { emoji: '🌳', title: 'Árbol' },
-  { emoji: '🔥', title: 'Constante' },
-  { emoji: '⚡', title: 'Enfocado' },
-  { emoji: '💪', title: 'Disciplinado' },
-  { emoji: '🧭', title: 'Explorador' },
-  { emoji: '🏔️', title: 'Escalador' },
-  { emoji: '🦅', title: 'Imparable' },
-  { emoji: '🧠', title: 'Sabio' },
-  { emoji: '🛡️', title: 'Guardián' },
-  { emoji: '👑', title: 'Maestro' },
-  { emoji: '🌟', title: 'Estrella' },
-  { emoji: '🐉', title: 'Leyenda' },
-];
+  'Semilla', 'Brote', 'Plántula', 'Arraigo', 'Tallo',
+  'Rama', 'Copa', 'Poda', 'Forma', 'Tronco',
+  'Corteza', 'Árbol joven', 'Árbol maduro', 'Árbol antiguo', 'Maestro',
+].map((title) => ({ title }));
 
 // stat: qué número mira el logro (ver computeStats) · goal: cuánto hace falta
 const ACHIEVEMENTS = [
-  { emoji: '✅', name: 'Primer paso', desc: 'Marca tu primer hábito', stat: 'checkins', goal: 1 },
-  { emoji: '🔥', name: 'En marcha', desc: 'Racha de 3 días', stat: 'best', goal: 3 },
-  { emoji: '🌟', name: 'Día perfecto', desc: 'Todos tus hábitos en un día', stat: 'perfectDays', goal: 1 },
-  { emoji: '📅', name: 'Una semana', desc: 'Racha de 7 días', stat: 'best', goal: 7 },
-  { emoji: '🚀', name: 'Despegue', desc: 'Llega al nivel 5', stat: 'level', goal: 5 },
-  { emoji: '⚡', name: 'Dos semanas', desc: 'Racha de 14 días', stat: 'best', goal: 14 },
-  { emoji: '🎯', name: 'Medio centenar', desc: 'Marca 50 hábitos en total', stat: 'checkins', goal: 50 },
-  { emoji: '✨', name: 'Perfeccionista', desc: '10 días perfectos', stat: 'perfectDays', goal: 10 },
-  { emoji: '🏅', name: 'Un mes entero', desc: 'Racha de 30 días', stat: 'best', goal: 30 },
-  { emoji: '🦅', name: 'Doble dígito', desc: 'Llega al nivel 10', stat: 'level', goal: 10 },
-  { emoji: '🏆', name: 'Veterano', desc: 'Marca 250 hábitos en total', stat: 'checkins', goal: 250 },
-  { emoji: '💯', name: 'Centenario', desc: 'Racha de 100 días', stat: 'best', goal: 100 },
-  { emoji: '💎', name: 'Diamante', desc: '50 días perfectos', stat: 'perfectDays', goal: 50 },
-  { emoji: '👑', name: 'Un año', desc: 'Racha de 365 días', stat: 'best', goal: 365 },
-  { emoji: '🛡️', name: 'Escudo', desc: 'Usa tu primer protector', stat: 'shieldsUsed', goal: 1 },
-  { emoji: '🕊️', name: 'Libre', desc: '30 días sin recaer', stat: 'bestClean', goal: 30 },
-  { emoji: '🏆', name: 'Retador', desc: 'Completa 10 retos semanales', stat: 'challenges', goal: 10 },
+  { icon: 'checkCircle', name: 'Primer paso', desc: 'Marca tu primer hábito', stat: 'checkins', goal: 1 },
+  { icon: 'flame', name: 'En marcha', desc: 'Racha de 3 días', stat: 'best', goal: 3 },
+  { icon: 'sun', name: 'Día perfecto', desc: 'Todos tus hábitos en un día', stat: 'perfectDays', goal: 1 },
+  { icon: 'calendar', name: 'Una semana', desc: 'Racha de 7 días', stat: 'best', goal: 7 },
+  { icon: 'sprout', name: 'Despegue', desc: 'Llega al nivel 5', stat: 'level', goal: 5 },
+  { icon: 'link', name: 'Dos semanas', desc: 'Racha de 14 días', stat: 'best', goal: 14 },
+  { icon: 'checks', name: 'Medio centenar', desc: 'Marca 50 hábitos en total', stat: 'checkins', goal: 50 },
+  { icon: 'sparkle', name: 'Perfeccionista', desc: '10 días perfectos', stat: 'perfectDays', goal: 10 },
+  { icon: 'moon', name: 'Un mes entero', desc: 'Racha de 30 días', stat: 'best', goal: 30 },
+  { icon: 'tree', name: 'Doble dígito', desc: 'Llega al nivel 10', stat: 'level', goal: 10 },
+  { icon: 'layers', name: 'Veterano', desc: 'Marca 250 hábitos en total', stat: 'checkins', goal: 250 },
+  { icon: 'mountain', name: 'Centenario', desc: 'Racha de 100 días', stat: 'best', goal: 100 },
+  { icon: 'gem', name: 'Diamante', desc: '50 días perfectos', stat: 'perfectDays', goal: 50 },
+  { icon: 'cycle', name: 'Un año', desc: 'Racha de 365 días', stat: 'best', goal: 365 },
+  { icon: 'shield', name: 'Escudo', desc: 'Usa tu primer protector', stat: 'shieldsUsed', goal: 1 },
+  { icon: 'unlock', name: 'Libre', desc: '30 días sin recaer', stat: 'bestClean', goal: 30 },
+  { icon: 'target', name: 'Retador', desc: 'Completa 10 retos semanales', stat: 'challenges', goal: 10 },
 ];
 
 // Plantillas: las 8 primeras salen en la bienvenida. Los campos que faltan usan los valores por defecto.
@@ -128,16 +124,44 @@ const AVATARS = [
 
 const $ =(selector) => document.querySelector(selector);
 
+// Iconos de línea (trazo de 1,5, como los de la barra de pestañas). Sustituyen a los emojis de la app;
+// los emojis que eliges para tus hábitos y tu avatar se quedan tal cual.
+const svg = (body, label) => `<svg viewBox="0 0 24 24" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'}>${body}</svg>`;
 const ICONS = {
-  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-  grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
-  // Iconos de línea en lugar de emojis (racha, protector y día de descanso)
-  flame: '<svg viewBox="0 0 24 24" role="img" aria-label="Racha"><path d="M12 3c.4 2.6 2 4.3 3.6 6 1.5 1.6 2.4 3.2 2.4 5.2A6 6 0 0 1 6 14.2c0-2 .8-3.6 2.2-5 .2 1.5.9 2.6 2 3.2C10 9 10.6 5.8 12 3z"/></svg>',
-  shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.7v5.5c0 4.4-2.9 7.9-7 9.3-4.1-1.4-7-4.9-7-9.3V5.7L12 3z"/></svg>',
-  leaf: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18C6 10.5 10.5 6 19 5c-.6 8.3-5 13-13 13z"/><path d="M6 18l6-6"/></svg>',
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  grip: svg('<path d="M5 8h14M5 12h14M5 16h14"/>'),
+  pause: svg('<path d="M9 6v12M15 6v12"/>'),
+  plus: svg('<path d="M12 6v12M6 12h12"/>'),
+  x: svg('<path d="M7 7l10 10M17 7L7 17"/>'),
+  flame: svg('<path d="M12 3c.4 2.6 2 4.3 3.6 6 1.5 1.6 2.4 3.2 2.4 5.2A6 6 0 0 1 6 14.2c0-2 .8-3.6 2.2-5 .2 1.5.9 2.6 2 3.2C10 9 10.6 5.8 12 3z"/>', 'Racha'),
+  shield: svg('<path d="M12 3l7 2.7v5.5c0 4.4-2.9 7.9-7 9.3-4.1-1.4-7-4.9-7-9.3V5.7L12 3z"/>'),
+  leaf: svg('<path d="M6 18C6 10.5 10.5 6 19 5c-.6 8.3-5 13-13 13z"/><path d="M6 18l6-6"/>'),
+  target: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6L6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>'),
+  calendar: svg('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  checkCircle: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>'),
+  checks: svg('<path d="M2.5 12.5l4 4L15 8M11.5 15.5l1 1L21 8"/>'),
+  layers: svg('<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8 12 3.5z"/><path d="M3.5 12l8.5 4.5 8.5-4.5M3.5 16l8.5 4.5 8.5-4.5"/>'),
+  moon: svg('<path d="M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10z"/>'),
+  mountain: svg('<path d="M2.5 19.5l7-11.5 4 6.5 2-3 6 8H2.5z"/>'),
+  cycle: svg('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/>'),
+  sparkle: svg('<path d="M12 3.5c.6 4.2 2.3 5.9 6.5 6.5-4.2.6-5.9 2.3-6.5 6.5-.6-4.2-2.3-5.9-6.5-6.5 4.2-.6 5.9-2.3 6.5-6.5z"/><path d="M18.5 16.5v4M16.5 18.5h4"/>'),
+  gem: svg('<path d="M7 4.5h10l3.5 5L12 20 3.5 9.5 7 4.5z"/><path d="M3.5 9.5h17M9.5 4.5L8 9.5l4 10.5 4-10.5-1.5-5"/>'),
+  sprout: svg('<path d="M12 20.5v-8"/><path d="M12 12.5C12 8.5 9.5 6 5 6c0 4 2.5 6.5 7 6.5z"/><path d="M12 10.5c0-3.5 2.3-6 6.5-6 0 3.8-2.4 6-6.5 6z"/>'),
+  tree: svg('<path d="M12 21v-5.5"/><path d="M8 15.5a4 4 0 0 1-1.3-7.8 5.5 5.5 0 0 1 10.6 0A4 4 0 0 1 16 15.5H8z"/>'),
+  unlock: svg('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7a3.5 3.5 0 0 1 6.8-1.2"/>'),
+  link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+  drop: svg('<path d="M12 3.5c3.5 4.2 6 7.4 6 10.5a6 6 0 0 1-12 0c0-3.1 2.5-6.3 6-10.5z"/>'),
+  grid: svg('<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>'),
+  award: svg('<circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-2.5 5 2.5-1.5-7.5"/>'),
+  chart: svg('<path d="M4 20.5h16M7 16.5v-4M12 16.5v-9M17 16.5v-6"/>'),
+  play: svg('<path d="M8 5.5v13l10.5-6.5L8 5.5z"/>'),
+  heart: svg('<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>'),
+  rotate: svg('<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/>'),
+  download: svg('<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 19.5h15"/>'),
+  trash: svg('<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/>'),
 };
+const moodIcon = (mood) => svg(`<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="${MOOD_MOUTHS[mood - 1]}"/>`);
 
 // ---------- Fechas (siempre en hora local, formato AAAA-MM-DD) ----------
 
@@ -571,7 +595,7 @@ function levelForXp(xp) {
 function levelInfo(level) {
   const meta = LEVELS[Math.min(level, LEVELS.length) - 1];
   if (level <= LEVELS.length) return meta;
-  return { emoji: meta.emoji, title: `${meta.title} ${level - LEVELS.length + 1}` };
+  return { title: `${meta.title} ${level - LEVELS.length + 1}` };
 }
 
 // Todo se calcula a partir del historial, así marcar o desmarcar siempre cuadra.
@@ -684,10 +708,10 @@ function useShields() {
   if (!saved.length) return;
   save();
   const total = saved.reduce((n, x) => n + x.days, 0);
-  const what = total === 1 ? '🛡️ Protector usado' : `🛡️ ${total} protectores usados`;
+  const what = total === 1 ? 'Protector usado' : `${total} protectores usados`;
   toast(saved.length === 1
-    ? `${what}: tu racha de ${plural(saved[0].streak, 'día', 'días')} sigue viva`
-    : `${what}: tus rachas siguen vivas`);
+    ? `${what}: tu racha de ${plural(saved[0].streak, 'día', 'días')} se mantiene`
+    : `${what}: tus rachas se mantienen`);
 }
 
 // ---------- Retos semanales ----------
@@ -754,15 +778,15 @@ const countDays = (days, fn) => days.reduce((n, d) => n + (fn(d) ? 1 : 0), 0);
 
 // Plantillas de retos. `habit` elige a qué hábito se refiere (si hace falta); `final` = solo se sabe al acabar la semana.
 const CHALLENGES = [
-  { id: 'perfect3', emoji: '🌟', reward: 40, needs: (hs) => hs.some(isBuildDaily),
+  { id: 'perfect3', icon: 'sun', reward: 40, needs: (hs) => hs.some(isBuildDaily),
     text: () => 'Consigue 3 días perfectos', target: () => 3, value: (w) => w.perfectCount },
-  { id: 'perfect5', emoji: '✨', reward: 60, needs: (hs) => hs.some(isBuildDaily),
+  { id: 'perfect5', icon: 'sparkle', reward: 60, needs: (hs) => hs.some(isBuildDaily),
     text: () => 'Consigue 5 días perfectos', target: () => 5, value: (w) => w.perfectCount },
-  { id: 'perfectRow', emoji: '🔗', reward: 60, needs: (hs) => hs.some(isBuildDaily),
+  { id: 'perfectRow', icon: 'link', reward: 60, needs: (hs) => hs.some(isBuildDaily),
     text: () => 'Encadena 3 días perfectos seguidos', target: () => 3, value: (w) => w.perfectRow },
-  { id: 'weekend', emoji: '🏖️', reward: 40, needs: (hs) => hs.some(isBuildDaily),
+  { id: 'weekend', icon: 'calendar', reward: 40, needs: (hs) => hs.some(isBuildDaily),
     text: () => 'Consigue un día perfecto en fin de semana', target: () => 1, value: (w) => (w.perfect[5] || w.perfect[6] ? 1 : 0) },
-  { id: 'marks', emoji: '🎯', reward: 40, needs: (hs) => hs.some((h) => h.kind === 'build'),
+  { id: 'marks', icon: 'checks', reward: 40, needs: (hs) => hs.some((h) => h.kind === 'build'),
     // 80 % de lo que toca en la semana (entre 2 y 40)
     target: (h, hs, ws) => {
       const expected = hs.filter((x) => x.kind === 'build').reduce((n, x) => n + (x.schedule.type === 'weekly'
@@ -770,30 +794,30 @@ const CHALLENGES = [
       return expected < 3 ? 0 : Math.max(2, Math.min(40, Math.round(expected * 0.8)));
     },
     text: (h, n) => `Marca ${n} hábitos esta semana`, value: (w) => w.marks },
-  { id: 'allDue', emoji: '📅', reward: 50, habit: isBuildDaily,
+  { id: 'allDue', icon: 'checkCircle', reward: 50, habit: isBuildDaily,
     text: (h) => `Completa «${h.name}» todos los días que toca`,
     target: (h, hs, ws) => countDays(weekKeys(ws), (d) => isDue(h, d)),
     value: (w, h) => countDays(w.past, (d) => isDue(h, d) && isDone(h, d)) },
-  { id: 'weekly', emoji: '💪', reward: 40, habit: (h) => h.kind === 'build' && h.schedule.type === 'weekly',
+  { id: 'weekly', icon: 'cycle', reward: 40, habit: (h) => h.kind === 'build' && h.schedule.type === 'weekly',
     text: (h) => `Cumple «${h.name}» ${plural(h.schedule.times, 'vez', 'veces')} esta semana`,
     target: (h) => h.schedule.times, value: (w, h) => countDays(w.past, (d) => isDone(h, d)) },
-  { id: 'qty', emoji: '💧', reward: 40, habit: (h) => isBuildDaily(h) && h.goal > 1,
+  { id: 'qty', icon: 'drop', reward: 40, habit: (h) => isBuildDaily(h) && h.goal > 1,
     text: (h, n) => `Llega a tu meta de «${h.name}» ${plural(n, 'día', 'días')}`,
     target: (h, hs, ws) => Math.min(5, countDays(weekKeys(ws), (d) => isDue(h, d))),
     value: (w, h) => countDays(w.past, (d) => isDone(h, d)) },
-  { id: 'extra', emoji: '⭐', reward: 30, habit: (h) => h.kind === 'build' && h.schedule.type === 'days',
+  { id: 'extra', icon: 'leaf', reward: 30, habit: (h) => h.kind === 'build' && h.schedule.type === 'days',
     text: (h) => `Haz un día extra de «${h.name}» (en un día de descanso)`, target: () => 1,
     value: (w, h) => countDays(w.past, (d) => isDone(h, d) && dayStatus(h, d) === 'rest') },
-  { id: 'clean', emoji: '🕊️', reward: 50, habit: (h) => h.kind === 'quit',
+  { id: 'clean', icon: 'unlock', reward: 50, habit: (h) => h.kind === 'quit',
     text: (h) => `Semana entera sin recaídas en «${h.name}»`, target: () => 7,
     value: (w, h) => countDays(w.past, (d) => isDone(h, d)),
     failed: (w, h) => w.past.some((d) => hasSlip(h, d)) },
-  { id: 'variety', emoji: '🌈', reward: 40, needs: (hs) => hs.filter((h) => h.kind === 'build').length >= 2,
+  { id: 'variety', icon: 'grid', reward: 40, needs: (hs) => hs.filter((h) => h.kind === 'build').length >= 2,
     text: () => 'Marca cada hábito al menos una vez', target: (h, hs) => hs.filter((x) => x.kind === 'build').length,
     value: (w, h, hs) => hs.filter((x) => x.kind === 'build' && w.past.some((d) => isDone(x, d))).length },
-  { id: 'streak7', emoji: '🔥', reward: 50, needs: (hs) => hs.some((h) => h.schedule.type !== 'weekly'),
+  { id: 'streak7', icon: 'flame', reward: 50, needs: (hs) => hs.some((h) => h.schedule.type !== 'weekly'),
     text: () => 'Llega a una racha de 7 días en algún hábito', target: () => 7, value: (w) => w.maxRun },
-  { id: 'noShield', emoji: '🛡️', reward: 30, final: true, needs: (hs) => hs.some(isBuildDaily),
+  { id: 'noShield', icon: 'shield', reward: 30, final: true, needs: (hs) => hs.some(isBuildDaily),
     text: () => 'No gastes ningún protector esta semana', target: () => 1,
     value: (w) => (w.ended && !w.shieldsUsed ? 1 : 0), failed: (w) => w.shieldsUsed > 0 },
 ];
@@ -829,7 +853,7 @@ function weekChallenges(ws) {
       const done = !failed && value >= target;
       return {
         id: c.id,
-        emoji: c.emoji,
+        icon: c.icon,
         text: c.text(habit, target),
         reward: c.reward,
         target,
@@ -934,7 +958,6 @@ function renderLevelCard(stats) {
   const meta = levelInfo(stats.level);
   const inLevel = stats.xp - stats.levelStart;
   const span = stats.levelEnd - stats.levelStart;
-  $('#level-emoji').textContent = meta.emoji;
   $('#level-name').textContent = `Nivel ${stats.level}`;
   $('#level-title').textContent = meta.title;
   $('#level-xp').textContent = `${fmtNumber.format(inLevel)}/${fmtNumber.format(span)} XP`;
@@ -1060,7 +1083,7 @@ function habitRow(habit) {
   // Día pasado salvado por un protector (si lo marcas, el protector vuelve).
   if (isShielded(habit, day)) {
     classes.push('shielded');
-    meta = `${ICONS.shield}Protegido · tu racha siguió viva`;
+    meta = `${ICONS.shield}Protegido · la racha se mantuvo`;
   }
 
   return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" style="${style}"${label ? ` aria-label="${label}"` : ''}>
@@ -1077,7 +1100,7 @@ async function askResume(habit) {
     return;
   }
   const ok = await askConfirm({
-    emoji: '▶️',
+    icon: 'play',
     title: `¿Reanudar «${habit.name}»?`,
     body: '<p>Vuelve a contar desde hoy. Los días que estuvo en pausa no rompen tu racha.</p>',
     confirmText: 'Reanudar',
@@ -1087,7 +1110,7 @@ async function askResume(habit) {
   save();
   render();
   haptic();
-  toast(`▶️ «${habit.name}» reanudado`);
+  toast(`«${habit.name}» reanudado`);
 }
 
 // Aplica un cambio en el día que se está viendo y enseña lo que ha pasado: XP, vibración y celebraciones.
@@ -1120,20 +1143,18 @@ function changeHabit(habit, button, mutate) {
   if (hadFocus) $(`.habit[data-id="${habit.id}"]`)?.focus();
 
   // El aviso del protector se suma al de la celebración, si la hay, para que no se pierda.
-  const shieldNote = shieldBack ? ' · 🛡️ el protector vuelve' : '';
+  const shieldNote = shieldBack ? ' · el protector vuelve' : '';
   const unlocked = nowDone && !wasDone ? ACHIEVEMENTS.filter((a) => isUnlocked(a, after) && !isUnlocked(a, before)) : [];
   if (nowDone && !wasDone && after.level > before.level) {
     showLevelUp(after, unlocked);
-    if (shieldBack) toast('🛡️ El protector vuelve a tu reserva');
+    if (shieldBack) toast('El protector vuelve a tu reserva');
   } else if (unlocked.length) {
-    confetti();
     const extra = unlocked.length > 1 ? ` (+${unlocked.length - 1})` : '';
-    toast(`${unlocked[0].emoji} Logro desbloqueado: ${unlocked[0].name}${extra}${shieldNote}`);
+    toast(`Logro conseguido: ${unlocked[0].name}${extra}${shieldNote}`);
   } else if (nowDone && !wasDone && !wasPerfect && isPerfectDay(day)) {
-    confetti(document.body, 90);
-    toast(`🌟 ¡Día perfecto! +${XP_PERFECT_DAY} XP extra${shieldNote}`);
+    toast(`Día completo · +${XP_PERFECT_DAY} XP${shieldNote}`);
   } else if (shieldBack) {
-    toast('🛡️ El protector vuelve a tu reserva');
+    toast('El protector vuelve a tu reserva');
   }
 }
 
@@ -1153,7 +1174,7 @@ function toggleHabit(id, button) {
   if (habit.goal > 1) {
     const amount = amountOn(habit, day);
     if (amount >= habit.goal) {
-      toast('¡Meta cumplida! Mantén pulsado para restar');
+      toast('Meta cumplida. Mantén pulsado para restar');
       return;
     }
     changeHabit(habit, button, () => { habit.done[day] = amount + 1; });
@@ -1188,7 +1209,7 @@ async function toggleSlip(habit, button) {
     return;
   }
   const ok = await askConfirm({
-    emoji: '🫶',
+    icon: 'heart',
     title: day === ui.today ? '¿Has recaído hoy?' : '¿Recaíste ese día?',
     body: '<p>No pasa nada: apúntalo y sigue. La racha vuelve a empezar al día siguiente. Si te has equivocado, toca otra vez la tarjeta para deshacerlo.</p>',
     confirmText: 'Sí, he recaído',
@@ -1246,7 +1267,7 @@ function renderProgress() {
   const unlockedCount = ACHIEVEMENTS.filter((a) => isUnlocked(a, stats)).length;
 
   const hero = `<article class="card hero">
-    <div class="ring" style="--p:${(inLevel / span).toFixed(3)}"><span aria-hidden="true">${meta.emoji}</span></div>
+    <div class="ring" style="--p:${(inLevel / span).toFixed(3)}"><b aria-hidden="true">${stats.level}</b></div>
     <div class="hero-level">Nivel ${stats.level}</div>
     <div class="hero-title">${escapeHTML(meta.title)}</div>
     <div class="xp-track big"><span class="xp-fill" style="width:${(inLevel / span) * 100}%"></span></div>
@@ -1258,27 +1279,18 @@ function renderProgress() {
     </div>
   </article>`;
 
+  const rule = (icon, title, text, xp) => `<li><span class="rule-icon">${ICONS[icon]}</span>
+        <span class="rule-text"><b>${title}</b><span>${text}</span></span>
+        <span class="rule-xp">${xp}</span></li>`;
   const rules = `<article class="card">
     <div class="card-head"><h2>Cómo ganar XP</h2></div>
     <ul class="rules">
-      <li><span class="rule-emoji" aria-hidden="true">✅</span>
-        <span class="rule-text"><b>Cada hábito hecho</b><span>Toca el hábito cuando lo completes</span></span>
-        <span class="rule-xp">+${XP_PER_CHECK}</span></li>
-      <li><span class="rule-emoji" aria-hidden="true">🔥</span>
-        <span class="rule-text"><b>Bonus de racha</b><span>+1 por cada día (o semana) de racha</span></span>
-        <span class="rule-xp">hasta +${XP_STREAK_CAP}</span></li>
-      <li><span class="rule-emoji" aria-hidden="true">🌟</span>
-        <span class="rule-text"><b>Día perfecto</b><span>Todos los hábitos que tocaban ese día</span></span>
-        <span class="rule-xp">+${XP_PERFECT_DAY}</span></li>
-      <li><span class="rule-emoji" aria-hidden="true">🏆</span>
-        <span class="rule-text"><b>Retos semanales</b><span>3 cada semana, según tus hábitos</span></span>
-        <span class="rule-xp">+30 a +60</span></li>
-      <li><span class="rule-emoji" aria-hidden="true">✨</span>
-        <span class="rule-text"><b>Día extra</b><span>Marcar un hábito en su día de descanso</span></span>
-        <span class="rule-xp">+${XP_PER_CHECK}</span></li>
-      <li><span class="rule-emoji" aria-hidden="true">🛡️</span>
-        <span class="rule-text"><b>Día protegido</b><span>Salva la racha, pero no da XP</span></span>
-        <span class="rule-xp">0</span></li>
+      ${rule('checkCircle', 'Cada hábito hecho', 'Toca el hábito cuando lo completes', `+${XP_PER_CHECK}`)}
+      ${rule('flame', 'Bonus de racha', '+1 por cada día (o semana) de racha', `hasta +${XP_STREAK_CAP}`)}
+      ${rule('sun', 'Día perfecto', 'Todos los hábitos que tocaban ese día', `+${XP_PERFECT_DAY}`)}
+      ${rule('target', 'Retos semanales', '3 cada semana, según tus hábitos', '+30 a +60')}
+      ${rule('leaf', 'Día extra', 'Marcar un hábito en su día de descanso', `+${XP_PER_CHECK}`)}
+      ${rule('shield', 'Día protegido', 'Salva la racha, pero no da XP', '0')}
     </ul>
     <p class="rules-note">Los días de descanso y en pausa no rompen la racha. En los hábitos para dejar algo, cada día sin recaer cuenta como hecho. Cada nivel pide un poco más de XP que el anterior. Si borras un hábito, conservas la XP que ganaste con él.</p>
   </article>`;
@@ -1286,12 +1298,12 @@ function renderProgress() {
   const challenges = weekChallenges(weekStartOf(ui.today));
   const challengeItems = challenges.map((c) => {
     const cls = c.done ? 'done' : c.failed ? 'failed' : '';
-    const status = c.done ? `✓ +${c.reward} XP`
+    const status = c.done ? `Conseguido · +${c.reward} XP`
       : c.failed ? 'No conseguido'
       : c.pending ? `Se decide el domingo · +${c.reward} XP`
       : `${c.value}/${c.target} · +${c.reward} XP`;
     return `<li class="challenge ${cls}">
-      <span class="ch-emoji" aria-hidden="true">${c.emoji}</span>
+      <span class="ch-icon">${ICONS[c.icon]}</span>
       <span class="ch-body">
         <b>${escapeHTML(c.text)}</b>
         <span class="ch-bar"><span style="width:${(c.value / c.target) * 100}%"></span></span>
@@ -1306,12 +1318,12 @@ function renderProgress() {
   </article>` : '';
 
   const slots = Array.from({ length: SHIELD_MAX }, (_, i) => (
-    `<span class="shield-slot${i < stats.shields ? ' full' : ''}" aria-hidden="true">🛡️</span>`
+    `<span class="shield-slot${i < stats.shields ? ' full' : ''}">${ICONS.shield}</span>`
   )).join('');
   const shieldsCard = `<article class="card">
     <div class="card-head"><h2>Protectores de racha</h2><span class="card-count">${stats.shields} de ${SHIELD_MAX}</span></div>
     <div class="shield-row" role="img" aria-label="${plural(stats.shields, 'protector disponible', 'protectores disponibles')}">${slots}</div>
-    <p class="card-text">Ganas 1 cada vez que un hábito llega a 7, 14, 21… días seguidos (como mucho guardas ${SHIELD_MAX}). Si un día se te olvida un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta solo y tu racha sigue viva. Ese día no da XP ni cuenta como día perfecto, y si luego lo marcas, el protector vuelve.</p>
+    <p class="card-text">Ganas 1 cada vez que un hábito llega a 7, 14, 21… días seguidos (como mucho guardas ${SHIELD_MAX}). Si un día se te olvida un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta solo y tu racha se mantiene. Ese día no da XP ni cuenta como día perfecto, y si luego lo marcas, el protector vuelve.</p>
     <p class="shield-stats">Ganados: ${stats.shieldsEarned} · Usados: ${stats.shieldsUsed}</p>
   </article>`;
 
@@ -1319,12 +1331,11 @@ function renderProgress() {
   const road = Array.from({ length: roadLength }, (_, i) => i + 1).map((lv) => {
     const m = levelInfo(lv);
     const status = lv < stats.level ? 'done' : lv === stats.level ? 'current' : 'locked';
-    const note = status === 'done' ? '✓ Superado'
+    const note = status === 'done' ? 'Superado'
       : status === 'current' ? 'Estás aquí'
       : `${fmtNumber.format(xpForLevel(lv))} XP`;
     return `<div class="road-step ${status}">
-      <span class="road-emoji" aria-hidden="true">${m.emoji}</span>
-      <span class="road-level">Nivel ${lv}</span>
+      <span class="road-num"><span class="sr-only">Nivel </span>${lv}</span>
       <span class="road-title">${escapeHTML(m.title)}</span>
       <span class="road-xp">${note}</span>
     </div>`;
@@ -1339,13 +1350,13 @@ function renderProgress() {
     const value = Math.min(stats[a.stat], a.goal);
     if (isUnlocked(a, stats)) {
       return `<div class="badge unlocked">
-        <span class="badge-emoji" aria-hidden="true">${a.emoji}</span>
+        <span class="badge-icon">${ICONS[a.icon]}</span>
         <b>${a.name}</b><span class="badge-desc">${a.desc}</span>
-        <span class="badge-done">✓ Conseguido</span>
+        <span class="badge-done">Conseguido</span>
       </div>`;
     }
     return `<div class="badge locked">
-      <span class="badge-emoji" aria-hidden="true">${a.emoji}</span>
+      <span class="badge-icon">${ICONS[a.icon]}</span>
       <b>${a.name}</b><span class="badge-desc">${a.desc}</span>
       <span class="badge-bar"><span style="width:${(value / a.goal) * 100}%"></span></span>
       <span class="badge-count">${fmtNumber.format(value)} / ${fmtNumber.format(a.goal)}</span>
@@ -1361,7 +1372,7 @@ function renderProgress() {
   const summaryCard = hasWeekHistory(lastWeek) ? `<article class="card">
     <div class="card-head"><h2>Tu semana pasada</h2></div>
     <p class="card-text">${weekRange(lastWeek)}: cumplimiento, días perfectos, XP, retos y ánimo.</p>
-    <button type="button" class="secondary-btn wide" data-summary>📊 Resumen de la semana pasada</button>
+    <button type="button" class="secondary-btn wide" data-summary>${ICONS.chart}Resumen de la semana pasada</button>
   </article>` : '';
 
   $('#progress-view').innerHTML = hero + challengesCard + summaryCard + shieldsCard + rules + roadCard + badgesCard;
@@ -1392,7 +1403,7 @@ function renderHistory() {
 
   if (!habits.length) {
     root.innerHTML = `<div class="empty">
-      <div class="empty-emoji" aria-hidden="true">📅</div>
+      <div class="empty-icon">${ICONS.calendar}</div>
       <h2>Todavía no hay historial</h2>
       <p>Cuando marques tus hábitos, aquí verás tu progreso día a día.</p>
       <button type="button" class="primary-btn" data-add>Crear un hábito</button>
@@ -1506,7 +1517,7 @@ function dayCaption(habitId, key) {
     const habits = visibleHabits();
     const { total, done } = ringTotals(key, habits);
     const mood = (state.days[key] || {}).mood;
-    const moodText = mood ? ` · ${MOODS[mood - 1]}` : '';
+    const moodText = mood ? ` · Ánimo: ${MOOD_NAMES[mood - 1].toLowerCase()}` : '';
     if (total) return `${label} · ${done} de ${total}${moodText}`;
     return `${label} · ${habits.some((h) => dayStatus(h, key) !== 'off') ? 'Día de descanso' : 'sin hábitos'}${moodText}`;
   }
@@ -1516,10 +1527,10 @@ function dayCaption(habitId, key) {
   const amount = habit.kind !== 'quit' && habit.goal > 1
     ? `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${habit.unit}` : ''}` : '';
   if (hasSlip(habit, key)) return `${label} · Recaída`;
-  if (isShielded(habit, key)) return `${label} · Protegido 🛡️`;
+  if (isShielded(habit, key)) return `${label} · Protegido`;
   if (isDone(habit, key)) {
-    if (habit.kind === 'quit') return `${label} · Sin recaer ✓`;
-    return `${label} · ${status === 'active' ? 'Hecho ✓' : 'Hecho ✓ (día extra)'}${amount ? ` · ${amount}` : ''}`;
+    if (habit.kind === 'quit') return `${label} · Sin recaer`;
+    return `${label} · ${status === 'active' ? 'Hecho' : 'Hecho (día extra)'}${amount ? ` · ${amount}` : ''}`;
   }
   const text = { paused: 'En pausa', rest: 'Día de descanso', off: 'Aún no existía' }[status]
     || (amount && amountOn(habit, key) ? amount : 'Sin hacer');
@@ -1549,7 +1560,7 @@ function renderSettings() {
   const nameDisplay = $('#profile-name-display');
   nameDisplay.textContent = profile.name || 'Añade tu nombre';
   nameDisplay.classList.toggle('no-name', !profile.name);
-  $('#profile-level').textContent = `${meta.emoji} Nivel ${stats.level} · ${meta.title}`;
+  $('#profile-level').textContent = `Nivel ${stats.level} · ${meta.title}`;
   $('#profile-since').textContent = `En Bonsái desde ${fmtMonthYear.format(parseKey(profile.since))}`;
   document.querySelectorAll('#avatar-grid button').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.avatar === profile.avatar));
@@ -1566,9 +1577,9 @@ function renderSettings() {
     const name = escapeHTML(h.name);
     return `<li style="--c:${colorHex(h.color)}">
       <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
-      <span class="archived-info"><b>${name}</b><span>Desde el ${shortDate(since)} · ${fmtNumber.format(streakInfo(h).xp)} XP</span></span>
+      <span class="archived-info"><b>${name}</b><span>Desde el ${shortDate(since)} · ${fmtNumber.format(streakInfo(h).xp)}&nbsp;XP</span></span>
       <button type="button" class="pill-btn small" data-restore="${h.id}" aria-label="Restaurar ${name}">Restaurar</button>
-      <button type="button" class="icon-btn danger" data-remove="${h.id}" aria-label="Borrar ${name}">🗑️</button>
+      <button type="button" class="icon-btn danger" data-remove="${h.id}" aria-label="Borrar ${name}">${ICONS.trash}</button>
     </li>`;
   }).join('');
 }
@@ -1602,7 +1613,7 @@ function archiveHabit(habit) {
   save();
   render();
   haptic();
-  toast(`🗄️ «${habit.name}» archivado`, { action: 'Deshacer', onAction: undoTo(snapshot) });
+  toast(`«${habit.name}» archivado`, { action: 'Deshacer', onAction: undoTo(snapshot) });
 }
 
 function restoreHabit(habit) {
@@ -1680,15 +1691,15 @@ $('#reset-btn').addEventListener('click', async () => {
   }
   const stats = computeStats();
   const ok = await askConfirm({
-    emoji: '🔄',
+    icon: 'rotate',
     title: '¿Restablecer tu progreso?',
     body: `<p>Ahora mismo tienes <b>nivel ${stats.level}</b>, <b>${fmtNumber.format(stats.xp)} XP</b> y <b>${
       ACHIEVEMENTS.filter((a) => isUnlocked(a, stats)).length} logros</b>.</p>
       <ul class="confirm-list">
-        <li><span aria-hidden="true">🗑️</span><span>Tu XP y tu nivel vuelven a cero</span></li>
-        <li><span aria-hidden="true">🗑️</span><span>Todos los logros se bloquean otra vez</span></li>
-        <li><span aria-hidden="true">🗑️</span><span>Se borra el historial de días y las rachas</span></li>
-        <li><span aria-hidden="true">✅</span><span>Tus hábitos, tu perfil y tu diario se mantienen</span></li>
+        <li>${ICONS.x}<span>Tu XP y tu nivel vuelven a cero</span></li>
+        <li>${ICONS.x}<span>Todos los logros se bloquean otra vez</span></li>
+        <li>${ICONS.x}<span>Se borra el historial de días y las rachas</span></li>
+        <li class="keep">${ICONS.check}<span>Tus hábitos, tu perfil y tu diario se mantienen</span></li>
       </ul>
       <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
     confirmText: 'Sí, restablecer',
@@ -1707,7 +1718,7 @@ $('#reset-btn').addEventListener('click', async () => {
   save();
   render();
   haptic();
-  toast('🔄 Progreso restablecido', {
+  toast('Progreso restablecido', {
     action: 'Deshacer',
     onAction: () => replaceState(normalize(JSON.parse(snapshot))),
   });
@@ -1718,8 +1729,9 @@ $('#reset-btn').addEventListener('click', async () => {
 const confirmDialog = $('#confirm');
 
 // Devuelve una promesa: true si se confirma, false si se cancela o se cierra.
-function askConfirm({ emoji, title, body, confirmText, danger = false }) {
-  $('#confirm-emoji').textContent = emoji;
+function askConfirm({ icon, title, body, confirmText, danger = false }) {
+  $('#confirm-icon').innerHTML = ICONS[icon];
+  $('#confirm-icon').classList.toggle('danger', danger);
   $('#confirm-title').textContent = title;
   $('#confirm-body').innerHTML = body;
   const okBtn = $('#confirm-ok');
@@ -1745,6 +1757,10 @@ confirmDialog.addEventListener('click', (e) => {
 // ---------- Diario: ánimo y nota del día ----------
 
 const noteInput = $('#note-input');
+
+$('#mood-row').innerHTML = MOOD_NAMES.map((name, i) => (
+  `<button type="button" role="radio" data-mood="${i + 1}" aria-label="${name}">${moodIcon(i + 1)}</button>`
+)).join('');
 
 function setDayEntry(day, patch) {
   const entry = { ...(state.days[day] || {}), ...patch };
@@ -1883,9 +1899,9 @@ function showSummary(ws) {
   }
   const habitLine = (row) => `${escapeHTML(row.habit.emoji)} ${escapeHTML(row.habit.name)} · ${Math.round(row.pct * 100)} %`;
   const items = [
-    sum.best ? `<li><span aria-hidden="true">🏅</span><span><b>Tu mejor hábito</b>${habitLine(sum.best)}</span></li>` : '',
-    sum.hardest ? `<li><span aria-hidden="true">🧗</span><span><b>El que más te cuesta</b>${habitLine(sum.hardest)}</span></li>` : '',
-    sum.mood ? `<li><span aria-hidden="true">${MOODS[Math.round(sum.mood) - 1]}</span><span><b>Ánimo medio</b>${sum.mood.toFixed(1).replace('.', ',')} de 5</span></li>` : '',
+    sum.best ? `<li><span class="sum-icon">${ICONS.award}</span><span><b>Tu mejor hábito</b>${habitLine(sum.best)}</span></li>` : '',
+    sum.hardest ? `<li><span class="sum-icon">${ICONS.mountain}</span><span><b>El que más te cuesta</b>${habitLine(sum.hardest)}</span></li>` : '',
+    sum.mood ? `<li><span class="sum-icon">${moodIcon(Math.round(sum.mood))}</span><span><b>Ánimo medio</b>${sum.mood.toFixed(1).replace('.', ',')} de 5</span></li>` : '',
   ].join('');
   $('#summary-title').textContent = weekRange(ws);
   $('#summary-body').innerHTML = `
@@ -2034,8 +2050,8 @@ $('#reminder-btn').addEventListener('click', async () => {
   const file = new File([ics], `bonsai-${slugify(name)}.ics`, { type: 'text/calendar' });
   haptic();
   const result = await shareOrDownload(file, `Recordatorio: ${name}`);
-  if (result === 'downloaded') toast('📅 Abre el archivo descargado para añadirlo a tu calendario');
-  else if (result === 'shared') toast('📅 Elige Calendario para guardar el recordatorio');
+  if (result === 'downloaded') toast('Abre el archivo descargado para añadirlo a tu calendario');
+  else if (result === 'shared') toast('Elige Calendario para guardar el recordatorio');
 });
 
 // ---------- Navegación ----------
@@ -2182,7 +2198,7 @@ function pauseText(p) {
   const tomorrow = shiftKey(ui.today, 1);
   const from = p.from === ui.today ? 'desde hoy' : p.from === tomorrow ? 'desde mañana' : `desde el ${shortDate(p.from)}`;
   const to = p.to ? `hasta el ${shortDate(p.to)}` : 'sin fecha de fin';
-  return `⏸️ En pausa ${from}, ${to}.`;
+  return `En pausa ${from}, ${to}.`;
 }
 
 function syncPauseBox(habit) {
@@ -2209,7 +2225,7 @@ $('#pause-btn').addEventListener('click', () => {
   closeSheet();
   render();
   haptic();
-  toast(until ? `⏸️ En pausa hasta el ${shortDate(until)}` : '⏸️ En pausa', { action: 'Deshacer', onAction: undoTo(snapshot) });
+  toast(until ? `En pausa hasta el ${shortDate(until)}` : 'En pausa', { action: 'Deshacer', onAction: undoTo(snapshot) });
 });
 
 $('#resume-btn').addEventListener('click', () => {
@@ -2220,7 +2236,7 @@ $('#resume-btn').addEventListener('click', () => {
   closeSheet();
   render();
   haptic();
-  toast(`▶️ «${habit.name}» reanudado`);
+  toast(`«${habit.name}» reanudado`);
 });
 
 $('#archive-btn').addEventListener('click', () => {
@@ -2419,7 +2435,7 @@ form.addEventListener('submit', (e) => {
   save();
   closeSheet();
   render();
-  if (!habit) toast(`${emoji} «${name}» añadido`);
+  if (!habit) toast(`«${name}» añadido`);
 });
 
 // Borrar es inmediato, pero se puede deshacer desde el aviso.
@@ -2490,14 +2506,13 @@ const levelupDialog = $('#levelup');
 
 function showLevelUp(stats, achievements) {
   const meta = levelInfo(stats.level);
-  $('#levelup-emoji').textContent = meta.emoji;
-  $('#levelup-title').textContent = `Nivel ${stats.level}`;
-  $('#levelup-sub').innerHTML = `Nuevo título: <b>${escapeHTML(meta.title)}</b>`;
+  $('#levelup-num').textContent = stats.level;
+  $('#levelup-title').textContent = meta.title;
+  $('#levelup-sub').textContent = `Has llegado al nivel ${stats.level}`;
   $('#levelup-achievements').innerHTML = achievements.map((a) => (
-    `<li><span aria-hidden="true">${a.emoji}</span><span><b>Logro: ${a.name}</b><br>${a.desc}</span></li>`
+    `<li><span class="sum-icon">${ICONS[a.icon]}</span><span><b>Logro: ${a.name}</b>${a.desc}</span></li>`
   )).join('');
   levelupDialog.showModal();
-  confetti(levelupDialog, 160);
   haptic();
 }
 
@@ -2506,7 +2521,7 @@ levelupDialog.addEventListener('click', (e) => {
   if (e.target === levelupDialog) levelupDialog.close();
 });
 
-// "+12 XP" que sube y se desvanece sobre el hábito tocado.
+// "+12 XP": un texto pequeño que sube un poco y se desvanece sobre el hábito tocado.
 function floatXp(anchor, amount, text) {
   if (!anchor || !amount) return;
   const r = anchor.getBoundingClientRect();
@@ -2520,61 +2535,6 @@ function floatXp(anchor, amount, text) {
   const remove = () => el.remove();
   el.addEventListener('animationend', remove);
   setTimeout(remove, 1500);
-}
-
-// Confeti ligero dibujado en un <canvas>.
-function confetti(container = document.body, amount = 120) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const canvas = document.createElement('canvas');
-  canvas.className = 'confetti';
-  container.appendChild(canvas);
-
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  // Pétalos de cerezo, hojas de salvia y motas doradas que caen despacio, meciéndose.
-  const colors = ['#F2C4CB', '#E8A5B0', '#CF8591', '#B7CDB5', '#8FB39A', '#E3CE9A'];
-  const pieces = Array.from({ length: amount }, (_, i) => ({
-    x: Math.random() * w,
-    y: -Math.random() * h * 0.5,
-    vy: 1.2 + Math.random() * 1.8,
-    sway: 0.6 + Math.random() * 1.2,
-    phase: Math.random() * Math.PI * 2,
-    size: 7 + Math.random() * 7,
-    rot: Math.random() * Math.PI * 2,
-    vr: (Math.random() - 0.5) * 0.06,
-    color: colors[i % colors.length],
-  }));
-
-  const duration = 3400;
-  const start = performance.now();
-  const frame = (now) => {
-    const t = now - start;
-    ctx.clearRect(0, 0, w, h);
-    // Se ven enteros casi todo el rato y se desvanecen al final.
-    ctx.globalAlpha = Math.min(1, Math.max(0, (duration - t) / (duration * 0.3)));
-    for (const p of pieces) {
-      p.y += p.vy;
-      p.x += Math.sin(t / 500 + p.phase) * p.sway;
-      p.rot += p.vr;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, p.size / 2, p.size / 3.6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-    if (t < duration) requestAnimationFrame(frame);
-    else canvas.remove();
-  };
-  requestAnimationFrame(frame);
 }
 
 // Vibración suave. En iPhone (iOS 18+) se consigue pulsando un interruptor oculto.
@@ -2610,7 +2570,7 @@ async function exportData() {
     state.lastBackup = ui.today;
     save();
     render();
-    toast('✅ Copia guardada');
+    toast('Copia guardada');
   };
 
   // En el móvil se abre el menú Compartir ("Guardar en Archivos", AirDrop…); si no, se descarga.
@@ -2636,7 +2596,7 @@ $('#import-file').addEventListener('change', async (e) => {
     return;
   }
   const ok = await askConfirm({
-    emoji: '📥',
+    icon: 'download',
     title: '¿Importar esta copia?',
     body: `<p>Tus datos actuales se reemplazarán por los de la copia (${
       plural(data.habits.length, 'hábito', 'hábitos')}${data.profile.name ? `, perfil de ${escapeHTML(data.profile.name)}` : ''}).</p>`,
@@ -2646,7 +2606,7 @@ $('#import-file').addEventListener('change', async (e) => {
   // La fecha de la última copia es de este móvil: nos quedamos con la más reciente.
   data.lastBackup = [data.lastBackup, state.lastBackup].filter(Boolean).sort().pop() || null;
   replaceState(data);
-  toast('✅ Copia restaurada');
+  toast('Copia restaurada');
 });
 
 // ---------- Aviso flotante ----------
@@ -2800,7 +2760,7 @@ $('#history').addEventListener('click', (e) => {
   if (noteEl && noteEl.classList.contains('hm-note')) {
     const note = (state.days[cell.dataset.k] || {}).note;
     noteEl.hidden = !note;
-    noteEl.textContent = note ? `📝 ${note}` : '';
+    noteEl.textContent = note || '';
   }
   const gotoBtn = foot.querySelector('[data-goto]');
   gotoBtn.dataset.goto = cell.dataset.k;

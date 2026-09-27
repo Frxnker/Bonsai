@@ -64,7 +64,7 @@
         </span>
         <span class="hero-info">
           <span class="hero-kicker">
-            <span><span id="level-emoji" aria-hidden="true">🌱</span> <b id="level-name">Nivel 1</b></span>
+            <b id="level-name">Nivel 1</b>
             <span class="level-xp" id="level-xp"></span>
           </span>
           <span class="hero-level-title" id="level-title">Semilla</span>
@@ -100,24 +100,7 @@
       <!-- Diario: ánimo y nota del día que se está viendo -->
       <section class="card journal" id="journal" aria-labelledby="journal-title" hidden>
         <div class="card-head"><h2 id="journal-title">¿Qué tal el día?</h2></div>
-        <div class="mood-row" id="mood-row" role="radiogroup" aria-labelledby="journal-title">
-          <!-- Caras de línea: de peor (1) a mejor (5) -->
-          <button type="button" role="radio" data-mood="1" aria-label="Mal">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8.5 16.5c1-1.3 2.2-2 3.5-2s2.5.7 3.5 2"/></svg>
-          </button>
-          <button type="button" role="radio" data-mood="2" aria-label="Regular">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M9 15.9l6-1.3"/></svg>
-          </button>
-          <button type="button" role="radio" data-mood="3" aria-label="Normal">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M9 15.5h6"/></svg>
-          </button>
-          <button type="button" role="radio" data-mood="4" aria-label="Bien">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M9 14.5c.9.6 1.9.9 3 .9s2.1-.3 3-.9"/></svg>
-          </button>
-          <button type="button" role="radio" data-mood="5" aria-label="Genial">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8 13.5h8a4 4 0 0 1-8 0z"/></svg>
-          </button>
-        </div>
+        <div class="mood-row" id="mood-row" role="radiogroup" aria-labelledby="journal-title"></div>
         <button type="button" class="link-btn" id="note-open">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5h4l10-10-4-4-10 10v4z"/><path d="M13 7l4 4"/></svg>
           Añadir nota
@@ -130,12 +113,14 @@
 
       <!-- Bienvenida (solo cuando no hay hábitos) -->
       <div class="welcome" id="welcome" hidden>
-        <div class="welcome-badge" aria-hidden="true">🌱</div>
+        <div class="welcome-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 20.5v-8"/><path d="M12 12.5C12 8.5 9.5 6 5 6c0 4 2.5 6.5 7 6.5z"/><path d="M12 10.5c0-3.5 2.3-6 6.5-6 0 3.8-2.4 6-6.5 6z"/></svg>
+        </div>
         <h2>Bienvenido a Bonsái</h2>
         <ol class="steps">
           <li><span class="step-n">1</span><span>Elige los hábitos que quieres cumplir.</span></li>
           <li><span class="step-n">2</span><span>Tócalos cada día cuando los hagas.</span></li>
-          <li><span class="step-n">3</span><span>Gana XP, sube de nivel y no rompas tu racha.</span></li>
+          <li><span class="step-n">3</span><span>Gana XP, sube de nivel y mantén tu racha.</span></li>
         </ol>
         <p class="section-label">Elige con qué empezar</p>
         <div class="template-grid" id="template-grid" role="group" aria-label="Hábitos sugeridos"></div>
@@ -218,7 +203,9 @@
       <p class="section-label group">Zona beta <span class="beta-pill">BETA</span></p>
       <article class="card">
         <div class="setting-row">
-          <span class="rule-emoji" aria-hidden="true">🔄</span>
+          <span class="rule-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/></svg>
+          </span>
           <span class="rule-text">
             <b>Restablecer progreso y logros</b>
             <span>Vuelves al nivel 1 y se borra el historial de días. Tus hábitos y tu perfil se mantienen.</span>
@@ -266,8 +253,8 @@
         <div id="kind-block">
           <p class="section-label">Tipo</p>
           <div class="segmented two" id="kind-type" role="radiogroup" aria-label="Tipo de hábito">
-            <button type="button" role="radio" data-kind="build">🌱 Quiero empezar a…</button>
-            <button type="button" role="radio" data-kind="quit">🚭 Quiero dejar de…</button>
+            <button type="button" role="radio" data-kind="build">Quiero empezar a…</button>
+            <button type="button" role="radio" data-kind="quit">Quiero dejar de…</button>
           </div>
           <p class="hint left" id="kind-hint" hidden></p>
         </div>
@@ -323,7 +310,10 @@
             <span>Hora</span>
             <input id="reminder-time" type="time" value="09:00" aria-label="Hora del recordatorio">
           </label>
-          <button type="button" class="secondary-btn" id="reminder-btn">📅 Añadir recordatorio al calendario</button>
+          <button type="button" class="secondary-btn" id="reminder-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+            Añadir al calendario
+          </button>
         </div>
         <p class="hint left">Se añade como evento que se repite en Calendario (iPhone) o Google Calendar (Android). Si cambias la frecuencia, tendrás que volver a añadirlo.</p>
 
@@ -338,14 +328,23 @@
               <span>Hasta el (opcional)</span>
               <input id="pause-until" type="date" aria-label="Fecha de fin de la pausa (opcional)">
             </label>
-            <button type="button" class="secondary-btn wide" id="pause-btn">⏸️ Pausar</button>
+            <button type="button" class="secondary-btn wide" id="pause-btn">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+              Pausar
+            </button>
           </div>
           <div class="pause-box" id="pause-on" hidden>
             <p class="pause-text" id="pause-status"></p>
-            <button type="button" class="secondary-btn wide" id="resume-btn">▶️ Reanudar ahora</button>
+            <button type="button" class="secondary-btn wide" id="resume-btn">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5z"/></svg>
+              Reanudar ahora
+            </button>
           </div>
 
-          <button type="button" class="secondary-btn wide spaced" id="archive-btn">🗄️ Archivar hábito</button>
+          <button type="button" class="secondary-btn wide spaced" id="archive-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h17v4h-17z"/><path d="M5 8.5v11h14v-11M10 12.5h4"/></svg>
+            Archivar hábito
+          </button>
           <p class="danger-hint">Desaparece de Hoy y del Historial, pero conservas su XP. Puedes restaurarlo desde Ajustes.</p>
 
           <button type="button" class="danger-btn" id="delete-btn">Eliminar hábito</button>
@@ -355,32 +354,32 @@
     </form>
   </dialog>
 
-  <!-- Celebración al subir de nivel -->
+  <!-- Subida de nivel: un anillo que se completa, sin fuegos artificiales -->
   <dialog class="modal" id="levelup" aria-labelledby="levelup-title">
     <div class="modal-card levelup-card">
-      <div class="levelup-emoji" id="levelup-emoji" aria-hidden="true">🌿</div>
-      <p class="levelup-kicker">¡Has subido de nivel!</p>
-      <h2 id="levelup-title">Nivel 2</h2>
+      <div class="levelup-ring" aria-hidden="true"><b id="levelup-num">2</b></div>
+      <p class="kicker">Nuevo nivel</p>
+      <h2 id="levelup-title">Brote</h2>
       <p class="levelup-sub" id="levelup-sub"></p>
       <ul class="levelup-achievements" id="levelup-achievements"></ul>
-      <button type="button" class="primary-btn" id="levelup-close">¡Seguimos!</button>
+      <button type="button" class="primary-btn" id="levelup-close">Continuar</button>
     </div>
   </dialog>
 
   <!-- Resumen de la semana pasada -->
   <dialog class="modal" id="summary" aria-labelledby="summary-title">
     <div class="modal-card summary-card">
-      <p class="levelup-kicker">Resumen de la semana</p>
+      <p class="kicker">Resumen de la semana</p>
       <h2 class="summary-title" id="summary-title"></h2>
       <div id="summary-body"></div>
-      <button type="button" class="primary-btn" id="summary-close">¡A por esta semana!</button>
+      <button type="button" class="primary-btn" id="summary-close">Empezar la semana</button>
     </div>
   </dialog>
 
   <!-- Confirmación para acciones importantes -->
   <dialog class="modal" id="confirm" aria-labelledby="confirm-title">
     <div class="modal-card">
-      <div class="confirm-emoji" id="confirm-emoji" aria-hidden="true"></div>
+      <div class="confirm-icon" id="confirm-icon" aria-hidden="true"></div>
       <h2 class="confirm-title" id="confirm-title"></h2>
       <div class="confirm-body" id="confirm-body"></div>
       <div class="confirm-actions">
