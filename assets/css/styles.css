@@ -728,15 +728,18 @@ h1 {
 }
 
 .list-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  margin: 28px 4px 8px;
+  margin: 24px 4px 8px;
 }
+.list-title { display: grid; gap: 3px; min-width: 0; }
 .list-head h2 { margin: 0; color: var(--ink-2); font-size: 14px; font-weight: 500; }
-.list-note { flex-shrink: 0; color: var(--ink-2); font-size: 14px; font-variant-numeric: tabular-nums; }
+.list-note { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .list-note.all-done { color: var(--sage-ink); font-weight: 500; }
+.habit-total { display: flex; align-items: baseline; gap: 4px; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.habit-total strong { color: var(--sage-ink); font-size: 18px; font-variant-numeric: tabular-nums; }
 
 /* ---------- Hoy: lista de hábitos (una tarjeta con separadores finos) ---------- */
 .habit-list {
@@ -926,6 +929,9 @@ h1 {
   color: var(--sage-ink);
 }
 .journal .link-btn { margin-top: 8px; padding: 0 2px; }
+.note-actions { margin-top: 4px; }
+.note-actions .link-btn { margin-top: 0; padding: 0 2px; color: var(--alert); }
+.note-actions .link-btn svg { width: 15px; height: 15px; }
 .note-box { position: relative; margin: 12px 0 10px; }
 .note-box textarea {
   display: block;
@@ -950,8 +956,13 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+.list-note strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* ---------- Bienvenida ---------- */
-.welcome { margin-top: 12px; }
+.welcome { margin-top: 20px; }
 .welcome-badge {
   display: grid;
   place-items: center;
@@ -964,41 +975,13 @@ h1 {
 }
 .welcome-badge svg { width: 30px; height: 30px; }
 .welcome h2 {
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   font-family: var(--serif);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
-.steps {
-  margin: 18px 0 26px;
-  padding: 0;
-  border: 1px solid var(--hair);
-  border-radius: 14px;
-  background: var(--card);
-  list-style: none;
-}
-.steps li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  font-size: 15px;
-}
-.steps li + li { border-top: 1px solid var(--hair); }
-.step-n {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--hair-strong);
-  border-radius: 50%;
-  color: var(--ink-2);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
+.welcome-intro { max-width: 34em; margin: 8px 0 22px; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
 
 /* ---------- Tipos de hábito (bienvenida y al crear uno) ---------- */
 .type-grid {

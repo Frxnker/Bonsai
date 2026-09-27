@@ -957,8 +957,20 @@ function renderToday() {
   $('#day-ring-label').textContent = restDay ? 'descanso' : allDone ? 'hecho' : isToday ? 'hoy' : 'ese día';
   $('#progress-text').textContent = isToday ? 'Tus hábitos de hoy' : 'Hábitos de ese día';
   const note = $('#progress-note');
-  note.textContent = restDay ? 'Día de descanso'
-    : allDone ? (isToday ? 'Todo hecho hoy' : 'Día completo')
+  const statuses = habits.map((h) => dayStatus(h, day));
+  const activeCount = statuses.filter((status) => status === 'active' || status === 'rest').length;
+  const pausedCount = statuses.filter((status) => status === 'paused').length;
+  const restCount = statuses.filter((status) => status === 'rest').length;
+  $('#habit-total-count').textContent = activeCount;
+  $('#habit-total').setAttribute('aria-label', `${activeCount} hábitos activos`);
+  const emptyNote = restCount
+    ? `<strong>Día de descanso</strong>${pausedCount ? ` · ${pausedCount} en pausa` : ''}`
+    : pausedCount
+      ? activeCount ? `<strong>Sin tareas pendientes</strong> · ${pausedCount} en pausa` : '<strong>Todos los hábitos están en pausa</strong>'
+      : activeCount ? '<strong>Meta semanal al día</strong>'
+        : `<strong>${isToday ? 'Aún no hay' : 'Aún no había'} hábitos activos</strong>`;
+  note.innerHTML = restDay ? emptyNote
+    : allDone ? (isToday ? '<strong>Todo hecho hoy</strong>' : '<strong>Día completo</strong>')
     : `${ring.done} de ${ring.total} hechos`;
   note.classList.toggle('all-done', allDone);
 
@@ -1163,9 +1175,11 @@ function changeHabit(habit, button, mutate) {
   const before = computeStats();
   const wasPerfect = isPerfectDay(day);
   const wasDone = isDone(habit, day);
+  const beforeEntry = { done: habit.done[day], slip: habit.slips[day], shield: habit.shields[day] };
   const amountBefore = habit.done[day] || 0;
   const anchor = button && button.querySelector('.check');
 
+  hideToast();
   mutate();
   // Si marcas a mano un día que salvó un protector, el protector vuelve a tu reserva.
   const shieldBack = Boolean(habit.shields[day]) && isDone(habit, day);
@@ -1190,17 +1204,45 @@ function changeHabit(habit, button, mutate) {
   // El aviso del protector se suma al de la celebración, si la hay, para que no se pierda.
   const shieldNote = shieldBack ? ' · el protector vuelve' : '';
   const unlocked = nowDone && !wasDone ? ACHIEVEMENTS.filter((a) => isUnlocked(a, after) && !isUnlocked(a, before)) : [];
+  let message = '';
   if (nowDone && !wasDone && after.level > before.level) {
     showLevelUp(after, unlocked);
-    if (shieldBack) toast('El protector vuelve a tu reserva');
+    if (shieldBack) message = 'El protector vuelve a tu reserva';
   } else if (unlocked.length) {
     const extra = unlocked.length > 1 ? ` (+${unlocked.length - 1})` : '';
-    toast(`Logro conseguido: ${unlocked[0].name}${extra}${shieldNote}`);
+    message = `Logro conseguido: ${unlocked[0].name}${extra}${shieldNote}`;
   } else if (nowDone && !wasDone && !wasPerfect && isPerfectDay(day)) {
-    toast(`Día completo · +${XP_PERFECT_DAY} XP${shieldNote}`);
+    message = `Día completo · +${XP_PERFECT_DAY} XP${shieldNote}`;
   } else if (shieldBack) {
-    toast('El protector vuelve a tu reserva');
+    message = 'El protector vuelve a tu reserva';
   }
+
+  if (nowDone && !wasDone && habit.kind !== 'quit') {
+    const afterEntry = { done: habit.done[day], slip: habit.slips[day], shield: habit.shields[day] };
+    const undo = () => undoHabitDayChange(habit.id, day, beforeEntry, afterEntry);
+    const showUndo = () => toast(message || 'Hábito marcado', { action: 'Deshacer', onAction: undo });
+    if (after.level > before.level) levelupDialog.addEventListener('close', showUndo, { once: true });
+    else showUndo();
+  } else if (message) {
+    toast(message);
+  }
+}
+
+function undoHabitDayChange(id, day, before, after) {
+  const habit = findHabit(id);
+  const fields = ['done', 'slips', 'shields'];
+  if (!habit || fields.some((field) => habit[field][day] !== after[field])) {
+    toast('Ese hábito ya cambió; no se ha deshecho');
+    return;
+  }
+  fields.forEach((field) => {
+    if (before[field] === undefined) delete habit[field][day];
+    else habit[field][day] = before[field];
+  });
+  save();
+  render();
+  haptic();
+  toast('Marcado deshecho');
 }
 
 // Tocar un hábito: marcar/desmarcar, sumar 1 (cantidad) o apuntar una recaída (dejar algo).
@@ -1875,6 +1917,7 @@ function renderJournal(hasHabits) {
   if (!hasHabits) return;
   const day = ui.day;
   const entry = state.days[day] || {};
+  const hasNote = Boolean(entry.note && entry.note.trim());
   $('#journal-title').textContent = day === ui.today ? '¿Qué tal el día?' : '¿Qué tal fue ese día?';
   document.querySelectorAll('#mood-row [data-mood]').forEach((btn) => {
     btn.setAttribute('aria-checked', String(Number(btn.dataset.mood) === entry.mood));
@@ -1882,6 +1925,7 @@ function renderJournal(hasHabits) {
   const open = Boolean(entry.note) || ui.noteOpenFor === day;
   $('#note-box').hidden = !open;
   $('#note-open').hidden = open;
+  $('#note-actions').hidden = !(open && hasNote);
   if (document.activeElement !== noteInput) noteInput.value = entry.note || '';
   $('#note-count').textContent = `${noteInput.value.length}/${NOTE_MAX}`;
 }
@@ -1900,6 +1944,14 @@ $('#note-open').addEventListener('click', () => {
   ui.noteOpenFor = ui.day;
   renderJournal(true);
   noteInput.focus();
+});
+
+$('#note-clear').addEventListener('click', () => {
+  noteInput.value = '';
+  setDayEntry(ui.day, { note: '' });
+  ui.noteOpenFor = undefined;
+  renderJournal(true);
+  haptic();
 });
 
 // La nota se guarda mientras escribes (sin volver a pintar, para no perder el foco).
