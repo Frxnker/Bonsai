@@ -356,7 +356,7 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
 - **Iconos de línea** en toda la app. Los únicos emojis son los que eliges tú para tus hábitos y tu avatar.
 - **Celebraciones tranquilas:** la casilla se rellena, la XP aparece como un texto pequeño que se desvanece y, al subir de nivel, un anillo se completa. Sin confeti.
 - **Modo oscuro automático** (grafito verdoso, no negro puro), según el ajuste del móvil.
-- **Icono:** un bonsái plano en color papel sobre verde salvia (`icons/icon.svg`); los PNG del iPhone y Android se generan a partir de él.
+- **Icono:** un bonsái plano en color papel sobre verde salvia (`assets/icons/icon.svg`); los PNG del iPhone y Android se generan a partir de él.
 - **Pensada para el móvil:** botones grandes, barra de pestañas translúcida de lado a lado, respeta el notch, la isla dinámica y la barra inferior, y nunca hay scroll horizontal.
 - **Accesible:**
   - Contraste de texto AA (WCAG) en modo claro y oscuro.
@@ -379,14 +379,21 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
 
 ## Archivos del proyecto
 
-| Archivo | Para qué sirve |
-| --- | --- |
-| `index.html` | Estructura de la app y etiquetas para instalarla en el móvil |
-| `styles.css` | Diseño (colores, letra, tarjetas), modo claro/oscuro y zonas seguras de la pantalla |
-| `app.js` | Toda la lógica: hábitos, rachas, XP, retos, protectores, diario, historial, copias y recordatorios |
-| `sw.js` | Service worker, para que funcione sin conexión |
-| `manifest.json` | Nombre, colores e iconos de la app instalada |
-| `icons/` | Icono de la app: `icon.svg` (el original) y los PNG para iPhone y Android |
+```text
+Racha/
+├── index.html             # Punto de entrada de la app
+├── manifest.json          # Configuración de la PWA e iconos instalables
+├── sw.js                  # Caché y funcionamiento sin conexión
+├── README.md              # Documentación del proyecto
+└── assets/
+    ├── css/
+    │   └── styles.css     # Estilos y temas
+    ├── js/
+    │   └── app.js         # Lógica de la aplicación
+    └── icons/             # Iconos SVG y PNG
+```
+
+Los archivos de entrada de la PWA permanecen en la raíz para conservar el despliegue y el alcance del service worker.
 
 ## Paso 1 (opcional): verla en tu ordenador
 
@@ -400,7 +407,7 @@ Haz doble clic en `index.html` y se abrirá en tu navegador. Así funciona todo 
    - Déjalo en **Public**; es necesario para que Pages sea gratis.
    - Pulsa **Create repository**.
 3. En la página del repositorio vacío, pulsa el enlace **«uploading an existing file»**.
-4. Abre la carpeta `Racha` en el Explorador de Windows. Selecciona **todo su contenido** (los archivos y la carpeta `icons`) y arrástralo a la página de GitHub.
+4. Abre la carpeta `Racha` en el Explorador de Windows. Selecciona **todo su contenido**, incluida la carpeta `assets`, y arrástralo a la página de GitHub.
    - Importante: arrastra lo que hay **dentro** de la carpeta Racha, no la carpeta en sí. `index.html` tiene que quedar en la raíz del repositorio.
 5. Abajo, pulsa el botón verde **Commit changes**.
 6. Ve a **Settings** (la pestaña de arriba) y luego a **Pages** (en el menú de la izquierda).
