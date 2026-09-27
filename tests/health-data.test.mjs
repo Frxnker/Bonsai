@@ -6,11 +6,28 @@ import { loadApp, plain } from './harness.mjs';
 const weight = (fields) => ({ id: 'w1', metric: 'weight', date: '2026-09-20', value: 72.4, unit: 'kg', note: '', created: 1, ...fields });
 const withHealth = (health) => ({ habits: [], health });
 
-test('los datos y copias sin Salud reciben la sección vacía, en kg', () => {
+const EMPTY_HEALTH = {
+  units: { weight: 'kg', waist: 'cm', restingHr: 'bpm', bloodPressure: 'mmHg', sleep: 'h', bodyFat: 'pct', temperature: 'c', steps: 'steps' },
+  metrics: ['weight'],
+  reminder: { days: [0, 1, 2, 3, 4, 5, 6], time: '08:00' },
+  entries: [],
+};
+
+test('los datos y copias sin Salud reciben la sección vacía, con el peso en kg a la vista', () => {
   const app = loadApp({ stored: { habits: [] } });
-  assert.deepEqual(plain(app.run('state.health')), { units: { weight: 'kg' }, entries: [] });
+  assert.deepEqual(plain(app.run('state.health')), EMPTY_HEALTH);
   const data = plain(app.run('normalize({ habits: [] })'));
-  assert.deepEqual(data.health, { units: { weight: 'kg' }, entries: [] });
+  assert.deepEqual(data.health, EMPTY_HEALTH);
+});
+
+test('las copias de antes de tener más medidas conservan el peso y se quedan con el peso a la vista', () => {
+  const app = loadApp();
+  const old = { habits: [], health: { units: { weight: 'lb' }, entries: [weight({ value: 160, unit: 'lb' })] } };
+  const health = plain(app.run(`normalize(${JSON.stringify(old)}).health`));
+  assert.deepEqual(health.metrics, ['weight']);
+  assert.equal(health.units.weight, 'lb');
+  assert.deepEqual(health.reminder, EMPTY_HEALTH.reminder);
+  assert.equal(health.entries[0].value, 160);
 });
 
 test('se conserva la unidad elegida y se ignora una desconocida', () => {

@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.6 beta';
+const APP_VERSION = '0.7 beta';
 const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
 const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
@@ -26,15 +26,54 @@ const MOOD_MOUTHS = [
 ];
 const NOTE_MAX = 200;
 // Salud: medidas personales, privadas y solo en este dispositivo (y en las copias que exportes).
-// No dan XP ni cuentan para rachas o retos. Otra medida (cintura, pulso…) sería otra entrada aquí;
-// `toBase` pasa cada unidad a la primera, para comparar registros hechos en unidades distintas.
+// No dan XP ni cuentan para rachas o retos. Cada unidad pasa a la primera con `toBase` (y `offset`, en °F),
+// para comparar registros hechos en unidades distintas. `decimals`: los que se ven (0 = solo enteros);
+// `chart`: línea para niveles, columnas desde cero para totales del día y rango para la tensión;
+// `span`: rango mínimo del eje; `example`: la pista de los campos (la de la unidad, si la tiene).
+// La tensión guarda la sistólica (value), la diastólica (value2) y, si se apunta, el pulso.
 const HEALTH_METRICS = {
   weight: {
-    label: 'Peso',
+    label: 'Peso', decimals: 1, chart: 'line', span: 1, example: '72,5',
     units: {
-      kg: { label: 'Kilos', min: 20, max: 400, toBase: 1 },
-      lb: { label: 'Libras', min: 44, max: 880, toBase: 0.45359237 },
+      kg: { label: 'Kilos', symbol: 'kg', min: 20, max: 400, toBase: 1, example: '72,5' },
+      lb: { label: 'Libras', symbol: 'lb', min: 44, max: 880, toBase: 0.45359237, example: '160' },
     },
+  },
+  waist: {
+    label: 'Cintura', decimals: 1, chart: 'line', span: 2, example: '80',
+    units: {
+      cm: { label: 'Centímetros', symbol: 'cm', min: 30, max: 250, toBase: 1, example: '80' },
+      in: { label: 'Pulgadas', symbol: 'in', min: 12, max: 100, toBase: 2.54, example: '31,5' },
+    },
+  },
+  restingHr: {
+    label: 'Pulso en reposo', decimals: 0, chart: 'line', span: 6, example: '62',
+    units: { bpm: { label: 'Pulsaciones por minuto', symbol: 'lpm', min: 25, max: 220, toBase: 1 } },
+  },
+  bloodPressure: {
+    label: 'Tensión arterial', decimals: 0, chart: 'range', span: 20, example: '120', pair: true,
+    units: { mmHg: { label: 'Milímetros de mercurio', symbol: 'mmHg', min: 60, max: 260, toBase: 1 } },
+    second: { label: 'Diastólica', min: 30, max: 160, example: '80' },
+    pulse: { label: 'Pulso', min: 25, max: 220, example: '64' },
+  },
+  sleep: {
+    label: 'Sueño', decimals: 1, chart: 'bars', span: 2, example: '7,5',
+    units: { h: { label: 'Horas', symbol: 'h', min: 0, max: 24, toBase: 1 } },
+  },
+  bodyFat: {
+    label: 'Grasa corporal', decimals: 1, chart: 'line', span: 2, example: '18,5',
+    units: { pct: { label: 'Porcentaje', symbol: '%', min: 2, max: 75, toBase: 1 } },
+  },
+  temperature: {
+    label: 'Temperatura', decimals: 1, chart: 'line', span: 1, example: '36,6',
+    units: {
+      c: { label: 'Celsius', symbol: '°C', min: 30, max: 45, toBase: 1, example: '36,6' },
+      f: { label: 'Fahrenheit', symbol: '°F', min: 86, max: 113, toBase: 5 / 9, offset: -160 / 9, example: '97,9' },
+    },
+  },
+  steps: {
+    label: 'Pasos', decimals: 0, chart: 'bars', span: 1000, example: '8.000',
+    units: { steps: { label: 'Pasos', symbol: 'pasos', min: 0, max: 100000, toBase: 1 } },
   },
 };
 const HEALTH_NOTE_MAX = 200;
@@ -316,29 +355,48 @@ function normalizeRoutines(list, habits) {
     });
 }
 
-// Unidad preferida de cada medida (la primera de su lista, por defecto) y los registros, por fecha.
+// Unidad preferida de cada medida (la primera de su lista, por defecto), las medidas que se ven en Salud
+// (en el orden del catálogo), el recordatorio para el calendario y los registros, por fecha.
+const HEALTH_DEFAULT_METRICS = ['weight'];
+const emptyHealthReminder = () => ({ days: [0, 1, 2, 3, 4, 5, 6], time: '08:00' });
 function emptyHealth() {
   const units = Object.fromEntries(Object.entries(HEALTH_METRICS).map(([id, m]) => [id, Object.keys(m.units)[0]]));
-  return { units, entries: [] };
+  return { units, metrics: [...HEALTH_DEFAULT_METRICS], reminder: emptyHealthReminder(), entries: [] };
 }
 
 const isRealDate = (key) => isDateKey(key) && key >= HEALTH_MIN_DATE && dateKey(parseKey(key)) === key;
+const inRange = (value, range) => Number.isFinite(value) && value >= range.min && value <= range.max;
 const inHealthRange = (metric, value, unit) => {
   const range = Object.hasOwn(HEALTH_METRICS[metric].units, unit) && HEALTH_METRICS[metric].units[unit];
-  return Boolean(range) && Number.isFinite(value) && value >= range.min && value <= range.max;
+  return Boolean(range) && inRange(value, range);
 };
+// Enteros en las medidas sin decimales; en las demás, hasta 2 decimales (como siempre se ha guardado el peso).
+const healthRound = (metric, v) => (HEALTH_METRICS[metric] && HEALTH_METRICS[metric].decimals === 0 ? Math.round(Number(v)) : round2(v));
 // Por fecha y, el mismo día, por orden de creación.
 const byHealthDate = (a, b) => (a.date === b.date ? a.created - b.created : a.date < b.date ? -1 : 1);
 
-// Un registro: { id, metric, date, value, unit, note, created }. Se guarda en la unidad en que se apuntó.
-// Los de medidas que esta versión no conoce se conservan, para no perderlos al importar una copia más nueva.
+// Un registro: { id, metric, date, value, (value2, pulse), unit, note, created }. Se guarda en la unidad
+// en que se apuntó. Los de medidas que esta versión no conoce se conservan, para no perderlos al importar
+// una copia más nueva.
 function normalizeHealthEntry(e) {
   if (!e || typeof e.metric !== 'string' || !isRealDate(e.date)) return null;
-  const value = round2(e.value);
+  const known = Object.hasOwn(HEALTH_METRICS, e.metric) ? HEALTH_METRICS[e.metric] : null;
+  const value = healthRound(e.metric, e.value);
   const unit = typeof e.unit === 'string' ? e.unit : '';
-  const valid = Object.hasOwn(HEALTH_METRICS, e.metric)
-    ? inHealthRange(e.metric, value, unit)
-    : /^[a-z][\w-]{0,31}$/i.test(e.metric) && value > 0 && value < 1e6 && unit.length > 0 && unit.length <= 12;
+  const extra = {};
+  let valid;
+  if (known) {
+    valid = inHealthRange(e.metric, value, unit);
+    if (valid && known.pair) {
+      const value2 = Math.round(Number(e.value2));
+      valid = inRange(value2, known.second) && value2 < value;
+      extra.value2 = value2;
+      const pulse = Math.round(Number(e.pulse));
+      if (e.pulse !== undefined && e.pulse !== null && inRange(pulse, known.pulse)) extra.pulse = pulse;
+    }
+  } else {
+    valid = /^[a-z][\w-]{0,31}$/i.test(e.metric) && value > 0 && value < 1e6 && unit.length > 0 && unit.length <= 12;
+  }
   if (!valid) return null;
   const id = typeof e.id === 'string' || typeof e.id === 'number' ? String(e.id).slice(0, 64) : '';
   return {
@@ -346,13 +404,15 @@ function normalizeHealthEntry(e) {
     metric: e.metric,
     date: e.date,
     value,
+    ...extra,
     unit,
     note: typeof e.note === 'string' ? e.note.trim().slice(0, HEALTH_NOTE_MAX) : '',
     created: Math.max(0, Number(e.created) || 0),
   };
 }
 
-// Las copias anteriores a Salud no traen esta sección: se quedan con la vacía.
+// Las copias anteriores a Salud no traen esta sección, y las de antes de tener más medidas no traen
+// `metrics` ni `reminder`: se quedan con los valores por defecto.
 function normalizeHealth(data) {
   const health = emptyHealth();
   if (!data || typeof data !== 'object') return health;
@@ -360,6 +420,14 @@ function normalizeHealth(data) {
     const unit = data.units && data.units[id];
     if (typeof unit === 'string' && Object.hasOwn(HEALTH_METRICS[id].units, unit)) health.units[id] = unit;
   });
+  if (Array.isArray(data.metrics)) {
+    health.metrics = Object.keys(HEALTH_METRICS).filter((id) => data.metrics.includes(id));
+  }
+  const reminder = data.reminder || {};
+  if (Array.isArray(reminder.days)) {
+    health.reminder.days = [...new Set(reminder.days.map(Number))].filter((d) => Number.isInteger(d) && d >= 0 && d <= 6).sort((a, b) => a - b);
+  }
+  if (typeof reminder.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.time)) health.reminder.time = reminder.time;
   const ids = new Set();
   health.entries = (Array.isArray(data.entries) ? data.entries : [])
     .map(normalizeHealthEntry)
@@ -592,9 +660,11 @@ const ui = {
   editing: false,
   editingId: null,
   pop: null,
-  healthPeriod: 30, // días que se ven en la gráfica de Salud
-  healthSel: null,  // registro elegido en la gráfica
-  healthShown: 10,  // registros que se ven en la lista
+  healthMetric: null, // medida que se ve en detalle en Salud (la primera activa, si no)
+  healthPeriod: 30,   // días que se ven en la gráfica de Salud
+  healthAvg: true,    // media de 7 días en la gráfica
+  healthSel: null,    // registro elegido en la gráfica
+  healthShown: 10,    // registros que se ven en la lista
 };
 
 // ---------- Cálculos: rachas, XP y nivel ----------
@@ -2003,24 +2073,43 @@ function dayCaption(habitId, key) {
 
 // Solo describe tus medidas: sin XP ni rachas, sin consejos y sin juicios sobre si suben o bajan.
 const HEALTH_PERIODS = [[30, '30 días'], [90, '90 días'], [365, '1 año']];
+const HEALTH_BEFORE = { 30: 'los 30 días anteriores', 90: 'los 90 días anteriores', 365: 'el año anterior' };
 const HEALTH_PAGE = 20;
 const HEALTH_CHART_DOTS = 40; // con más registros en el periodo, solo se dibuja la línea
-const round1 = (v) => Math.round((Number(v) + Number.EPSILON) * 10) / 10;
-const fmtHealth = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const HEALTH_AVG_DAYS = 7;
+const HEALTH_TAGS = ['en ayunas', 'por la mañana', 'por la noche', 'tras entrenar', 'tras comer'];
+const roundTo = (v, d) => Math.round((Number(v) + Number.EPSILON) * 10 ** d) / 10 ** d;
+const round1 = (v) => roundTo(v, 1);
+const healthFormats = {};
+const fmtHealthN = (d) => healthFormats[d]
+  || (healthFormats[d] = new Intl.NumberFormat('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: 'always' }));
 const fmtHealthInput = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2, useGrouping: false });
+const fmtList = new Intl.ListFormat('es', { type: 'conjunction' });
+const healthUnit = (metric) => state.health.units[metric];
+const healthSymbol = (metric, unit = healthUnit(metric)) => HEALTH_METRICS[metric].units[unit].symbol;
+const healthLabel = (metric) => HEALTH_METRICS[metric].label;
+// Ejemplo para las pistas y los errores, en la unidad elegida.
+const healthExample = (metric) => HEALTH_METRICS[metric].units[healthUnit(metric)].example || HEALTH_METRICS[metric].example;
+// «Peso (kg)», pero «Pasos» (sin repetir la unidad cuando es el mismo nombre).
+function healthFieldLabel(metric) {
+  const symbol = healthSymbol(metric);
+  return symbol.toLowerCase() === healthLabel(metric).toLowerCase() ? healthLabel(metric) : `${healthLabel(metric)} (${symbol})`;
+}
 
 function convertHealth(metric, value, from, to) {
   if (from === to) return value;
   const { units } = HEALTH_METRICS[metric];
-  return (value * units[from].toBase) / units[to].toBase;
+  const base = value * units[from].toBase + (units[from].offset || 0);
+  return (base - (units[to].offset || 0)) / units[to].toBase;
 }
 
-// Registros de una medida, del más antiguo al más reciente, con `shown` en la unidad preferida.
+// Registros de una medida, del más antiguo al más reciente, con `shown` en la unidad preferida
+// (y `shown2`, la diastólica, en la tensión).
 function healthSeries(metric) {
-  const unit = state.health.units[metric];
+  const unit = healthUnit(metric);
   return state.health.entries
     .filter((e) => e.metric === metric)
-    .map((e) => ({ ...e, shown: convertHealth(metric, e.value, e.unit, unit) }));
+    .map((e) => ({ ...e, shown: convertHealth(metric, e.value, e.unit, unit), ...(e.value2 !== undefined ? { shown2: e.value2 } : {}) }));
 }
 
 // Último registro y su diferencia con el anterior, con el mismo redondeo que se ve en pantalla.
@@ -2028,15 +2117,37 @@ function healthLatest(metric) {
   const series = healthSeries(metric);
   const last = series.at(-1) || null;
   const prev = series.at(-2) || null;
-  return { last, prev, diff: last && prev ? round1(round1(last.shown) - round1(prev.shown)) : null };
+  const d = HEALTH_METRICS[metric].decimals;
+  const delta = (a, b) => roundTo(roundTo(a, d) - roundTo(b, d), d);
+  return {
+    last,
+    prev,
+    diff: last && prev ? delta(last.shown, prev.shown) : null,
+    diff2: last && prev && last.shown2 !== undefined ? delta(last.shown2, prev.shown2) : null,
+  };
 }
 
-const healthText = (value, unit) => `${fmtHealth.format(round1(value))} ${unit}`;
-// "+0,4 kg" o "−0,3 kg", siempre con el mismo tono: ni subir ni bajar es bueno o malo.
-const healthDiffText = (diff, unit) => (diff === 0 ? 'Sin cambios' : `${diff > 0 ? '+' : '−'}${fmtHealth.format(Math.abs(diff))} ${unit}`);
+const healthNumber = (value, decimals = 1) => fmtHealthN(decimals).format(roundTo(value, decimals));
+const healthText = (value, unit, decimals = 1) => `${healthNumber(value, decimals)} ${unit}`;
+// El número de un registro ya convertido: «72,4», «120/80», «8.000».
+const healthEntryValue = (metric, e) => (e.shown2 !== undefined
+  ? `${healthNumber(e.shown, 0)}/${healthNumber(e.shown2, 0)}` : healthNumber(e.shown, HEALTH_METRICS[metric].decimals));
+const healthEntryText = (metric, e) => `${healthEntryValue(metric, e)} ${healthSymbol(metric)}${e.pulse ? ` · pulso ${e.pulse}` : ''}`;
+const signed = (v, d) => (v === 0 ? '0' : `${v > 0 ? '+' : '−'}${healthNumber(Math.abs(v), d)}`);
+// "+0,4 kg" o "−0,3 kg" (en la tensión, "+5/−2 mmHg"), siempre con el mismo tono: ni subir ni bajar es bueno o malo.
+function healthDiffText(diff, unit, decimals = 1, diff2 = null) {
+  if (diff2 !== null) return diff === 0 && diff2 === 0 ? 'Sin cambios' : `${signed(diff, 0)}/${signed(diff2, 0)} ${unit}`;
+  return diff === 0 ? 'Sin cambios' : `${signed(diff, decimals)} ${unit}`;
+}
 const healthInputText = (entry, unit) => fmtHealthInput.format(round2(convertHealth(entry.metric, entry.value, entry.unit, unit)));
 // "72,4" o "72.4" → 72.4. NaN si no es un número con 2 decimales como mucho.
 const parseDecimal = (text) => (/^\s*\d{1,4}([.,]\d{1,2})?\s*$/.test(String(text)) ? Number(String(text).trim().replace(',', '.')) : NaN);
+// Enteros, con separador de miles o sin él: «8000», «8.000» u «8 000». NaN si no.
+function parseInteger(text) {
+  const t = String(text).trim();
+  return /^\d{1,6}$/.test(t) || /^\d{1,3}([.\s]\d{3})+$/.test(t) ? Number(t.replace(/[.\s]/g, '')) : NaN;
+}
+const parseHealthValue = (metric, text) => (HEALTH_METRICS[metric].decimals ? parseDecimal(text) : parseInteger(text));
 
 function healthDateLabel(key) {
   if (key === ui.today) return 'Hoy';
@@ -2046,31 +2157,55 @@ function healthDateLabel(key) {
   return capitalize(fmt.format(date).replace(/\./g, ''));
 }
 
-// Mensaje de error de cada campo del formulario (sin la clave, si está bien).
-function healthErrors(metric, { value, unit, date }) {
-  const range = HEALTH_METRICS[metric].units[unit];
+// ---------- Validar y guardar ----------
+
+const rangeText = (range, symbol) => `entre ${fmtAmount.format(range.min)} y ${fmtAmount.format(range.max)} ${symbol}`;
+const healthDateError = (date) => (!isRealDate(date) ? 'Elige una fecha.' : date > ui.today ? 'La fecha no puede ser posterior a hoy.' : '');
+const cleanNote = (note) => String(note || '').trim().slice(0, HEALTH_NOTE_MAX);
+
+// Lo escrito para una medida: { errors } (uno por campo: value, value2, pulse) o { fields } para guardar.
+function readHealthInput(metric, { valueText = '', value2Text = '', pulseText = '' }) {
+  const m = HEALTH_METRICS[metric];
+  const unit = healthUnit(metric);
+  const symbol = healthSymbol(metric);
   const errors = {};
-  if (!Number.isFinite(value)) errors.value = 'Escribe un número, por ejemplo 72,5.';
-  else if (!inHealthRange(metric, value, unit)) errors.value = `Escribe un valor entre ${fmtAmount.format(range.min)} y ${fmtAmount.format(range.max)} ${unit}.`;
-  if (!isRealDate(date)) errors.date = 'Elige una fecha.';
-  else if (date > ui.today) errors.date = 'La fecha no puede ser posterior a hoy.';
-  return errors;
+  const value = parseHealthValue(metric, valueText);
+  if (!Number.isFinite(value)) errors.value = `Escribe un número${m.decimals ? '' : ' entero'}, por ejemplo ${healthExample(metric)}.`;
+  else if (!inHealthRange(metric, value, unit)) errors.value = `Escribe un valor ${rangeText(m.units[unit], symbol)}.`;
+  const fields = { value: healthRound(metric, value), unit };
+  if (m.pair) {
+    const value2 = parseInteger(value2Text);
+    if (!Number.isFinite(value2)) errors.value2 = `Escribe la diastólica, por ejemplo ${m.second.example}.`;
+    else if (!inRange(value2, m.second)) errors.value2 = `La diastólica tiene que estar ${rangeText(m.second, symbol)}.`;
+    else if (!errors.value && value2 >= value) errors.value2 = 'La diastólica tiene que ser menor que la sistólica.';
+    fields.value2 = value2;
+    if (String(pulseText).trim()) {
+      const pulse = parseInteger(pulseText);
+      if (!inRange(pulse, m.pulse)) errors.pulse = `El pulso tiene que estar ${rangeText(m.pulse, 'lpm')}.`;
+      else fields.pulse = pulse;
+    }
+  }
+  return Object.keys(errors).length ? { errors } : { fields };
 }
 
 // Guarda un registro nuevo (sin id) o editado, en la unidad preferida. Devuelve { errors } o { entry }.
-function saveHealthEntry(metric, { id = null, valueText, date, note = '' }) {
-  const unit = state.health.units[metric];
-  const value = parseDecimal(valueText);
-  const errors = healthErrors(metric, { value, unit, date });
+function saveHealthEntry(metric, { id = null, valueText, value2Text, pulseText, date, note = '' }) {
+  const read = readHealthInput(metric, { valueText, value2Text, pulseText });
+  const errors = { ...read.errors };
+  if (healthDateError(date)) errors.date = healthDateError(date);
   if (Object.keys(errors).length) return { errors };
-  const fields = { date, note: note.trim().slice(0, HEALTH_NOTE_MAX) };
+  const fields = { ...read.fields, date, note: cleanNote(note) };
   let entry = id && state.health.entries.find((e) => e.id === id);
   if (entry) {
     // Si no se ha tocado el valor, se queda tal como se apuntó (quizá en la otra unidad).
-    if (String(valueText).trim() !== healthInputText(entry, unit)) Object.assign(fields, { value: round2(value), unit });
+    if (String(valueText).trim() === healthInputText(entry, fields.unit)) {
+      delete fields.value;
+      delete fields.unit;
+    }
+    if (!('pulse' in fields)) delete entry.pulse;
     Object.assign(entry, fields);
   } else {
-    entry = { id: uid(), metric, value: round2(value), unit, created: Date.now(), ...fields };
+    entry = { id: uid(), metric, created: Date.now(), ...fields };
     state.health.entries.push(entry);
   }
   state.health.entries.sort(byHealthDate);
@@ -2078,9 +2213,79 @@ function saveHealthEntry(metric, { id = null, valueText, date, note = '' }) {
   return { entry };
 }
 
+// Registro rápido: varias medidas del mismo día a la vez. Si algo no es válido, no se guarda nada.
+// Los errores llevan la medida delante: «waist.value», «bloodPressure.value2»…
+function saveHealthBatch({ date, note = '', values }) {
+  const errors = {};
+  const typed = (texts) => [texts.valueText, texts.value2Text, texts.pulseText].some((t) => String(t || '').trim());
+  const filled = Object.entries(values).filter(([, texts]) => typed(texts));
+  if (healthDateError(date)) errors.date = healthDateError(date);
+  if (!filled.length) errors.form = 'Apunta al menos una medida.';
+  const ready = [];
+  filled.forEach(([metric, texts]) => {
+    const read = readHealthInput(metric, texts);
+    if (read.errors) Object.entries(read.errors).forEach(([part, message]) => { errors[`${metric}.${part}`] = message; });
+    else ready.push({ metric, fields: read.fields });
+  });
+  if (Object.keys(errors).length) return { errors };
+  const now = Date.now();
+  const entries = ready.map(({ metric, fields }, i) => ({ id: uid(), metric, created: now + i, ...fields, date, note: cleanNote(note) }));
+  state.health.entries.push(...entries);
+  state.health.entries.sort(byHealthDate);
+  save();
+  return { entries };
+}
+
 function deleteHealthEntry(id) {
   state.health.entries = state.health.entries.filter((e) => e.id !== id);
   save();
+}
+
+// Notas rápidas: tocar una etiqueta la añade a la nota (o la quita, si ya estaba).
+const sameTag = (part, tag) => part.trim().toLocaleLowerCase('es') === tag;
+const hasTag = (note, tag) => String(note).split(',').some((part) => sameTag(part, tag));
+function toggleTag(note, tag) {
+  const parts = String(note).split(',').map((s) => s.trim()).filter(Boolean);
+  const at = parts.findIndex((part) => sameTag(part, tag));
+  if (at >= 0) parts.splice(at, 1);
+  else parts.push(tag);
+  const text = parts.join(', ');
+  return (text.charAt(0).toLocaleUpperCase('es') + text.slice(1)).slice(0, HEALTH_NOTE_MAX);
+}
+
+// ---------- Consultar: media de 7 días, estadísticas y comparación ----------
+
+// Media de los registros de los 7 días que acaban en la fecha de cada uno (sin inventar los días sin datos).
+function movingAverage(series, days = HEALTH_AVG_DAYS) {
+  return series.map((e, i) => {
+    const from = shiftKey(e.date, -(days - 1));
+    let sum = 0;
+    let n = 0;
+    for (let j = i; j >= 0 && series[j].date >= from; j--) {
+      sum += series[j].shown;
+      n++;
+    }
+    return { id: e.id, date: e.date, value: sum / n };
+  });
+}
+
+const mean = (list) => list.reduce((a, b) => a + b, 0) / list.length;
+// Media, mínimo, máximo y cambio del primer al último registro (en la tensión, de los dos valores).
+function healthStats(entries) {
+  const pick = (key) => {
+    const values = entries.map((e) => e[key]);
+    return { mean: mean(values), min: Math.min(...values), max: Math.max(...values), change: values.at(-1) - values[0] };
+  };
+  return { count: entries.length, main: pick('shown'), second: entries[0].shown2 !== undefined ? pick('shown2') : null };
+}
+
+// Las medias del periodo y de los mismos días justo antes, si hay registros en los dos.
+function comparePeriods(series, period, today = ui.today) {
+  const from = shiftKey(today, -(period - 1));
+  const prevFrom = shiftKey(from, -period);
+  const now = series.filter((e) => e.date >= from && e.date <= today);
+  const before = series.filter((e) => e.date >= prevFrom && e.date < from);
+  return now.length && before.length ? { now: healthStats(now), before: healthStats(before) } : null;
 }
 
 // Escala limpia para el eje: 0,5 · 1 · 2 · 2,5 · 5 · 10…
@@ -2091,103 +2296,193 @@ function niceStep(range, count = 3) {
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
 }
 
-// Línea con los registros del periodo (de `from` a hoy) y dónde queda cada punto, para tocarlos o recorrerlos.
-function healthChart(series, from, width) {
+// Gráfica de los registros del periodo (de `from` a hoy): línea para niveles, columnas desde cero para
+// totales del día y barras de diastólica a sistólica para la tensión, con la media de 7 días si se pide.
+// Devuelve el SVG y dónde queda cada registro, para tocarlos o recorrerlos con el teclado.
+function healthChart(series, from, width, { kind = 'line', decimals = 1, span = 1, average = null } = {}) {
   const height = 176;
-  const pad = { top: 10, right: 12, bottom: 26, left: 38 };
-  const values = series.map((e) => round1(e.shown));
-  let lo = Math.min(...values);
+  const values = series.flatMap((e) => (e.shown2 !== undefined ? [e.shown, e.shown2] : [e.shown])).map((v) => roundTo(v, decimals));
+  if (average) average.forEach((a) => values.push(a.value));
+  let lo = kind === 'bars' ? 0 : Math.min(...values);
   let hi = Math.max(...values);
-  if (hi - lo < 1) {
+  if (hi - lo < span) {
     const mid = (hi + lo) / 2;
-    lo = mid - 0.5;
-    hi = mid + 0.5;
+    if (kind === 'bars') hi = span;
+    else [lo, hi] = [mid - span / 2, mid + span / 2];
   }
   const step = niceStep(hi - lo);
-  const y0 = Math.floor(lo / step) * step;
+  const y0 = kind === 'bars' ? 0 : Math.floor(lo / step) * step;
   const y1 = Math.ceil(hi / step) * step;
-  const span = parseKey(ui.today) - parseKey(from) || 1;
-  const x = (key) => pad.left + ((parseKey(key) - parseKey(from)) / span) * (width - pad.left - pad.right);
+  const ticks = Array.from({ length: Math.round((y1 - y0) / step) + 1 }, (_, i) => round2(y0 + i * step));
+  const labels = ticks.map((v) => fmtAmount.format(v));
+  const pad = { top: 10, right: 12, bottom: 26, left: Math.max(30, 14 + Math.max(...labels.map((l) => l.length)) * 6.5) };
+  const days = Math.round((parseKey(ui.today) - parseKey(from)) / 864e5) + 1;
+  const plot = width - pad.left - pad.right;
+  const span2 = parseKey(ui.today) - parseKey(from) || 1;
+  const x = (key) => pad.left + ((parseKey(key) - parseKey(from)) / span2) * plot;
   const y = (v) => pad.top + (1 - (v - y0) / (y1 - y0)) * (height - pad.top - pad.bottom);
   const r = (n) => n.toFixed(1);
-
-  const ticks = Array.from({ length: Math.round((y1 - y0) / step) + 1 }, (_, i) => round2(y0 + i * step));
-  const grid = ticks.map((v) => `<line class="hc-grid" x1="${pad.left}" x2="${width - pad.right}" y1="${r(y(v))}" y2="${r(y(v))}"/>
-    <text class="hc-axis" x="${pad.left - 8}" y="${r(y(v))}" dy="0.35em" text-anchor="end">${fmtAmount.format(v)}</text>`).join('');
   const base = height - pad.bottom;
-  const axis = `<text class="hc-axis" x="${pad.left}" y="${base + 18}">${shortDate(from)}</text>
+
+  const grid = ticks.map((v, i) => `<line class="hc-grid" x1="${r(pad.left)}" x2="${width - pad.right}" y1="${r(y(v))}" y2="${r(y(v))}"/>
+    <text class="hc-axis" x="${r(pad.left - 8)}" y="${r(y(v))}" dy="0.35em" text-anchor="end">${labels[i]}</text>`).join('');
+  const axis = `<text class="hc-axis" x="${r(pad.left)}" y="${base + 18}">${shortDate(from)}</text>
     <text class="hc-axis" x="${width - pad.right}" y="${base + 18}" text-anchor="end">Hoy</text>`;
-  const points = series.map((e) => ({ id: e.id, shown: e.shown, x: x(e.date), y: y(round1(e.shown)) }));
-  const line = `<path class="hc-line" d="M${points.map((p) => `${r(p.x)},${r(p.y)}`).join('L')}"/>`;
-  const dot = (p) => `<circle class="hc-dot" cx="${r(p.x)}" cy="${r(p.y)}" r="4"/>`;
-  const dots = points.length <= HEALTH_CHART_DOTS ? points.map(dot).join('') : dot(points.at(-1));
+  const points = series.map((e) => ({ id: e.id, x: x(e.date), y: y(roundTo(e.shown, decimals)) }));
+  const soft = average ? ' soft' : '';
+  const dot = (p, cls = '') => `<circle class="hc-dot${cls}" cx="${r(p.x)}" cy="${r(p.y)}" r="4"/>`;
+  let marks = '';
+  if (kind === 'bars') {
+    const w = Math.min(24, Math.max(2, (plot / days) * 0.6));
+    marks = points.map((p) => {
+      const rr = Math.min(4, w / 2, base - p.y);
+      return `<path class="hc-bar${soft}" d="M${r(p.x - w / 2)},${base} V${r(p.y + rr)} a${r(rr)},${r(rr)} 0 0 1 ${r(rr)},${r(-rr)} H${r(p.x + w / 2 - rr)} a${r(rr)},${r(rr)} 0 0 1 ${r(rr)},${r(rr)} V${base} Z"/>`;
+    }).join('');
+  } else if (kind === 'range') {
+    marks = series.map((e, i) => {
+      const p = points[i];
+      const low = { x: p.x, y: y(e.shown2) };
+      return `<line class="hc-range" x1="${r(p.x)}" x2="${r(p.x)}" y1="${r(low.y)}" y2="${r(p.y)}"/>${dot(p)}${dot(low)}`;
+    }).join('');
+  } else {
+    const line = `<path class="hc-line${soft}" d="M${points.map((p) => `${r(p.x)},${r(p.y)}`).join('L')}"/>`;
+    marks = line + (points.length <= HEALTH_CHART_DOTS ? points.map((p) => dot(p, soft)).join('') : dot(points.at(-1), soft));
+  }
+  const avgLine = average && average.length > 1
+    ? `<path class="hc-avg" d="M${average.map((a) => `${r(x(a.date))},${r(y(a.value))}`).join('L')}"/>` : '';
   const svgText = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${grid}${axis}
-    <line class="hc-cross" y1="${pad.top}" y2="${base}"/>${line}${dots}<circle class="hc-sel" r="5"/></svg>`;
+    <line class="hc-cross" y1="${pad.top}" y2="${base}"/>${marks}${avgLine}<circle class="hc-sel" r="5"/></svg>`;
   return { svg: svgText, points };
 }
+
+// ---------- Pintar la pantalla ----------
 
 let healthPoints = [];
 
 function renderHealth() {
   const root = $('#health-view');
-  const metric = 'weight';
-  const { label } = HEALTH_METRICS[metric];
-  const unit = state.health.units[metric];
-  const series = healthSeries(metric);
-  const settings = healthSettingsCard(metric, unit);
+  const metrics = state.health.metrics;
+  if (!metrics.includes(ui.healthMetric)) ui.healthMetric = metrics[0] || null;
   healthPoints = [];
+  const settings = healthSettingsCard() + healthReminderCard();
 
-  if (!series.length) {
+  if (!metrics.length) {
     root.innerHTML = `<div class="empty health-empty">
       <div class="empty-icon">${ICONS.heart}</div>
-      <h2>Aún no hay registros</h2>
-      <p>Apunta tu peso cuando quieras. Es opcional y no cuenta para tu XP ni tus rachas.</p>
-      <button type="button" class="primary-btn" data-health-add>Registrar peso</button>
+      <h2>No tienes medidas a la vista</h2>
+      <p>Elige qué quieres apuntar: peso, cintura, tensión, sueño…</p>
+      <button type="button" class="primary-btn" data-health-metrics>Elegir medidas</button>
     </div>${settings}`;
     return;
   }
 
-  const { last, prev, diff } = healthLatest(metric);
+  const intro = state.health.entries.length ? '' : `<p class="coach health-coach">Apunta tus medidas cuando quieras. Es opcional y no cuenta para tu XP ni tus rachas. Con «Elegir medidas», abajo, puedes añadir otras.</p>`;
+  const tiles = `<div class="health-tiles" role="group" aria-label="Tus medidas">${metrics.map(healthTile).join('')}</div>`;
+  const quick = metrics.length > 1
+    ? `<button type="button" class="secondary-btn wide health-quick" data-health-quick>${ICONS.plus}Registro rápido</button>` : '';
+  root.innerHTML = intro + tiles + quick + healthDetailCard(ui.healthMetric, root) + healthListCard(ui.healthMetric) + settings;
+  if (ui.healthSel) selectHealthPoint(ui.healthSel);
+}
+
+// Tarjeta de una medida en el resumen: su último valor. Tocarla la abre debajo.
+function healthTile(metric) {
+  const { last } = healthLatest(metric);
+  return `<button type="button" class="health-tile" data-health-metric="${metric}" aria-pressed="${metric === ui.healthMetric}">
+    <span class="ht-label">${healthLabel(metric)}</span>
+    <span class="ht-value">${last ? `${healthEntryValue(metric, last)}<small>${healthSymbol(metric)}</small>` : '—'}</span>
+    <span class="ht-sub">${last ? healthDateLabel(last.date) : 'Sin registros'}</span>
+  </button>`;
+}
+
+function healthDetailCard(metric, root) {
+  const m = HEALTH_METRICS[metric];
+  const symbol = healthSymbol(metric);
+  const series = healthSeries(metric);
+  const { last, prev, diff, diff2 } = healthLatest(metric);
+  const head = `<div class="card-head"><h2>${m.label}</h2>
+    <button type="button" class="text-btn" data-health-add="${metric}">${ICONS.plus}Registrar</button></div>`;
+  if (!last) {
+    return `<article class="card health-detail">${head}
+      <p class="card-text">Aún no hay registros. Cuando apuntes ${m.label.toLowerCase()}, aquí verás su evolución, la media y cómo cambia.</p>
+    </article>`;
+  }
   const when = !prev ? '' : prev.date === ui.today ? 'de hoy'
     : prev.date === shiftKey(ui.today, -1) ? 'de ayer' : `del ${shortDate(prev.date)}`;
-  const summary = `<article class="card">
-    <div class="card-head"><h2>${label}</h2><span class="card-count">${healthDateLabel(last.date)}</span></div>
-    <p class="health-value">${fmtHealth.format(round1(last.shown))}<span>${unit}</span></p>
-    <p class="health-diff">${prev ? `${healthDiffText(diff, unit)} respecto al registro anterior, ${when}` : 'Es tu primer registro.'}</p>
-    ${last.note ? `<p class="health-note">${escapeHTML(last.note)}</p>` : ''}
-    <button type="button" class="secondary-btn wide spaced" data-health-add>${ICONS.plus}Registrar peso</button>
-  </article>`;
+  const summary = `<p class="health-value">${healthEntryValue(metric, last)}<span>${symbol}</span></p>
+    <p class="health-diff">${prev ? `${healthDiffText(diff, symbol, m.decimals, diff2)} respecto al registro anterior, ${when}` : 'Es tu primer registro.'}${
+      last.pulse ? ` · Pulso: ${last.pulse} lpm` : ''}</p>
+    ${last.note ? `<p class="health-note">${escapeHTML(last.note)}</p>` : ''}`;
 
   const period = ui.healthPeriod;
   const from = shiftKey(ui.today, -(period - 1));
   const inPeriod = series.filter((e) => e.date >= from && e.date <= ui.today);
   const periodName = HEALTH_PERIODS.find(([d]) => d === period)[1];
-  const picker = `<div class="segmented period-picker" role="radiogroup" aria-label="Periodo de la gráfica">${
+  const picker = `<div class="segmented period-picker" role="radiogroup" aria-label="Periodo">${
     HEALTH_PERIODS.map(([d, text]) => `<button type="button" role="radio" data-health-period="${d}" aria-checked="${d === period}">${text}</button>`).join('')}</div>`;
+  const canAverage = m.chart !== 'range';
+  const avgToggle = canAverage && inPeriod.length > 1
+    ? `<button type="button" class="toggle-chip" data-health-avg aria-pressed="${ui.healthAvg}">Media de ${HEALTH_AVG_DAYS} días</button>` : '';
+
   let chartBody;
   if (inPeriod.length < 2) {
     chartBody = `<p class="card-text health-chart-empty">${inPeriod.length
-      ? `En este periodo solo hay 1 registro. Con 2 o más verás aquí la evolución.`
+      ? 'En este periodo solo hay 1 registro. Con 2 o más verás aquí la evolución.'
       : 'No hay registros en este periodo.'}</p>`;
   } else {
     const width = Math.max(260, Math.round((root.clientWidth || 358) - 34));
-    const chart = healthChart(inPeriod, from, width);
+    const average = canAverage && ui.healthAvg ? movingAverage(series).filter((a) => a.date >= from && a.date <= ui.today) : null;
+    const chart = healthChart(inPeriod, from, width, { kind: m.chart, decimals: m.decimals, span: m.span, average });
     healthPoints = chart.points;
-    const shown = inPeriod.map((e) => e.shown);
-    const range = `entre ${healthText(Math.min(...shown), unit)} y ${healthText(Math.max(...shown), unit)}`;
+    const stats = healthStats(inPeriod);
+    const rangeWords = stats.second
+      ? `sistólica entre ${healthNumber(stats.main.min, 0)} y ${healthNumber(stats.main.max, 0)}, diastólica entre ${healthNumber(stats.second.min, 0)} y ${healthNumber(stats.second.max, 0)} ${symbol}`
+      : `entre ${healthText(stats.main.min, symbol, m.decimals)} y ${healthText(stats.main.max, symbol, m.decimals)}`;
+    const legend = average
+      ? `<div class="hc-legend" aria-hidden="true"><span><i class="raw"></i>Registros</span><span><i class="avg"></i>Media de ${HEALTH_AVG_DAYS} días</span></div>`
+      : m.chart === 'range' ? '<p class="hc-legend">Cada barra va de la diastólica (abajo) a la sistólica (arriba).</p>' : '';
     chartBody = `<div class="health-chart" id="health-chart" tabindex="0" role="group"
-        aria-label="Gráfica de ${label.toLowerCase()}, ${periodName}: ${plural(inPeriod.length, 'registro', 'registros')}, ${range}. Usa las flechas para recorrerlos."
+        aria-label="Gráfica de ${m.label.toLowerCase()}, ${periodName}: ${plural(inPeriod.length, 'registro', 'registros')}, ${rangeWords}${average ? `, con la media de ${HEALTH_AVG_DAYS} días` : ''}. Usa las flechas para recorrerlos."
         aria-describedby="health-caption">${chart.svg}</div>
+      ${legend}
       <p class="health-caption" id="health-caption" aria-live="polite">Toca la gráfica para ver cada registro</p>
-      <p class="health-range">${plural(inPeriod.length, 'registro', 'registros')} en este periodo, ${range}</p>`;
+      ${healthStatsHTML(metric, inPeriod, series)}`;
   }
-  const chartCard = `<article class="card">
-    <div class="card-head"><h2>Evolución</h2></div>
-    ${picker}${chartBody}
-  </article>`;
+  return `<article class="card health-detail">${head}${summary}${picker}${avgToggle}${chartBody}</article>`;
+}
 
+// Media, mínimo, máximo y cambio del periodo, y la media de los mismos días justo antes.
+function healthStatsHTML(metric, inPeriod, series) {
+  const m = HEALTH_METRICS[metric];
+  const d = m.decimals;
+  const symbol = healthSymbol(metric);
+  const s = healthStats(inPeriod);
+  const pair = (key, fmt) => (s.second ? `${fmt(s.main[key], 0)}/${fmt(s.second[key], 0)}` : fmt(s.main[key], d));
+  const tiles = [
+    ['Media', pair('mean', healthNumber)],
+    ['Mínimo', pair('min', healthNumber)],
+    ['Máximo', pair('max', healthNumber)],
+    ['Del primero al último', pair('change', (v, dd) => signed(roundTo(v, dd), dd))],
+  ];
+  const cmp = comparePeriods(series, ui.healthPeriod);
+  let compare = `Sin registros en ${HEALTH_BEFORE[ui.healthPeriod]} para comparar.`;
+  if (cmp) {
+    const before = s.second
+      ? `${healthNumber(cmp.before.main.mean, 0)}/${healthNumber(cmp.before.second.mean, 0)}` : healthNumber(cmp.before.main.mean, d);
+    const gap = (now, prev, dd) => signed(roundTo(roundTo(now, dd) - roundTo(prev, dd), dd), dd);
+    const difference = s.second
+      ? `${gap(cmp.now.main.mean, cmp.before.main.mean, 0)}/${gap(cmp.now.second.mean, cmp.before.second.mean, 0)}`
+      : gap(cmp.now.main.mean, cmp.before.main.mean, d);
+    compare = `Media de ${HEALTH_BEFORE[ui.healthPeriod]}: ${before} ${symbol} (${plural(cmp.before.count, 'registro', 'registros')}). Diferencia entre las medias: ${difference} ${symbol}.`;
+  }
+  return `<div class="stats four">${tiles.map(([label, value]) => `<div class="stat"><b>${value}</b><span>${label} (${symbol})</span></div>`).join('')}</div>
+    <p class="health-compare">${compare}</p>`;
+}
+
+function healthListCard(metric) {
+  const series = healthSeries(metric);
+  if (!series.length) return '';
   const rows = [...series].reverse().slice(0, ui.healthShown).map((e) => {
-    const text = healthText(e.shown, unit);
+    const text = healthEntryText(metric, e);
     const note = e.note ? escapeHTML(e.note) : '';
     return `<li><button type="button" class="health-row" data-health-edit="${escapeHTML(e.id)}"
         aria-label="${healthDateLabel(e.date)}: ${text}${note ? `. ${note}` : ''}. Editar">
@@ -2197,26 +2492,42 @@ function renderHealth() {
     </button></li>`;
   }).join('');
   const rest = series.length - ui.healthShown;
-  const listCard = `<article class="card">
-    <div class="card-head"><h2>Registros</h2><span class="card-count">${series.length}</span></div>
+  return `<article class="card">
+    <div class="card-head"><h2>Registros de ${healthLabel(metric).toLowerCase()}</h2><span class="card-count">${series.length}</span></div>
     <ul class="health-list">${rows}</ul>
     ${rest > 0 ? `<button type="button" class="link-btn center" data-health-more>Mostrar ${Math.min(rest, HEALTH_PAGE)} más</button>` : ''}
   </article>`;
-
-  root.innerHTML = summary + chartCard + listCard + settings;
-  if (ui.healthSel) selectHealthPoint(ui.healthSel);
 }
 
-function healthSettingsCard(metric, unit) {
+function healthSettingsCard() {
   const count = state.health.entries.length;
-  const units = Object.entries(HEALTH_METRICS[metric].units).map(([id, u]) => (
-    `<button type="button" role="radio" data-health-unit="${id}" aria-checked="${id === unit}">${u.label} (${id})</button>`
-  )).join('');
   return `<article class="card">
-    <div class="card-head"><h2>Unidad y privacidad</h2></div>
-    <div class="segmented two unit-picker" role="radiogroup" aria-label="Unidad del peso">${units}</div>
-    <p class="card-text">Tus registros de Salud solo se guardan en este dispositivo y en las copias que exportes. No dan XP ni cuentan para rachas o retos, y Bonsái no los interpreta ni da consejos médicos. Si cambias de unidad, se muestran convertidos sin modificarlos.</p>
+    <div class="card-head"><h2>Medidas y privacidad</h2></div>
+    <div class="health-buttons">
+      <button type="button" class="secondary-btn wide" data-health-metrics>${ICONS.grid}Elegir medidas y unidades</button>
+      ${count ? `<button type="button" class="secondary-btn wide" data-health-csv>${ICONS.download}Exportar a CSV</button>` : ''}
+    </div>
+    <p class="card-text">Tus registros de Salud solo se guardan en este dispositivo y en las copias que exportes. No dan XP ni cuentan para rachas o retos, y Bonsái no los interpreta ni da consejos médicos. Cada registro se guarda en la unidad en que lo apuntaste; si cambias de unidad, se muestran convertidos.</p>
     ${count ? '<button type="button" class="danger-btn in-card" data-health-clear>Borrar registros de Salud</button>' : ''}
+  </article>`;
+}
+
+function healthReminderCard() {
+  const { days, time } = state.health.reminder;
+  return `<article class="card health-reminder">
+    <div class="card-head"><h2>Recordatorio</h2></div>
+    <p class="card-text first">Un evento que se repite en el calendario del móvil, para acordarte de apuntar tus medidas.</p>
+    <div class="weekday-row" role="group" aria-label="Días del recordatorio">${WEEKDAYS.map((d, i) => (
+      `<button type="button" data-health-day="${i}" aria-pressed="${days.includes(i)}" aria-label="${WEEKDAY_NAMES[i]}">${d}</button>`
+    )).join('')}</div>
+    <div class="reminder-row">
+      <label class="field time-field">
+        <span>Hora</span>
+        <input id="health-reminder-time" type="time" value="${time}">
+      </label>
+      <button type="button" class="secondary-btn" data-health-ics${days.length ? '' : ' disabled'}>${ICONS.calendar}Añadir al calendario</button>
+    </div>
+    <p class="hint left">${days.length ? 'Si cambias los días o la hora, vuelve a añadirlo y borra el anterior del calendario.' : 'Elige al menos un día.'}</p>
   </article>`;
 }
 
@@ -2224,7 +2535,7 @@ function healthSettingsCard(metric, unit) {
 function selectHealthPoint(id) {
   const chart = $('#health-chart');
   const point = healthPoints.find((p) => p.id === id);
-  const entry = state.health.entries.find((e) => e.id === id);
+  const entry = healthSeries(ui.healthMetric).find((e) => e.id === id);
   if (!chart || !point || !entry) return;
   ui.healthSel = id;
   const cross = chart.querySelector('.hc-cross');
@@ -2234,8 +2545,7 @@ function selectHealthPoint(id) {
   sel.setAttribute('cx', point.x);
   sel.setAttribute('cy', point.y);
   chart.classList.add('has-sel');
-  const unit = state.health.units[entry.metric];
-  $('#health-caption').textContent = [healthDateLabel(entry.date), healthText(point.shown, unit), entry.note].filter(Boolean).join(' · ');
+  $('#health-caption').textContent = [healthDateLabel(entry.date), healthEntryText(entry.metric, entry), entry.note].filter(Boolean).join(' · ');
 }
 
 // El punto más cercano (en horizontal) al dedo o al puntero.
@@ -2247,7 +2557,15 @@ function nearestHealthPoint(e) {
   return healthPoints.reduce((best, p) => (Math.abs(p.x - x) <= Math.abs(best.x - x) ? p : best));
 }
 
+// ---------- Interacción ----------
+
 const healthView = $('#health-view');
+
+// Vuelve a pintar Salud y deja el foco en el mismo control.
+function refreshHealth(selector) {
+  renderHealth();
+  if (selector) healthView.querySelector(selector)?.focus();
+}
 
 ['pointerdown', 'pointermove'].forEach((type) => {
   healthView.addEventListener(type, (e) => {
@@ -2268,31 +2586,47 @@ healthView.addEventListener('keydown', (e) => {
 });
 
 healthView.addEventListener('click', (e) => {
-  const target = e.target.closest('[data-health-add], [data-health-edit], [data-health-period], [data-health-unit], [data-health-more], [data-health-clear]');
-  if (!target) return;
-  const { healthEdit, healthPeriod, healthUnit } = target.dataset;
-  if (target.hasAttribute('data-health-add')) openHealthEntry();
-  else if (healthEdit) openHealthEntry(healthEdit);
-  else if (target.hasAttribute('data-health-clear')) clearHealth();
-  else if (target.hasAttribute('data-health-more')) {
+  const target = e.target.closest('button');
+  if (!target || target.disabled) return;
+  const { healthMetric, healthAdd, healthEdit, healthPeriod, healthDay } = target.dataset;
+  if (healthMetric) {
+    ui.healthMetric = healthMetric;
+    ui.healthSel = null;
+    ui.healthShown = 10;
+    refreshHealth(`[data-health-metric="${healthMetric}"]`);
+  } else if (healthAdd) openHealthEntry({ metrics: [healthAdd] });
+  else if (target.hasAttribute('data-health-quick')) openHealthEntry();
+  else if (healthEdit) openHealthEntry({ id: healthEdit });
+  else if (healthPeriod) {
+    ui.healthPeriod = Number(healthPeriod);
+    ui.healthSel = null;
+    refreshHealth(`[data-health-period="${healthPeriod}"]`);
+  } else if (target.hasAttribute('data-health-avg')) {
+    ui.healthAvg = !ui.healthAvg;
+    refreshHealth('[data-health-avg]');
+  } else if (target.hasAttribute('data-health-more')) {
     const shown = ui.healthShown;
     ui.healthShown += HEALTH_PAGE;
     renderHealth();
     healthView.querySelectorAll('.health-row')[shown]?.focus();
-  } else {
-    // Periodo o unidad: se vuelve a pintar y el foco sigue en el mismo botón.
-    if (healthPeriod) {
-      ui.healthPeriod = Number(healthPeriod);
-      ui.healthSel = null;
-    } else {
-      state.health.units.weight = healthUnit;
-      save();
-    }
-    renderHealth();
-    haptic();
-    const selector = healthPeriod ? `[data-health-period="${healthPeriod}"]` : `[data-health-unit="${healthUnit}"]`;
-    healthView.querySelector(selector)?.focus();
-  }
+  } else if (healthDay !== undefined) {
+    const day = Number(healthDay);
+    const { days } = state.health.reminder;
+    state.health.reminder.days = days.includes(day) ? days.filter((d) => d !== day) : [...days, day].sort((a, b) => a - b);
+    save();
+    refreshHealth(`[data-health-day="${day}"]`);
+  } else if (target.hasAttribute('data-health-ics')) addHealthReminder();
+  else if (target.hasAttribute('data-health-csv')) exportHealthCSV();
+  else if (target.hasAttribute('data-health-metrics')) openHealthMetrics();
+  else if (target.hasAttribute('data-health-clear')) clearHealth();
+  else return;
+  haptic();
+});
+
+healthView.addEventListener('change', (e) => {
+  if (e.target.id !== 'health-reminder-time' || !/^\d{2}:\d{2}$/.test(e.target.value)) return;
+  state.health.reminder.time = e.target.value;
+  save();
 });
 
 async function clearHealth() {
@@ -2300,7 +2634,7 @@ async function clearHealth() {
   const ok = await askConfirm({
     icon: 'trash',
     title: '¿Borrar tus registros de Salud?',
-    body: `<p>${count === 1 ? 'Se borrará 1 registro' : `Se borrarán ${fmtNumber.format(count)} registros`} de este dispositivo. Tus hábitos, tu progreso y tu diario no cambian.</p>
+    body: `<p>${count === 1 ? 'Se borrará 1 registro' : `Se borrarán ${fmtNumber.format(count)} registros`} de este dispositivo, de todas las medidas. Tus hábitos, tu progreso y tu diario no cambian.</p>
       <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
     confirmText: 'Sí, borrar',
     danger: true,
@@ -2315,61 +2649,241 @@ async function clearHealth() {
   toast('Registros de Salud borrados', { action: 'Deshacer', onAction: undoTo(snapshot) });
 }
 
-// ---------- Registrar o editar una medida ----------
+// ---------- Exportar a CSV y recordatorio ----------
 
-const healthDialog = $('#health-entry');
-const healthValue = $('#health-value');
-const healthDate = $('#health-date');
-
-function showHealthErrors(errors) {
-  [['value', healthValue], ['date', healthDate]].forEach(([field, input]) => {
-    const el = $(`#health-${field}-error`);
-    el.textContent = errors[field] || '';
-    el.hidden = !errors[field];
-    if (errors[field]) input.setAttribute('aria-invalid', 'true');
-    else input.removeAttribute('aria-invalid');
+// Todos los registros de Salud (también los de medidas ocultas), tal como se apuntaron. Punto y coma y coma
+// decimal, como espera Excel en español, y marca UTF-8 para que salgan bien las tildes.
+function healthCSV() {
+  const number = (v) => (v === undefined ? '' : String(v).replace('.', ','));
+  // Las notas que empiezan por = + - @ se protegen para que la hoja no las tome por fórmulas.
+  const text = (s) => {
+    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    return /[";\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  };
+  const header = ['Fecha', 'Medida', 'Valor', 'Diastólica', 'Pulso', 'Unidad', 'Nota'];
+  const rows = [...state.health.entries].sort(byHealthDate).map((e) => {
+    const known = Object.hasOwn(HEALTH_METRICS, e.metric) ? HEALTH_METRICS[e.metric] : null;
+    const symbol = known && known.units[e.unit] ? known.units[e.unit].symbol : e.unit;
+    return [e.date, text(known ? known.label : e.metric), number(e.value), number(e.value2), number(e.pulse), text(symbol), text(e.note)];
   });
+  return `﻿${[header, ...rows].map((row) => row.join(';')).join('\r\n')}\r\n`;
 }
 
-function openHealthEntry(id = null) {
-  const metric = 'weight';
-  const entry = id ? state.health.entries.find((e) => e.id === id) : null;
-  const unit = state.health.units[metric];
+async function exportHealthCSV() {
+  const file = new File([healthCSV()], `bonsai-salud-${ui.today}.csv`, { type: 'text/csv' });
+  const result = await shareOrDownload(file, 'Salud en CSV');
+  if (result === 'downloaded') toast('Archivo CSV descargado');
+}
+
+async function addHealthReminder() {
+  const { days, time } = state.health.reminder;
+  if (!days.length) return;
+  const names = state.health.metrics.map((id) => healthLabel(id).toLowerCase());
+  const ics = buildICS({
+    id: 'salud',
+    name: 'Apuntar mis medidas',
+    emoji: '❤️',
+    schedule: days.length === 7 ? { type: 'daily' } : { type: 'days', days },
+    time,
+    text: `Es un buen momento para apuntar ${names.length ? fmtList.format(names) : 'tus medidas'} en Bonsái.`,
+  });
+  const file = new File([ics], 'bonsai-salud-recordatorio.ics', { type: 'text/calendar' });
+  const result = await shareOrDownload(file, 'Recordatorio de Salud');
+  if (result === 'downloaded') toast('Abre el archivo descargado para añadirlo a tu calendario');
+  else if (result === 'shared') toast('Elige Calendario para guardar el recordatorio');
+}
+
+// ---------- Elegir medidas y unidades ----------
+
+const healthMetricsDialog = $('#health-metrics-dialog');
+
+function renderHealthMetricList() {
+  $('#health-metric-list').innerHTML = Object.entries(HEALTH_METRICS).map(([id, m]) => {
+    const on = state.health.metrics.includes(id);
+    const count = state.health.entries.filter((e) => e.metric === id).length;
+    const units = Object.entries(m.units);
+    const picker = on && units.length > 1
+      ? `<div class="segmented two" role="radiogroup" aria-label="Unidad de ${m.label.toLowerCase()}">${units.map(([u, spec]) => (
+        `<button type="button" role="radio" data-health-unit="${u}" data-metric="${id}" aria-checked="${healthUnit(id) === u}">${spec.label} (${spec.symbol})</button>`
+      )).join('')}</div>` : '';
+    return `<div class="metric-row">
+      <label class="switch-row">
+        <span class="switch-text"><b id="hm-${id}">${m.label}</b><span id="hm-${id}-hint">${count ? plural(count, 'registro', 'registros') : 'Sin registros'} · ${units.map(([, spec]) => spec.symbol).join(' o ')}</span></span>
+        <input type="checkbox" role="switch" data-health-toggle="${id}" aria-labelledby="hm-${id}" aria-describedby="hm-${id}-hint"${on ? ' checked' : ''}>
+      </label>
+      ${picker}
+    </div>`;
+  }).join('');
+}
+
+function openHealthMetrics() {
+  renderHealthMetricList();
+  healthMetricsDialog.showModal();
+}
+
+// Las medidas activas, siempre en el orden del catálogo.
+function setHealthMetric(id, on) {
+  const chosen = new Set(state.health.metrics);
+  if (on) chosen.add(id);
+  else chosen.delete(id);
+  state.health.metrics = Object.keys(HEALTH_METRICS).filter((m) => chosen.has(m));
+  if (on) ui.healthMetric = id;
+  save();
+}
+
+$('#health-metric-list').addEventListener('change', (e) => {
+  const id = e.target.dataset.healthToggle;
+  if (!id) return;
+  setHealthMetric(id, e.target.checked);
+  renderHealthMetricList();
+  render();
+  haptic();
+  $(`[data-health-toggle="${id}"]`)?.focus();
+});
+
+$('#health-metric-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-health-unit]');
+  if (!btn) return;
+  state.health.units[btn.dataset.metric] = btn.dataset.healthUnit;
+  save();
+  renderHealthMetricList();
+  render();
+  haptic();
+  $(`[data-health-unit="${btn.dataset.healthUnit}"][data-metric="${btn.dataset.metric}"]`)?.focus();
+});
+
+$('#health-metrics-done').addEventListener('click', () => healthMetricsDialog.close());
+healthMetricsDialog.addEventListener('click', (e) => {
+  if (e.target === healthMetricsDialog) healthMetricsDialog.close();
+});
+
+// ---------- Registrar, registro rápido o editar ----------
+
+const healthDialog = $('#health-entry');
+const healthDate = $('#health-date');
+const healthNote = $('#health-note');
+
+// Campos de una medida (la tensión lleva sistólica, diastólica y pulso opcional), con el último valor como pista.
+function healthFieldsHTML(metric, entry) {
+  const m = HEALTH_METRICS[metric];
+  const unit = healthUnit(metric);
   const { last } = healthLatest(metric);
+  const input = (part, label, value, placeholder) => {
+    const id = `hf-${metric}-${part}`;
+    return `<label class="field"><span>${label}</span>
+      <input id="${id}" type="text" inputmode="${m.decimals ? 'decimal' : 'numeric'}" autocomplete="off" enterkeyhint="done"
+        data-metric="${metric}" data-part="${part}" value="${escapeHTML(value)}" placeholder="${escapeHTML(placeholder)}" aria-describedby="${id}-error">
+    </label>`;
+  };
+  const error = (part) => `<p class="field-error" id="hf-${metric}-${part}-error" hidden></p>`;
+  if (m.pair) {
+    return `<fieldset class="health-field">
+      <legend>${healthFieldLabel(metric)}</legend>
+      <div class="pair-row">
+        ${input('value', 'Sistólica', entry ? String(entry.value) : '', last ? String(last.value) : m.example)}
+        ${input('value2', m.second.label, entry ? String(entry.value2) : '', last ? String(last.value2) : m.second.example)}
+        ${input('pulse', 'Pulso (opcional)', entry && entry.pulse ? String(entry.pulse) : '', m.pulse.example)}
+      </div>
+      ${error('value')}${error('value2')}${error('pulse')}
+    </fieldset>`;
+  }
+  return `<div class="health-field">
+    ${input('value', healthFieldLabel(metric), entry ? healthInputText(entry, unit) : '', last ? healthInputText(last, unit) : healthExample(metric))}
+    ${error('value')}
+  </div>`;
+}
+
+function renderHealthTags() {
+  $('#health-tags').innerHTML = HEALTH_TAGS.map((tag) => (
+    `<button type="button" class="tag" data-health-tag="${tag}" aria-pressed="${hasTag(healthNote.value, tag)}">${capitalize(tag)}</button>`
+  )).join('');
+}
+
+// Para una medida, para varias a la vez (registro rápido) o para editar un registro.
+function openHealthEntry({ metrics = state.health.metrics, id = null } = {}) {
+  const entry = id ? state.health.entries.find((e) => e.id === id) : null;
+  const list = entry ? [entry.metric] : metrics;
+  if (!list.length) return;
   ui.healthEdit = entry ? entry.id : null;
-  $('#health-entry-title').textContent = entry ? 'Editar registro' : `Registrar ${HEALTH_METRICS[metric].label.toLowerCase()}`;
-  $('#health-value-label').textContent = `${HEALTH_METRICS[metric].label} (${unit})`;
-  healthValue.value = entry ? healthInputText(entry, unit) : '';
-  healthValue.placeholder = last ? healthInputText(last, unit) : '';
+  ui.healthForm = list;
+  $('#health-entry-title').textContent = entry ? 'Editar registro'
+    : list.length === 1 ? `Registrar ${healthLabel(list[0]).toLowerCase()}` : 'Registro rápido';
+  $('#health-quick-hint').hidden = list.length < 2;
+  $('#health-fields').innerHTML = list.map((metric) => healthFieldsHTML(metric, entry)).join('');
   healthDate.value = entry ? entry.date : ui.today;
   healthDate.min = HEALTH_MIN_DATE;
   healthDate.max = ui.today;
-  $('#health-note').value = entry ? entry.note : '';
+  healthNote.value = entry ? entry.note : '';
+  renderHealthTags();
   $('#health-delete').hidden = !entry;
   showHealthErrors({});
   healthDialog.showModal();
 }
 
+// Cada error junto a su campo (con aria-invalid); los de la fecha y del formulario, en su sitio.
+function showHealthErrors(errors) {
+  const mark = (input, message, box) => {
+    box.textContent = message || '';
+    box.hidden = !message;
+    if (message) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  };
+  healthDialog.querySelectorAll('[data-part]').forEach((input) => {
+    mark(input, errors[`${input.dataset.metric}.${input.dataset.part}`], $(`#${input.id}-error`));
+  });
+  mark(healthDate, errors.date, $('#health-date-error'));
+  $('#health-form-error').textContent = errors.form || '';
+  $('#health-form-error').hidden = !errors.form;
+}
+
 $('#health-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  const texts = (metric) => {
+    const read = (part) => ($(`#hf-${metric}-${part}`) || {}).value || '';
+    return { valueText: read('value'), value2Text: read('value2'), pulseText: read('pulse') };
+  };
+  const date = healthDate.value;
+  const note = healthNote.value;
   const editing = Boolean(ui.healthEdit);
-  const result = saveHealthEntry('weight', {
-    id: ui.healthEdit,
-    valueText: healthValue.value,
-    date: healthDate.value,
-    note: $('#health-note').value,
-  });
+  let result;
+  if (editing) {
+    const metric = ui.healthForm[0];
+    result = saveHealthEntry(metric, { id: ui.healthEdit, ...texts(metric), date, note });
+    if (result.errors) {
+      result.errors = Object.fromEntries(Object.entries(result.errors).map(([k, v]) => [k === 'date' ? k : `${metric}.${k}`, v]));
+    }
+  } else {
+    result = saveHealthBatch({ date, note, values: Object.fromEntries(ui.healthForm.map((metric) => [metric, texts(metric)])) });
+  }
   showHealthErrors(result.errors || {});
   if (result.errors) {
-    (result.errors.value ? healthValue : healthDate).focus();
+    const invalid = healthDialog.querySelector('[aria-invalid="true"]') || healthDialog.querySelector('[data-part]');
+    invalid?.focus();
     return;
   }
+  const saved = editing ? [result.entry] : result.entries;
   healthDialog.close();
-  ui.healthSel = result.entry.id;
+  if (saved.length === 1) {
+    ui.healthMetric = saved[0].metric;
+    ui.healthSel = saved[0].id;
+  }
   render();
   haptic();
-  toast(editing ? 'Registro actualizado' : 'Peso registrado');
+  toast(editing ? 'Registro actualizado' : saved.length === 1 ? 'Registro guardado' : `${saved.length} registros guardados`);
 });
+
+healthDialog.addEventListener('click', (e) => {
+  if (e.target === healthDialog) {
+    healthDialog.close();
+    return;
+  }
+  const tag = e.target.closest('[data-health-tag]');
+  if (!tag) return;
+  healthNote.value = toggleTag(healthNote.value, tag.dataset.healthTag);
+  renderHealthTags();
+  healthDialog.querySelector(`[data-health-tag="${tag.dataset.healthTag}"]`)?.focus();
+});
+healthNote.addEventListener('input', renderHealthTags);
 
 $('#health-delete').addEventListener('click', () => {
   const id = ui.healthEdit;
@@ -2381,9 +2895,6 @@ $('#health-delete').addEventListener('click', () => {
   toast('Registro borrado', { action: 'Deshacer', onAction: undoTo(snapshot) });
 });
 $('#health-cancel').addEventListener('click', () => healthDialog.close());
-healthDialog.addEventListener('click', (e) => {
-  if (e.target === healthDialog) healthDialog.close();
-});
 
 // ---------- Rutinas ----------
 
@@ -2943,7 +3454,7 @@ const INFO = {
       faqItem('¿Puedo marcar un día que se me olvidó?', 'Sí. En Hoy, usa las flechas ‹ › para ir a días anteriores. O en el Historial: toca el día y luego «Ver día».'),
       faqItem('¿Pausar, archivar o eliminar?', 'Pausar (vacaciones, una lesión…) lo aparta sin romper la racha. Archivar lo quita de Hoy y del Historial, pero conservas su XP y puedes restaurarlo desde Ajustes. Eliminar lo borra, con unos segundos para deshacerlo, y tu XP total no cambia.'),
       faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti.'),
-      faqItem('¿Qué guarda Salud?', 'Tu peso, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no lo interpreta. Si no la usas, puedes ocultar la pestaña aquí, en Ajustes.'),
+      faqItem('¿Qué guarda Salud?', 'Las medidas que elijas: peso, cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no interpreta tus medidas ni da consejos médicos. Si no la usas, puedes ocultar la pestaña aquí, en Ajustes.'),
       faqItem('¿Dónde se guardan mis datos? ¿Se sincronizan?', 'Solo en este dispositivo: no hay cuenta ni servidor, así que no se sincronizan solos. Para pasarlos a otro móvil, exporta una copia y luego impórtala allí.'),
       faqItem('¿Qué pasa si borro la app?', 'En el iPhone, borrar el icono borra también sus datos; en Android puede pasar al borrar los datos de Chrome. Por eso conviene exportar una copia de vez en cuando (Bonsái te lo puede recordar).'),
     ].join(''),
@@ -2951,6 +3462,13 @@ const INFO = {
   news: () => ({
     title: 'Novedades',
     body: `<h3 class="news-title">Versión ${APP_VERSION}</h3>
+      <ul class="news-list">
+        <li>Salud, mucho más completa: cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, además del peso. Tú eliges cuáles ver y en qué unidad.</li>
+        <li>Registro rápido para apuntar varias medidas a la vez, con notas rápidas como «en ayunas».</li>
+        <li>Media de 7 días en la gráfica, estadísticas del periodo y comparación con el anterior.</li>
+        <li>Exportar Salud a CSV y un recordatorio en el calendario para medirte.</li>
+      </ul>
+      <h3 class="news-title">Versión 0.6 beta</h3>
       <ul class="news-list">
         <li>Ajustes nuevos: tema claro u oscuro, tamaño del texto, vibración y con qué pantalla se abre la app.</li>
         <li>Puedes ocultar los retos o el diario de Hoy, la pestaña Salud y el resumen de cada semana.</li>
@@ -3442,7 +3960,8 @@ function foldLine(line) {
 }
 
 // Evento que se repite según la frecuencia, a la hora local elegida, con aviso a esa misma hora.
-function buildICS({ id, name, emoji, schedule, time }) {
+// `text` sustituye a la descripción de los hábitos (el recordatorio de Salud lleva la suya).
+function buildICS({ id, name, emoji, schedule, time, text = '' }) {
   const [hh, mm] = time.split(':').map(Number);
   let first = ui.today;
   if (schedule.type === 'days') while (!schedule.days.includes(weekdayOf(first))) first = shiftKey(first, 1);
@@ -3456,9 +3975,9 @@ function buildICS({ id, name, emoji, schedule, time }) {
     : schedule.type === 'days' ? `FREQ=WEEKLY;BYDAY=${schedule.days.map((d) => ICS_DAYS[d]).join(',')}`
     : `FREQ=WEEKLY;BYDAY=${ICS_DAYS[weekdayOf(first)]}`;
   const title = `${emoji} ${name}`;
-  const about = schedule.type === 'weekly'
+  const about = text || (schedule.type === 'weekly'
     ? `Esta semana toca «${name}» ${plural(schedule.times, 'vez', 'veces')}. Márcalo en Bonsái.`
-    : `Es hora de «${name}». Márcalo en Bonsái.`;
+    : `Es hora de «${name}». Márcalo en Bonsái.`);
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',

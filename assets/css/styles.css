@@ -1443,6 +1443,108 @@ input[type="range"] {
 .hc-cross { stroke: var(--ink-2); stroke-width: 1; }
 .health-chart:not(.has-sel) .hc-cross,
 .health-chart:not(.has-sel) .hc-sel { display: none; }
+/* Con la media de 7 días, los registros pasan a segundo plano y la media lleva el color del acento */
+.hc-line.soft { stroke: color-mix(in srgb, var(--sage) 40%, var(--card)); stroke-width: 1.5; }
+.hc-dot.soft { fill: color-mix(in srgb, var(--sage) 40%, var(--card)); }
+.hc-avg { fill: none; stroke: var(--sage); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.hc-bar { fill: var(--sage); }
+.hc-bar.soft { fill: color-mix(in srgb, var(--sage) 40%, var(--card)); }
+.hc-range { stroke: var(--sage); stroke-width: 3; stroke-linecap: round; }
+.hc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  font-size: calc(12px * var(--text));
+}
+.hc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.hc-legend i { display: inline-block; width: 16px; border-top: 2px solid; border-radius: 1px; }
+.hc-legend .raw { border-color: color-mix(in srgb, var(--sage) 40%, var(--card)); }
+.hc-legend .avg { border-top-width: 3px; border-color: var(--sage); }
+
+/* Resumen: una tarjeta por medida; la elegida se ve en detalle debajo */
+.health-coach { margin-top: 20px; }
+.health-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 20px;
+}
+.health-coach + .health-tiles { margin-top: 12px; }
+.health-tile {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.health-tile:active { background: var(--wash); }
+.health-tile[aria-pressed="true"] { border-color: var(--sage); box-shadow: inset 0 0 0 1px var(--sage); }
+.ht-label,
+.ht-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ht-label { color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; }
+.ht-value { font-size: calc(21px * var(--text)); font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+.ht-value small { margin-left: 4px; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 600; letter-spacing: 0; }
+.ht-sub { color: var(--ink-2); font-size: calc(12px * var(--text)); }
+.health-quick { margin-top: 10px; }
+.health-tiles + .card,
+.health-quick + .card { margin-top: 12px; }
+.health-detail .card-head .text-btn { flex-shrink: 0; }
+.health-detail .card-head .text-btn svg { width: 18px; height: 18px; }
+
+/* Botón que se activa y se desactiva (la media de 7 días) */
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: calc(13px * var(--text));
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.toggle-chip[aria-pressed="true"] { border-color: var(--sage); background: var(--sage-soft); color: var(--sage-ink); }
+
+.stats.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.health-compare { margin: 10px 0 0; color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.45; }
+.health-buttons { display: grid; gap: 8px; margin-top: 12px; }
+.health-reminder .reminder-row { margin-top: 12px; }
+
+/* Formulario: una medida, varias (registro rápido) o editar */
+.health-quick-hint { margin: -6px 4px 14px; }
+.health-fields { display: grid; gap: 14px; }
+.health-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.health-field legend { margin-bottom: 6px; padding: 0 0 0 4px; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; }
+.pair-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; }
+.form-card .field.health-date { margin-top: 14px; }
+.form-card #health-form-error { margin-top: 10px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tag {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: calc(13px * var(--text));
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tag[aria-pressed="true"] { border-color: var(--sage); background: var(--sage-soft); color: var(--sage-ink); }
+
+/* Elegir medidas y unidades */
+.health-metrics-hint { margin: -4px 4px 8px; }
+.metric-row + .metric-row { border-top: 1px solid var(--hair); }
+.metric-row .segmented { margin-bottom: 12px; }
 .health-caption {
   min-height: 20px;
   margin: 6px 0 0;

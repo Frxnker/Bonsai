@@ -2,7 +2,7 @@
 
 Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
 
-Versión actual: **0.6 beta**.
+Versión actual: **0.7 beta**.
 
 > **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
 
@@ -54,7 +54,7 @@ Versión actual: **0.6 beta**.
 - Un **diario** para apuntar cómo te ha ido el día, y un **resumen** de la semana cada lunes.
 - Una **revisión semanal** más completa (hábitos día a día, diario y últimas semanas) y **tendencias** opcionales, siempre descriptivas.
 - **Rutinas** opcionales («Mañana», «Noche»…) para ver tus hábitos agrupados.
-- Un apartado **Salud** para apuntar tu peso (kg o lb), privado y sin XP.
+- Un apartado **Salud** para tus medidas (peso, cintura, pulso, tensión, sueño, grasa corporal, temperatura y pasos), con gráficas, media de 7 días y estadísticas; privado y sin XP.
 - **Recordatorios** que se añaden al calendario del móvil.
 - **Mapas de calor** de 12 meses, **copia de seguridad**, modo claro/oscuro automático y un diseño sobrio y tranquilo.
 
@@ -336,16 +336,34 @@ En **Progreso → Tendencias** (plegadas; tócalas para abrirlas). Analizan las 
 
 ## Pantalla Salud
 
-Un apartado aparte para tus medidas. De momento, el **peso**.
+Un apartado aparte para tus medidas, privado y sin XP. Tú eliges cuáles apuntar.
 
-- **Registrar peso:** valor, fecha (hoy por defecto; no se admiten fechas futuras) y una nota opcional («en ayunas»). Se aceptan coma o punto decimal. Los valores válidos van de 20 a 400 kg (o de 44 a 880 lb); si algo no cuadra, el formulario lo dice junto al campo.
-- **Resumen:** el último registro y su diferencia con el anterior («−0,2 kg respecto al registro anterior, del 23 sept»), siempre en el mismo tono: ni subir ni bajar se presenta como bueno o malo.
-- **Evolución:** una gráfica de línea de los últimos 30 días, 90 días o 1 año. Tocándola (o con las flechas del teclado) ves cada registro debajo. Con menos de 2 registros en el periodo, lo dice en vez de dibujar nada.
-- **Registros:** la lista completa, del más reciente al más antiguo (de 20 en 20). Toca uno para editarlo o borrarlo (con deshacer).
-- **Unidad:** kilos o libras. Cada registro se guarda tal como lo apuntaste; al cambiar de unidad se muestran convertidos, sin modificarlos.
-- **Borrar registros de Salud:** vacía solo este apartado, con confirmación y deshacer. Tus hábitos, tu progreso y tu diario no cambian.
+| Medida | Unidades | Valores válidos | Gráfica |
+| --- | --- | --- | --- |
+| Peso | kg o lb | 20–400 kg (44–880 lb) | Línea |
+| Cintura | cm o pulgadas | 30–250 cm (12–100 in) | Línea |
+| Pulso en reposo | lpm | 25–220, enteros | Línea |
+| Tensión arterial | mmHg | Sistólica 60–260 y diastólica 30–160 (menor que la sistólica); pulso opcional | Barras de rango |
+| Sueño | horas | 0–24 | Columnas |
+| Grasa corporal | % | 2–75 | Línea |
+| Temperatura | °C o °F | 30–45 °C (86–113 °F) | Línea |
+| Pasos | pasos | 0–100.000, enteros (se acepta «8.000») | Columnas |
+
+- **Tus medidas:** arriba, una tarjeta por cada medida activa con su último valor. Al tocarla, se ve en detalle debajo.
+- **Elegir medidas y unidades** (abajo, en «Medidas y privacidad»): activa las que quieras ver y elige su unidad. Ocultar una no borra sus registros. Al principio solo está el peso.
+- **Registrar:** «Registrar», en el detalle, apunta esa medida. **Registro rápido** apunta varias del mismo día a la vez (rellenas solo las que quieras); si alguna no es válida, no se guarda ninguna y el error sale junto a su campo. Fecha (hoy por defecto, nunca futura) y una nota opcional, con **notas rápidas** para tocar: en ayunas, por la mañana, por la noche, tras entrenar, tras comer. Se aceptan coma o punto decimal.
+- **Detalle de cada medida:**
+  - El último registro y su diferencia con el anterior («−0,2 kg respecto al registro anterior, del 23 sept»; en la tensión, «+5/−2 mmHg»), siempre en el mismo tono: ni subir ni bajar se presenta como bueno o malo.
+  - Gráfica de los últimos 30 días, 90 días o 1 año: línea para los niveles, columnas desde cero para los totales del día (sueño y pasos) y, en la tensión, una barra por medición que va de la diastólica a la sistólica. Tocándola (o con las flechas del teclado) ves cada registro debajo. Con menos de 2 registros en el periodo, lo dice en vez de dibujar nada.
+  - **Media de 7 días:** una segunda línea con la media de los registros de los 7 días anteriores a cada uno (sin inventar los días sin datos). Se quita y se pone con un toque. No está en la tensión.
+  - **Estadísticas del periodo:** media, mínimo, máximo y la diferencia entre el primer y el último registro.
+  - **Comparación:** la media del periodo frente a la de los mismos días justo antes (por ejemplo, los 30 días anteriores), si hay registros en los dos.
+  - **Registros:** la lista de esa medida, del más reciente al más antiguo (de 20 en 20). Toca uno para editarlo o borrarlo (con deshacer).
+- **Exportar a CSV:** todos tus registros de Salud (también los de medidas ocultas), tal como los apuntaste, en una hoja de cálculo: fecha, medida, valor, diastólica, pulso, unidad y nota. Usa punto y coma y coma decimal, como Excel en español.
+- **Recordatorio:** elige los días y la hora, y **Añadir al calendario** crea un evento que se repite en el calendario del móvil, igual que los recordatorios de los hábitos.
+- **Unidades:** cada registro se guarda tal como lo apuntaste; al cambiar de unidad se muestran convertidos, sin modificarlos.
+- **Borrar registros de Salud:** vacía solo este apartado (todas las medidas), con confirmación y deshacer. Tus hábitos, tu progreso y tu diario no cambian.
 - **Privado y aparte:** solo se guarda en el dispositivo y en tus copias. No da XP ni cuenta para rachas, retos o logros. Bonsái no interpreta tus medidas, no calcula el IMC y no da consejos médicos.
-- Los datos están pensados para añadir más adelante otras medidas opcionales (cintura, pulso en reposo…) sin obligar a apuntar nada.
 
 ## Salud de Apple y Health Connect
 
@@ -446,7 +464,7 @@ Bonsái es una app web, y el iPhone y Android solo dejan leer **Salud** (Apple) 
   - recaídas, pausas y protectores usados;
   - diario y perfil;
   - rutinas (solo qué hábitos agrupan);
-  - registros de Salud (medida, fecha, valor con su unidad y nota) y la unidad que prefieres;
+  - registros de Salud (medida, fecha, valor con su unidad —en la tensión, sistólica, diastólica y pulso— y nota), qué medidas ves, sus unidades y el recordatorio;
   - tus ajustes (tema, tamaño del texto, vibración, qué se muestra y el aviso de copia). Viajan en las copias; al importar una copia de antes de tenerlos, se conservan los del dispositivo.
 - La XP, los niveles, las rachas, los logros, los protectores ganados y los retos **se calculan a partir de tu historial**, así que siempre cuadran. Salud y las rutinas no intervienen en esos cálculos.
 - Los datos de versiones anteriores se actualizan solos al abrir la app nueva, sin perder nada (los hábitos que ya tenías pasan a ser «Personalizado» y funcionan igual; quien no tenía Salud ni rutinas empieza sin ellas).

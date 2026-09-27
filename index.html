@@ -573,16 +573,14 @@
     </div>
   </dialog>
 
-  <!-- Salud: registrar o editar una medida -->
+  <!-- Salud: registrar una medida, varias a la vez (registro rápido) o editar un registro -->
   <dialog class="modal" id="health-entry" aria-labelledby="health-entry-title">
-    <form class="modal-card form-card" id="health-form" novalidate>
-      <h2 id="health-entry-title">Registrar peso</h2>
-      <label class="field">
-        <span id="health-value-label">Peso</span>
-        <input id="health-value" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" aria-describedby="health-value-error">
-      </label>
-      <p class="field-error" id="health-value-error" hidden></p>
-      <label class="field">
+    <form class="modal-card form-card scroll" id="health-form" novalidate>
+      <h2 id="health-entry-title">Registrar</h2>
+      <p class="hint left health-quick-hint" id="health-quick-hint" hidden>Rellena solo las medidas que quieras apuntar.</p>
+      <div class="health-fields" id="health-fields"></div>
+      <p class="field-error" id="health-form-error" role="alert" hidden></p>
+      <label class="field health-date">
         <span>Fecha</span>
         <input id="health-date" type="date" aria-describedby="health-date-error">
       </label>
@@ -591,12 +589,25 @@
         <span>Nota (opcional)</span>
         <input id="health-note" type="text" maxlength="200" enterkeyhint="done" placeholder="Por ejemplo, en ayunas">
       </label>
+      <div class="tag-row" id="health-tags" role="group" aria-label="Notas rápidas"></div>
       <div class="confirm-actions">
         <button type="submit" class="primary-btn">Guardar</button>
         <button type="button" class="secondary-btn danger-text" id="health-delete">Borrar este registro</button>
         <button type="button" class="text-btn" id="health-cancel">Cancelar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Salud: qué medidas se ven y en qué unidad -->
+  <dialog class="modal" id="health-metrics-dialog" aria-labelledby="health-metrics-title">
+    <div class="modal-card form-card scroll">
+      <h2 id="health-metrics-title">Tus medidas</h2>
+      <p class="hint left health-metrics-hint">Elige las que quieres ver en Salud. Ocultar una no borra sus registros.</p>
+      <div id="health-metric-list"></div>
+      <div class="confirm-actions">
+        <button type="button" class="primary-btn" id="health-metrics-done">Listo</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- Ayuda: bienvenida, preguntas frecuentes y novedades -->
