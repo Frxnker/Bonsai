@@ -1770,7 +1770,18 @@ input[type="range"] {
   appearance: none;
   text-align: left;
 }
-.field input::-webkit-date-and-time-value { margin: 0; text-align: left; }
+.field input::-webkit-date-and-time-value { margin: 0; padding: 0; text-align: left; }
+/* En iPhone y iPad, Safari centra el valor en vertical porque el campo es flex con align-items: center
+   (así lo hace su hoja de estilos interna); se mantiene, en bloque para que ocupe todo el ancho.
+   Solo allí (-webkit-touch-callout solo existe en iOS): en Chrome, con flex, su icono de calendario
+   dejaría de ir a la derecha. */
+@supports (-webkit-touch-callout: none) {
+  .field input[type="date"],
+  .field input[type="time"] {
+    display: flex;
+    align-items: center;
+  }
+}
 .unit-field { margin-top: 12px; }
 
 /* Control segmentado, como en iOS */
