@@ -43,6 +43,7 @@ export function loadApp({ stored, now = '2026-09-27T10:00:00' } = {}) {
     Intl,
     TextEncoder,
     URL,
+    URLSearchParams,
     crypto: globalThis.crypto,
     localStorage: {
       getItem: (k) => (storage.has(k) ? storage.get(k) : null),

@@ -29,6 +29,11 @@
   --on-alert: #FFFFFF;
   --track: #E8E6E0;           /* fondo de anillos y barras */
   --heat-0: #ECEAE4;          /* casilla vacía de los mapas */
+  /* El bonsái de Progreso: maceta de barro, tronco, hojas en tonos salvia y flores sakura */
+  --bz-pot: #B87559; --bz-pot-dark: #9A5C43; --bz-soil: #6E5A48; --bz-seed: #9C7B5B;
+  --bz-trunk: #7A6352; --bz-bark: #54412F; --bz-jin: #CFC5B6;
+  --bz-leaf: #6F9677; --bz-leaf-2: #8DB095; --bz-leaf-3: #557D5E;
+  --bz-flower: #E7AEB8; --bz-moss: #7FA06A; --bz-stone: #A9A69C;
   --paused: #D6D3CB;          /* días en pausa en los mapas */
   --bar-bg: rgba(246, 245, 241, 0.82);
   --tab-idle: #5A605B;        /* pestañas no activas */
@@ -75,6 +80,10 @@
     --on-alert: #1E1210;
     --track: #2C332F;
     --heat-0: #262C29;
+    --bz-pot: #C4876B; --bz-pot-dark: #A0654C; --bz-soil: #8A7462; --bz-seed: #B08F6D;
+    --bz-trunk: #A48A76; --bz-bark: #6A5545; --bz-jin: #D8CFC2;
+    --bz-leaf: #86AD92; --bz-leaf-2: #A6C8AF; --bz-leaf-3: #648C71;
+    --bz-flower: #F0C0C8; --bz-moss: #8FB07A; --bz-stone: #8E8B83;
     --paused: #3A413D;
     --bar-bg: rgba(22, 26, 24, 0.82);
     --tab-idle: #8A918B;
@@ -104,6 +113,10 @@
   --on-alert: #1E1210;
   --track: #2C332F;
   --heat-0: #262C29;
+  --bz-pot: #C4876B; --bz-pot-dark: #A0654C; --bz-soil: #8A7462; --bz-seed: #B08F6D;
+  --bz-trunk: #A48A76; --bz-bark: #6A5545; --bz-jin: #D8CFC2;
+  --bz-leaf: #86AD92; --bz-leaf-2: #A6C8AF; --bz-leaf-3: #648C71;
+  --bz-flower: #F0C0C8; --bz-moss: #8FB07A; --bz-stone: #8E8B83;
   --paused: #3A413D;
   --bar-bg: rgba(22, 26, 24, 0.82);
   --tab-idle: #8A918B;
@@ -701,6 +714,33 @@ h1 {
   transition: background-color 0.15s ease;
 }
 .challenge-strip:active { background: var(--wash); }
+
+/* Modo vacaciones: aviso en Hoy mientras está activo */
+.vacation-note {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+}
+.vacation-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--wash);
+  color: var(--sage-ink);
+}
+.vacation-icon svg { width: 18px; height: 18px; }
+.vacation-note p { margin: 0; color: var(--ink-2); font-size: calc(14px * var(--text)); line-height: 1.35; }
+.vacation-note b { color: var(--ink); font-weight: 600; }
+.vacation-note .text-btn { min-height: 44px; padding: 0 10px; }
+#vacation-list .confirm-list { margin-top: 0; }
 .cs-icon,
 .rule-icon,
 .ch-icon {
@@ -900,6 +940,30 @@ h1 {
 .habit.slipped .meta { color: var(--alert); }
 .habit.slipped .check { border-color: var(--alert); }
 .habit.shielded .meta { color: var(--sage-ink); }
+
+/* Botones junto a la casilla (la nota del día): van fuera del botón del hábito, que es el que marca.
+   El hueco (.aux-space) reserva su sitio en la fila y los botones se colocan encima. */
+.habit.with-aux { grid-template-columns: 36px 1fr auto auto; }
+.aux-space { width: calc(var(--aux, 1) * 36px - 8px); }
+.habit-aux {
+  position: absolute;
+  top: 50%;
+  right: 50px;
+  display: flex;
+  transform: translateY(-50%);
+}
+.aux-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 44px;
+  border-radius: 10px;
+  color: var(--ink-2);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.aux-btn svg { width: 20px; height: 20px; }
+.aux-btn:active { background: var(--wash); }
+.aux-btn.on { color: var(--sage-ink); }
 
 /* Modo edición: tirador para reordenar */
 .grip-space { width: 30px; }
@@ -1274,6 +1338,8 @@ input[type="range"] {
 .badge-bar span { display: block; height: 100%; border-radius: inherit; background: var(--ink-2); }
 .badge-count { margin-top: 4px; color: var(--ink-2); font-size: calc(11px * var(--text)); font-variant-numeric: tabular-nums; }
 .badge-done { margin-top: 8px; color: var(--sage-ink); font-size: calc(12px * var(--text)); font-weight: 500; }
+.badge-share { justify-self: start; min-height: 40px; margin: 0 0 -8px -4px; font-size: calc(13px * var(--text)); }
+.badge-share svg { width: 15px; height: 15px; }
 
 /* Protectores de racha */
 .shield-row { display: flex; gap: 8px; margin-top: 12px; }
@@ -1384,6 +1450,9 @@ input[type="range"] {
   font-size: calc(13px * var(--text));
 }
 .hm-foot .link-btn { flex-shrink: 0; font-size: calc(14px * var(--text)); }
+/* Nota del hábito en el día elegido, con su botón para añadirla o editarla */
+.hm-habit-note { display: grid; gap: 2px; }
+.hm-habit-note .link-btn { justify-self: start; font-size: calc(14px * var(--text)); }
 .hm-note {
   margin: 0;
   padding: 10px 12px;
@@ -1404,6 +1473,75 @@ input[type="range"] {
 .legend i { width: 11px; height: 11px; }
 .legend span:first-child { margin-right: 3px; }
 .legend span:last-child { margin-left: 3px; }
+
+/* ---------- Historial: la tarjeta de cada hábito abre su ficha ---------- */
+.card-head[data-open-detail] { cursor: pointer; }
+.stats-btn {
+  width: 100%;
+  border-radius: 12px;
+  text-align: left;
+  transition: opacity 0.15s ease;
+}
+.stats-btn:active { opacity: 0.7; }
+
+/* ---------- Ficha de un hábito ---------- */
+#habit-detail-body > .card:first-of-type { margin-top: 0; }
+.detail-head { display: flex; align-items: center; gap: 12px; margin: 0 4px 16px; }
+.detail-head p { margin: 0; color: var(--ink-2); font-size: calc(14px * var(--text)); line-height: 1.4; }
+.stats.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat span + span { margin-top: 2px; }
+.card-text.small { margin: 10px 0 0; font-size: calc(13px * var(--text)); }
+.detail-sub { margin: 16px 0 6px; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; }
+.detail-list { margin: 0; padding: 0; list-style: none; }
+.detail-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--hair);
+  font-size: calc(14px * var(--text));
+  line-height: 1.4;
+}
+.detail-list li:first-child { border-top: 0; }
+.detail-list.runs li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; }
+.detail-list.runs span { color: var(--ink-2); }
+.detail-notes { margin: 8px 0 0; padding: 0; list-style: none; }
+.detail-notes li + li { border-top: 1px solid var(--hair); }
+.detail-notes button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 0;
+  text-align: left;
+}
+.detail-notes button:active { opacity: 0.6; }
+.detail-note-day { color: var(--ink-2); font-size: calc(12px * var(--text)); }
+.detail-note-text { font-size: calc(15px * var(--text)); line-height: 1.4; overflow-wrap: anywhere; }
+.detail-notes + .link-btn,
+.card .detail-notes ~ .link-btn { margin-top: 4px; }
+.legend-goal { flex-shrink: 0; color: var(--ink-2); font-size: calc(13px * var(--text)); }
+
+/* Gráfica de cantidades: una barra por día, del color del hábito; más clara si no llegó a la meta */
+.amount-chart {
+  display: block;
+  width: 100%;
+  height: 110px;
+  margin-top: 14px;
+  border-radius: 6px;
+  overflow: visible;
+  stroke: none;
+}
+.amount-chart:focus-visible { outline: 2px solid var(--sage); outline-offset: 4px; }
+.amount-chart rect { fill: var(--c, var(--sage)); stroke: none; cursor: pointer; }
+.amount-chart rect.part { fill: color-mix(in srgb, var(--c, var(--sage)) 45%, var(--card)); }
+.amount-chart rect.zero { fill: var(--track); }
+.amount-chart rect.sel { stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.amount-chart .goal { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.chart-scale { display: flex; justify-content: space-between; margin-top: 6px; color: var(--ink-2); font-size: calc(11px * var(--text)); }
+.chart-sel { min-height: 1.4em; margin: 8px 0 0; font-size: calc(14px * var(--text)); font-variant-numeric: tabular-nums; }
+.detail-table { margin-top: 12px; font-size: calc(14px * var(--text)); }
+.detail-table summary { min-height: 44px; display: flex; align-items: center; color: var(--sage-ink); font-weight: 500; cursor: pointer; }
+.detail-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.detail-table th, .detail-table td { padding: 6px 0; border-top: 1px solid var(--hair); text-align: left; font-weight: 400; }
+.detail-table thead th { color: var(--ink-2); font-size: calc(12px * var(--text)); border-top: 0; }
+.detail-table td { text-align: right; }
 
 /* ---------- Salud ---------- */
 #health-view > :first-child { margin-top: 0; } /* en la hoja, el primer bloque va arriba del todo */
@@ -2704,6 +2842,89 @@ input[type="range"] {
   color: var(--toast-action);
   font-weight: 600;
 }
+
+/* ---------- El bonsái que crece contigo (Progreso y Hoy) ---------- */
+.bonsai { display: block; width: 144px; height: 144px; margin: -4px auto 8px; stroke: none; }
+.bonsai.small { width: 100%; height: 100%; margin: 0; }
+/* En la tarjeta de Hoy, junto al título del nivel */
+.hero-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.level-bonsai { flex-shrink: 0; width: calc(34px * var(--text)); height: calc(34px * var(--text)); margin: -6px -2px -4px 0; }
+.bz-pot { fill: var(--bz-pot); }
+.bz-pot-dark { fill: var(--bz-pot-dark); }
+.bz-soil { fill: var(--bz-soil); }
+.bz-seed { fill: var(--bz-seed); }
+.bz-trunk { fill: none; stroke: var(--bz-trunk); stroke-linecap: round; stroke-linejoin: round; }
+.bz-trunk-fill { fill: var(--bz-trunk); }
+.bz-root { fill: none; stroke: var(--bz-trunk); stroke-width: 1.4; stroke-linecap: round; }
+.bz-bark { fill: none; stroke: var(--bz-bark); stroke-width: 1; stroke-linecap: round; }
+.bz-jin { fill: none; stroke: var(--bz-jin); stroke-width: 1.6; stroke-linecap: round; }
+.bz-leaf { fill: var(--bz-leaf); }
+.bz-leaf-2 { fill: var(--bz-leaf-2); }
+.bz-leaf-3 { fill: var(--bz-leaf-3); }
+.bz-flower { fill: var(--bz-flower); }
+.bz-moss { fill: none; stroke: var(--bz-moss); stroke-width: 1.4; stroke-linecap: round; }
+.bz-stone { fill: var(--bz-stone); }
+/* La copa se mece despacio, como con brisa (nada si se pide «reducir movimiento») */
+@media (prefers-reduced-motion: no-preference) {
+  .bonsai .bz-crown { transform-box: view-box; transform-origin: 60px 91px; animation: bz-sway 7s ease-in-out infinite; }
+}
+@keyframes bz-sway { 50% { transform: rotate(1.2deg); } }
+
+/* ---------- Temporizador de un hábito: barra fija encima de las pestañas ---------- */
+.timer-bar {
+  position: fixed;
+  bottom: calc(var(--above-bar) + 10px);
+  left: 50%;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(528px, calc(100% - 24px - var(--safe-l) - var(--safe-r)));
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--float-shadow);
+  transform: translateX(-50%);
+}
+.timer-info { display: grid; flex: 1; min-width: 0; }
+.timer-info b {
+  overflow: hidden;
+  font-size: calc(15px * var(--text));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timer-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; color: var(--ink-2); font-size: calc(13px * var(--text)); }
+.timer-time { color: var(--ink); font-size: calc(15px * var(--text)); font-variant-numeric: tabular-nums; font-weight: 600; }
+.timer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sage); }
+.timer-bar.paused .timer-dot { background: var(--hair-strong); }
+/* Un pulso suave mientras cuenta (sin movimiento si se pide «reducir movimiento») */
+@media (prefers-reduced-motion: no-preference) {
+  .timer-bar:not(.paused) .timer-dot { animation: timer-pulse 2s ease-in-out infinite; }
+}
+@keyframes timer-pulse { 50% { opacity: 0.35; } }
+.timer-btn {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--wash);
+  color: var(--ink);
+  font-size: calc(15px * var(--text));
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+.timer-btn svg { width: 20px; height: 20px; }
+.timer-btn:active { opacity: 0.6; }
+.timer-btn.primary { padding: 0 14px; background: var(--sage); color: var(--on-sage); }
+/* Con el temporizador a la vista, el final de la página y los avisos suben para no quedar debajo */
+:root.has-timer main { padding-bottom: calc(var(--above-bar) + 104px); }
+:root.has-timer .toast { bottom: calc(var(--above-bar) + 84px); }
+/* En la fila del hábito: el tiempo que lleva, delante de la racha */
+.timer-chip { color: var(--sage-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* Sin movimiento para quien lo pide en el sistema */
 @media (prefers-reduced-motion: reduce) {

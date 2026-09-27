@@ -2,7 +2,7 @@
 // Estrategia: responde al instante con la copia guardada y, en segundo plano,
 // descarga la versión nueva para la próxima vez que abras la app.
 
-const CACHE = 'bonsai-v25'; // al activarse se borran las cachés antiguas (también las 'racha-…')
+const CACHE = 'bonsai-v26'; // al activarse se borran las cachés antiguas (también las 'racha-…')
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,9 @@ const ASSETS = [
   './assets/icons/icon-512.png',
   './assets/icons/icon-maskable-512.png',
   './assets/icons/apple-touch-icon.png',
+  './assets/icons/shortcut-zen.png',
+  './assets/icons/shortcut-salud.png',
+  './assets/icons/shortcut-nuevo.png',
 ];
 
 self.addEventListener('install', (event) => {

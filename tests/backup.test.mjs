@@ -35,7 +35,7 @@ test('la copia informa de su fecha y de lo que no es válido', () => {
 test('el resumen de una copia cuenta hábitos, días, diario, Salud y rutinas', () => {
   const app = loadApp({ stored: { ...local, routines: [{ id: 'r', name: 'Mañana', habitIds: ['mio'] }] } });
   const counts = plain(app.run('backupCounts(state)'));
-  assert.deepEqual(counts, { habits: 1, marked: 1, diary: 1, health: 1, routines: 1, zen: 0, gratitude: 0, emotions: 0 });
+  assert.deepEqual(counts, { habits: 1, marked: 1, notes: 0, diary: 1, health: 1, routines: 1, zen: 0, gratitude: 0, emotions: 0 });
   const items = plain(app.run('backupItems(backupCounts(state))'));
   assert.deepEqual(items, ['1 hábito y 1 día marcado', 'Diario: 1 día con ánimo o nota', '1 rutina', 'Salud: 1 registro', 'Tu perfil y tu progreso']);
   assert.ok(!plain(app.run('backupItems(backupCounts(state), { health: false })')).some((i) => i.startsWith('Salud')));

@@ -79,7 +79,10 @@
             <b id="level-name">Nivel 1</b>
             <span class="level-xp" id="level-xp"></span>
           </span>
-          <span class="hero-level-title" id="level-title">Semilla</span>
+          <span class="hero-title-row">
+            <span class="hero-level-title" id="level-title">Semilla</span>
+            <span class="level-bonsai" id="level-bonsai"></span>
+          </span>
           <span class="xp-track"><span class="xp-fill" id="level-fill"></span></span>
           <span class="hero-foot">
             <span class="level-next" id="level-next"></span>
@@ -99,6 +102,13 @@
         </span>
         <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
       </button>
+
+      <!-- Modo vacaciones: aviso mientras está activo -->
+      <div class="vacation-note" id="vacation-note" hidden>
+        <span class="vacation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5v-2A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5v2M3.5 12.5h17"/></svg></span>
+        <p id="vacation-note-text"></p>
+        <button type="button" class="text-btn" data-vacation-end>He vuelto</button>
+      </div>
 
       <p class="coach" id="coach" hidden></p>
       <p class="sr-only" id="reorder-hint">Con teclado, Alt más flecha arriba o abajo cambia el orden.</p>
@@ -166,6 +176,8 @@
         <p class="section-label">Elige con qué empezar</p>
         <div class="type-grid" id="template-grid" role="group" aria-label="Hábitos sugeridos"></div>
         <button type="button" class="link-btn center" data-add>Ver todos los tipos</button>
+        <p class="section-label spaced">O empieza con un pack</p>
+        <div class="type-grid" id="pack-grid-welcome" role="group" aria-label="Packs para empezar"></div>
       </div>
     </section>
 
@@ -291,6 +303,12 @@
         </button>
       </article>
 
+      <p class="section-label group">Modo vacaciones</p>
+      <article class="card">
+        <p class="card-text first" id="vacation-status"></p>
+        <button type="button" class="secondary-btn wide" id="vacation-btn"></button>
+      </article>
+
       <p class="section-label group">Copia de seguridad</p>
       <article class="card">
         <p class="card-text first">Tus datos solo viven en este móvil. Guarda una copia de vez en cuando (en Archivos o iCloud) para no perderlos si borras la app o cambias de iPhone.</p>
@@ -310,6 +328,11 @@
           </select>
         </label>
         <p class="hint left" id="backup-reminder-hint">El aviso sale solo aquí, en Ajustes.</p>
+        <button type="button" class="secondary-btn wide spaced" id="habits-csv-btn" aria-describedby="habits-csv-hint">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 19.5h15"/></svg>
+          Historial de hábitos en CSV
+        </button>
+        <p class="hint left" id="habits-csv-hint">Para abrirlo en una hoja de cálculo: cada día con una marca, una recaída o una nota. No es una copia (no se puede importar) y no lleva Salud ni el diario.</p>
         <div class="backup-note" id="pre-import" hidden>
           <p class="card-text first" id="pre-import-text"></p>
           <div class="btn-row">
@@ -396,6 +419,18 @@
     </section>
   </main>
 
+  <!-- Temporizador de un hábito de minutos: se ve en todas las pantallas mientras está en marcha -->
+  <div class="timer-bar" id="timer-bar" role="region" aria-label="Temporizador" hidden>
+    <span class="emoji" id="timer-emoji" aria-hidden="true"></span>
+    <div class="timer-info">
+      <b id="timer-name"></b>
+      <span class="timer-line"><span class="timer-dot" aria-hidden="true"></span><span class="timer-time" id="timer-time" role="timer">0:00</span><span class="timer-state" id="timer-state"></span></span>
+    </div>
+    <button type="button" class="timer-btn" id="timer-pause"></button>
+    <button type="button" class="timer-btn primary" id="timer-stop">Sumar</button>
+    <button type="button" class="timer-btn" id="timer-cancel" aria-label="Cancelar el temporizador sin sumar nada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+  </div>
+
   <nav class="tabbar" aria-label="Secciones">
     <button type="button" class="tab" data-view="today" aria-current="page">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>
@@ -431,6 +466,10 @@
           <input id="type-search" type="search" placeholder="Buscar: comer, dientes, leer…" aria-label="Buscar un tipo de hábito" enterkeyhint="search" autocomplete="off">
         </div>
         <p class="hint left" id="type-empty" hidden>Ningún tipo se llama así, pero puedes crearlo a tu manera.</p>
+        <section class="type-group" id="pack-group">
+          <p class="section-label">Packs para empezar</p>
+          <div class="type-grid" id="pack-grid" role="group" aria-label="Packs para empezar"></div>
+        </section>
         <div id="type-groups"></div>
       </div>
 
@@ -581,6 +620,24 @@
     </div>
   </dialog>
 
+  <!-- Nota de un hábito en un día (desde Hoy o desde el Historial) -->
+  <dialog class="modal" id="habit-note-dialog" aria-labelledby="habit-note-title">
+    <form class="modal-card form-card" id="habit-note-form">
+      <p class="kicker" id="habit-note-day">Hoy</p>
+      <h2 id="habit-note-title"></h2>
+      <div class="note-box">
+        <textarea id="habit-note-input" maxlength="140" rows="3" enterkeyhint="done" placeholder="Cómo fue, o por qué no pudiste…" aria-label="Nota (máximo 140 caracteres)" aria-describedby="habit-note-count habit-note-hint"></textarea>
+        <span class="note-count" id="habit-note-count">0/140</span>
+      </div>
+      <p class="hint left" id="habit-note-hint">Es distinta de la nota del diario y no cambia tu racha ni tu XP.</p>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Guardar</button>
+        <button type="button" class="secondary-btn danger-text" id="habit-note-delete">Borrar nota</button>
+        <button type="button" class="text-btn" id="habit-note-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Salud: registrar una medida, varias a la vez (registro rápido) o editar un registro -->
   <dialog class="modal" id="health-entry" aria-labelledby="health-entry-title">
     <form class="modal-card form-card scroll" id="health-form" novalidate>
@@ -604,6 +661,18 @@
         <button type="button" class="text-btn" id="health-cancel">Cancelar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Ficha de un hábito (desde el Historial): cumplimiento, rachas, cantidades y notas -->
+  <dialog class="sheet" id="habit-detail" aria-labelledby="habit-detail-title">
+    <div class="sheet-frame">
+      <div class="sheet-head">
+        <span class="sheet-slot"></span>
+        <h2 id="habit-detail-title" tabindex="-1">Ficha</h2>
+        <button type="button" class="text-btn end" id="habit-detail-close">Cerrar</button>
+      </div>
+      <div class="sheet-body" id="habit-detail-body"></div>
+    </div>
   </dialog>
 
   <!-- Salud: tus medidas, a pantalla completa -->
@@ -670,6 +739,46 @@
       <div class="confirm-actions">
         <button type="submit" class="primary-btn">Exportar</button>
         <button type="button" class="text-btn" id="export-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Modo vacaciones: pausa a la vez todos los hábitos activos -->
+  <dialog class="modal" id="vacation-dialog" aria-labelledby="vacation-title">
+    <form class="modal-card form-card scroll" id="vacation-form" novalidate>
+      <h2 id="vacation-title">Modo vacaciones</h2>
+      <p class="card-text">Pausa a la vez todos tus hábitos activos, sin romper tus rachas. Al volver se reanudan solos los que pausó el modo vacaciones; los que ya estaban en pausa siguen igual.</p>
+      <label class="field">
+        <span>Vuelvo el (opcional)</span>
+        <input id="vacation-back" type="date" aria-describedby="vacation-back-error vacation-back-hint">
+      </label>
+      <p class="field-error" id="vacation-back-error" hidden></p>
+      <p class="hint left" id="vacation-back-hint">Ese día vuelven a contar. Sin fecha, sigue hasta que toques «He vuelto».</p>
+      <div id="vacation-list"></div>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn" id="vacation-submit">Activar</button>
+        <button type="button" class="text-btn" id="vacation-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Pack para empezar: varios hábitos del catálogo y su rutina de una vez -->
+  <dialog class="modal" id="pack-dialog" aria-labelledby="pack-title">
+    <form class="modal-card form-card scroll" id="pack-form" novalidate>
+      <p class="kicker">Pack para empezar</p>
+      <h2 id="pack-title"></h2>
+      <p class="card-text" id="pack-desc"></p>
+      <fieldset class="check-list">
+        <legend>Hábitos que se añaden</legend>
+        <div id="pack-habits"></div>
+      </fieldset>
+      <label class="check-row plain pack-routine">
+        <span class="check-text"><b id="pack-routine-label"></b><span id="pack-routine-hint"></span></span>
+        <input type="checkbox" id="pack-routine" checked>
+      </label>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn" id="pack-submit">Añadir</button>
+        <button type="button" class="text-btn" id="pack-cancel">Cancelar</button>
       </div>
     </form>
   </dialog>

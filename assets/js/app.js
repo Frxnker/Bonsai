@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.8 beta';
+const APP_VERSION = '0.9 beta';
 const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
 const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
@@ -25,6 +25,7 @@ const MOOD_MOUTHS = [
   'M8 13.5h8a4 4 0 0 1-8 0z',
 ];
 const NOTE_MAX = 200;
+const HABIT_NOTE_MAX = 140; // nota de un hábito en un día («por qué no pude», «cómo fue»)
 // Salud: medidas personales, privadas y solo en este dispositivo (y en las copias que exportes).
 // No dan XP ni cuentan para rachas o retos. Cada unidad pasa a la primera con `toBase` (y `offset`, en °F),
 // para comparar registros hechos en unidades distintas. `decimals`: los que se ven (0 = solo enteros);
@@ -423,12 +424,15 @@ const ICONS = {
   chart: svg('<path d="M4 20.5h16M7 16.5v-4M12 16.5v-9M17 16.5v-6"/>'),
   play: svg('<path d="M8 5.5v13l10.5-6.5L8 5.5z"/>'),
   heart: svg('<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>'),
+  bubble: svg('<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-8.5l-4 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>'),
+  bubbleFull: svg('<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-8.5l-4 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/><path d="M8 9.5h8M8 12.5h5"/>'),
   rotate: svg('<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/>'),
   download: svg('<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 19.5h15"/>'),
   trash: svg('<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/>'),
   note: svg('<path d="M4.5 19.5h4l10-10-4-4-10 10v4z"/><path d="M13 7l4 4"/>'),
   chevronLeft: svg('<path d="M15 5l-7 7 7 7"/>'),
   chevronRight: svg('<path d="M9 5l7 7-7 7"/>'),
+  share: svg('<path d="M12 14V4M8 7.5L12 3.5l4 4"/><path d="M6.5 11H6a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 18 11h-.5"/>'),
   chevronUp: svg('<path d="M5 15l7-7 7 7"/>'),
   chevronDown: svg('<path d="M5 9l7 7 7-7"/>'),
   wind: svg('<path d="M3 9h10.5a3 3 0 1 0-3-3"/><path d="M3 15h14a3 3 0 1 1-3 3"/><path d="M3 12h6"/>'),
@@ -526,6 +530,8 @@ const emptyState = () => ({
   routines: [],          // rutinas: [{ id, name, habitIds }], en el orden en que se ven
   prefs: normalizePrefs(), // ajustes (ver DEFAULT_PREFS)
   zen: emptyZen(),         // prácticas, gratitud y emociones
+  timer: null,             // temporizador en marcha de un hábito de minutos (ver normalizeTimer)
+  vacation: null,          // modo vacaciones activo (ver normalizeVacation)
 });
 
 // Zen: sesiones [{ id, type, date, seconds, created }], gratitud { 'AAAA-MM-DD': [hasta 3 textos] },
@@ -718,6 +724,29 @@ function normalizeSchedule(s) {
   return { type: 'daily' };
 }
 
+// Temporizador: { id, day, start, paused, pausedAt } (milisegundos). Cuenta con el reloj desde `start`,
+// así sigue bien aunque se cierre la app. `day` es el día en que empezó, que es al que se suma.
+const isTimeHabit = (h) => Boolean(h) && h.kind !== 'quit' && h.mode === 'target' && h.measure === 'min' && !h.archived;
+function normalizeTimer(t, habits) {
+  if (!t || typeof t !== 'object') return null;
+  const habit = habits.find((h) => h.id === t.id);
+  const start = Number(t.start);
+  const paused = Number(t.paused) || 0;
+  const pausedAt = Number(t.pausedAt) || 0;
+  if (!isTimeHabit(habit) || !isDateKey(t.day) || !(start > 0) || paused < 0 || (pausedAt && pausedAt < start)) return null;
+  return { id: habit.id, day: t.day, start, paused, pausedAt };
+}
+
+// Modo vacaciones: { from, back, habits: [{ id, from }] }. `back` es el día en que vuelven a contar (o null,
+// hasta tocar «He vuelto»); `habits`, los que pausó el modo vacaciones y desde qué día, para reanudar solo esos.
+function normalizeVacation(v, habits) {
+  if (!v || typeof v !== 'object' || !isDateKey(v.from)) return null;
+  const list = (Array.isArray(v.habits) ? v.habits : [])
+    .filter((x) => x && isDateKey(x.from) && habits.some((h) => h.id === String(x.id)))
+    .map((x) => ({ id: String(x.id), from: x.from }));
+  return { from: v.from, back: isDateKey(v.back) && v.back > v.from ? v.back : null, habits: list };
+}
+
 // Pausas: [{ from, to }] con `to` = null si es indefinida.
 const normalizePauses = (list) => (Array.isArray(list) ? list : [])
   .filter((p) => p && isDateKey(p.from) && (!p.to || (isDateKey(p.to) && p.to >= p.from)))
@@ -737,6 +766,13 @@ const isTargetData = (h) => h.kind !== 'quit' && h.mode === 'target';
 
 // { 'AAAA-MM-DD': 1 } con solo fechas válidas (recaídas y protectores).
 const dayFlags = (obj) => Object.fromEntries(Object.keys(obj || {}).filter(isDateKey).map((k) => [k, 1]));
+
+// Nota de un hábito en un día: una sola línea, sin espacios de más y con su límite.
+const cleanHabitNote = (text) => (typeof text === 'string' ? text.replace(/\s+/g, ' ').trim().slice(0, HABIT_NOTE_MAX) : '');
+const habitNotes = (obj) => Object.fromEntries(Object.entries(obj && typeof obj === 'object' ? obj : {})
+  .filter(([k]) => isDateKey(k))
+  .map(([k, v]) => [k, cleanHabitNote(v)])
+  .filter(([, v]) => v));
 
 // Limpia y valida los datos (sirve para lo guardado y para copias importadas).
 function normalize(data) {
@@ -767,6 +803,7 @@ function normalize(data) {
       done: normalizeDone(h.done, isTargetData(h)),
       slips: dayFlags(h.slips),
       shields: dayFlags(h.shields), // días salvados con un protector
+      notes: habitNotes(h.notes),   // notas de cada día (no cuentan para nada)
     }));
   const bank = data.bank || {};
   const count = (v) => Math.max(0, Number(v) || 0);
@@ -786,6 +823,8 @@ function normalize(data) {
   clean.routines = normalizeRoutines(data.routines, clean.habits);
   clean.prefs = normalizePrefs(data.prefs);
   clean.zen = normalizeZen(data.zen);
+  clean.timer = normalizeTimer(data.timer, clean.habits);
+  clean.vacation = normalizeVacation(data.vacation, clean.habits);
 
   // Perfil. Si no hay fecha de inicio (datos de versiones anteriores), usamos el día más antiguo que conste.
   const profile = data.profile || {};
@@ -847,7 +886,10 @@ function replaceState(data) {
   state.routines = data.routines;
   state.prefs = data.prefs;
   state.zen = data.zen;
+  state.timer = data.timer;
+  state.vacation = data.vacation;
   const saved = save();
+  syncTimer();
   applyPrefs();
   render();
   return saved;
@@ -871,6 +913,7 @@ const newHabit = (fields) => ({
   done: {},
   slips: {},
   shields: {},
+  notes: {},
   ...fields,
 });
 
@@ -926,6 +969,9 @@ const ui = {
   zenNotice: '',      // aviso breve arriba de Zen
   zenShown: 14,       // registros de gratitud o emociones que se ven
   zenDraft: null,     // emoción que se está eligiendo
+  detailId: null,     // hábito cuya ficha está abierta
+  detailNotes: 20,    // notas que se ven en la ficha
+  detailSel: null,    // día elegido en la gráfica de cantidades de la ficha
 };
 
 // ---------- Cálculos: rachas, XP y nivel ----------
@@ -1000,8 +1046,8 @@ const streakInfo = (habit) => cached(habit, 'streak', () => (
   habit.schedule.type === 'weekly' ? weeklyTimeline(habit) : dailyTimeline(habit)
 ));
 
-// Además de la racha, apunta los días en que llega a un múltiplo de 7 (ahí se gana un protector)
-// y la racha de cada día (para los retos).
+// Además de la racha, apunta los días en que llega a un múltiplo de 7 (ahí se gana un protector),
+// la racha de cada día (para los retos) y cada racha con sus fechas (para la ficha del hábito).
 function dailyTimeline(habit) {
   const today = ui.today;
   let run = 0;
@@ -1011,6 +1057,9 @@ function dailyTimeline(habit) {
   const earns = [];
   const runOn = {};
   const xpOn = {};
+  const runs = []; // [{ from, to, length }]: del primer al último día hecho de cada racha
+  let runFrom = null;
+  let lastDone = null;
   forEachDay(habitStart(habit), today, (key, weekday) => {
     const done = isDone(habit, key);
     if (done) checkins++;
@@ -1018,12 +1067,15 @@ function dailyTimeline(habit) {
       if (done) {
         xpOn[key] = XP_PER_CHECK + Math.min(run, XP_STREAK_CAP);
         xp += xpOn[key];
+        if (run === 0) runFrom = key;
         run++;
+        lastDone = key;
         best = Math.max(best, run);
         if (run % SHIELD_EVERY === 0) earns.push(key);
       } else if (isShielded(habit, key)) {
         // protegido: la racha sigue viva, pero ese día no suma ni da XP
       } else if (key !== today || hasSlip(habit, key)) {
+        if (run > 0) runs.push({ from: runFrom, to: lastDone, length: run });
         run = 0; // hoy aún se puede hacer… salvo si ya se apuntó una recaída
       }
     } else if (done) {
@@ -1032,7 +1084,8 @@ function dailyTimeline(habit) {
     }
     runOn[key] = run;
   });
-  return { unit: 'day', current: run, best, xp, checkins, earns, runOn, xpOn };
+  if (run > 0) runs.push({ from: runFrom, to: lastDone, length: run, current: true });
+  return { unit: 'day', current: run, best, xp, checkins, earns, runOn, xpOn, runs };
 }
 
 // Semanales: la racha son semanas cumplidas. Una semana sin cumplir no rompe la racha si es
@@ -1047,6 +1100,9 @@ function weeklyTimeline(habit) {
   let checkins = 0;
   let weekDone = 0;
   const xpOn = {};
+  const runs = []; // [{ from, to, length }]: del lunes de la primera semana cumplida al domingo de la última
+  let runFrom = null;
+  let lastWeek = null;
   for (let ws = weekStartOf(habitStart(habit)); ws <= thisWeek; ws = shiftKey(ws, 7)) {
     let count = 0;
     let blocked = false;
@@ -1061,14 +1117,18 @@ function weeklyTimeline(habit) {
     xp += count * gain;
     checkins += count;
     if (count >= times) {
+      if (run === 0) runFrom = ws;
       run++;
+      lastWeek = ws;
       best = Math.max(best, run);
     } else if (ws !== thisWeek && !blocked) {
+      if (run > 0) runs.push({ from: runFrom, to: shiftKey(lastWeek, 6), length: run });
       run = 0;
     }
     if (ws === thisWeek) weekDone = count;
   }
-  return { unit: 'week', current: run, best, xp, checkins, weekDone, earns: [], runOn: {}, xpOn };
+  if (run > 0) runs.push({ from: runFrom, to: shiftKey(lastWeek, 6), length: run, current: true });
+  return { unit: 'week', current: run, best, xp, checkins, weekDone, earns: [], runOn: {}, xpOn, runs };
 }
 
 // Hábitos que tocaban ese día y cuántos se hicieron (para el día perfecto).
@@ -1431,6 +1491,7 @@ function renderToday() {
 
   renderLevelCard(stats);
   renderChallengeStrip(hasHabits);
+  renderVacation();
   renderJournal(hasHabits);
   renderHealthCard(hasHabits);
   renderZenCard(hasHabits);
@@ -1518,6 +1579,7 @@ function renderLevelCard(stats) {
   const span = stats.levelEnd - stats.levelStart;
   $('#level-name').textContent = `Nivel ${stats.level}`;
   $('#level-title').textContent = meta.title;
+  $('#level-bonsai').innerHTML = bonsaiSVG(stats.level, { size: 'small' });
   $('#level-xp').textContent = `${fmtNumber.format(inLevel)}/${fmtNumber.format(span)} XP`;
   $('#level-fill').style.width = `${(inLevel / span) * 100}%`;
   $('#level-next').textContent = `${fmtNumber.format(stats.levelEnd - stats.xp)} XP para el nivel ${stats.level + 1}`;
@@ -1611,6 +1673,8 @@ function habitRow(habit) {
   const classes = ['habit'];
   if (done) classes.push('done');
   if (ui.pop === habit.id) classes.push('pop');
+  const aux = rowAux(habit, day);
+  if (aux.html) classes.push('with-aux');
 
   if (status === 'paused') {
     classes.push('paused');
@@ -1618,8 +1682,8 @@ function habitRow(habit) {
       aria-label="${safeName}: ${pauseLabel(habit)}. Toca para reanudar">
       ${emoji}
       <span class="info">${name}<span class="meta">${pauseLabel(habit)} · <u>reanudar</u></span></span>
-      <span class="check pause-mark">${ICONS.pause}</span>
-    </button></li>`;
+      ${aux.space}<span class="check pause-mark">${ICONS.pause}</span>
+    </button>${aux.html}</li>`;
   }
 
   const rest = status === 'rest' ? (day === ui.today ? 'Hoy descansa' : 'Día de descanso') : '';
@@ -1649,6 +1713,10 @@ function habitRow(habit) {
   } else {
     meta = rest ? (done ? 'Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
   }
+  // Con el temporizador en marcha, lo que lleva va delante.
+  if (state.timer && state.timer.id === habit.id && day === ui.today) {
+    meta = `<span class="timer-chip"><span class="timer-live">${fmtTimer(timerElapsed())}</span>${state.timer.pausedAt ? ' en pausa' : ''}</span> · ${meta}`;
+  }
   if (rest) classes.push('resting');
   // Día pasado salvado por un protector (si lo marcas, el protector vuelve).
   if (isShielded(habit, day)) {
@@ -1659,8 +1727,39 @@ function habitRow(habit) {
   return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" style="${style}"${label ? ` aria-label="${label}"` : ''}>
     ${emoji}
     <span class="info">${name}<span class="meta">${meta}</span></span>
-    <span class="check">${mark}</span>
-  </button></li>`;
+    ${aux.space}<span class="check">${mark}</span>
+  </button>${aux.html}</li>`;
+}
+
+// Se puede apuntar una nota en los días en que el hábito ya existía (hasta hoy), aunque estuviera en pausa.
+const canNote = (habit, day) => day <= ui.today && dayStatus(habit, day) !== 'off';
+
+// Botones junto a la casilla, fuera del botón del hábito (que es el que marca): el temporizador (en los de
+// minutos, hoy) y la nota de ese día.
+function rowAux(habit, day) {
+  const buttons = [];
+  if (canTime(habit, day)) {
+    const t = state.timer;
+    const mine = Boolean(t && t.id === habit.id);
+    const name = escapeHTML(habit.name);
+    const label = !mine ? `Empezar el temporizador de «${name}»`
+      : t.pausedAt ? `Reanudar el temporizador de «${name}»` : `Pausar el temporizador de «${name}»`;
+    buttons.push(`<button type="button" class="aux-btn${mine ? ' on' : ''}" data-timer="${habit.id}" aria-label="${label}">${
+      mine && !t.pausedAt ? ICONS.pause : ICONS.play}</button>`);
+  }
+  if (canNote(habit, day)) {
+    const note = habit.notes[day];
+    const when = day === ui.today ? 'de hoy' : 'de ese día';
+    const name = escapeHTML(habit.name);
+    buttons.push(`<button type="button" class="aux-btn${note ? ' on' : ''}" data-note="${habit.id}" aria-label="${
+      note ? `Nota ${when} de «${name}»: ${escapeHTML(note)}. Editar la nota` : `Añadir una nota ${when} a «${name}»`}">${
+      note ? ICONS.bubbleFull : ICONS.bubble}</button>`);
+  }
+  if (!buttons.length) return { space: '', html: '' };
+  return {
+    space: `<span class="aux-space" style="--aux:${buttons.length}" aria-hidden="true"></span>`,
+    html: `<div class="habit-aux">${buttons.join('')}</div>`,
+  };
 }
 
 // Tocar un hábito en pausa ofrece reanudarlo (si sigue en pausa hoy).
@@ -1683,9 +1782,9 @@ async function askResume(habit) {
   toast(`«${habit.name}» reanudado`);
 }
 
-// Aplica un cambio en el día que se está viendo y enseña lo que ha pasado: XP, vibración y celebraciones.
-function changeHabit(habit, button, mutate) {
-  const day = ui.day;
+// Aplica un cambio en un día (el que se está viendo, salvo que se diga otro) y enseña lo que ha pasado:
+// XP, vibración y celebraciones.
+function changeHabit(habit, button, mutate, day = ui.day) {
   const before = computeStats();
   const wasPerfect = isPerfectDay(day);
   const wasDone = isDone(habit, day);
@@ -1740,6 +1839,7 @@ function changeHabit(habit, button, mutate) {
   } else if (message) {
     toast(message);
   }
+  return { newlyDone: nowDone && !wasDone, message };
 }
 
 function undoHabitDayChange(id, day, before, after) {
@@ -1845,21 +1945,266 @@ function syncLog() {
 }
 logRange.addEventListener('input', syncLog);
 
+// Apuntar la cantidad de un día: la usan el deslizador (a mano) y el temporizador.
+function setHabitAmount(habit, day, value) {
+  return changeHabit(habit, $(`.habit[data-id="${habit.id}"]`), () => {
+    if (value > 0) habit.done[day] = Math.min(100000, round2(value));
+    else delete habit.done[day];
+  }, day);
+}
+
 function saveLog(value) {
   const habit = logFor && findHabit(logFor.id);
   const day = logFor && logFor.day;
   logDialog.close();
   if (!habit || day !== ui.day) return;
-  changeHabit(habit, $(`.habit[data-id="${habit.id}"]`), () => {
-    if (value > 0) habit.done[day] = round2(value);
-    else delete habit.done[day];
-  });
+  setHabitAmount(habit, day, value);
 }
 $('#log-save').addEventListener('click', () => saveLog(Number(logRange.value)));
 $('#log-clear').addEventListener('click', () => saveLog(0));
 $('#log-cancel').addEventListener('click', () => logDialog.close());
 logDialog.addEventListener('click', (e) => {
   if (e.target === logDialog) logDialog.close();
+});
+
+// ---------- Temporizador de los hábitos de minutos ----------
+// Cuenta con el reloj desde la hora de inicio guardada, así que sigue bien aunque se cierre la app o se
+// bloquee el móvil. Al parar, suma los minutos al día en que empezó (aunque ya sea otro día), con la misma
+// función que apuntarlos a mano. Solo hay uno a la vez.
+
+const TIMER_ASK_MINUTES = 8 * 60; // a partir de aquí pregunta antes de sumar: ¿se quedó en marcha sin querer?
+let timerTick = null;
+
+const timerHabit = () => (state.timer ? findHabit(state.timer.id) : null);
+const timerElapsed = (t = state.timer, now = Date.now()) => (t ? Math.max(0, (t.pausedAt || now) - t.start - t.paused) : 0);
+const timerMinutes = (t = state.timer) => Math.round(timerElapsed(t) / 60000);
+// Se puede empezar hoy, en los hábitos de minutos que no están en pausa.
+const canTime = (habit, day = ui.day) => isTimeHabit(habit) && day === ui.today && dayStatus(habit, day) !== 'off' && !isPaused(habit, day);
+
+function fmtTimer(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
+}
+
+function startTimer(id) {
+  const habit = findHabit(id);
+  if (!canTime(habit, ui.today)) return false;
+  if (state.timer) {
+    if (state.timer.id !== id) toast(`Ya hay un temporizador en marcha, el de «${timerHabit().name}»`);
+    return false;
+  }
+  state.timer = { id, day: ui.today, start: Date.now(), paused: 0, pausedAt: 0 };
+  if (!save()) {
+    state.timer = null;
+    return false;
+  }
+  syncTimer();
+  renderToday();
+  haptic();
+  toast(`Temporizador de «${habit.name}» en marcha`);
+  return true;
+}
+
+function toggleTimerPause() {
+  const t = state.timer;
+  if (!t) return;
+  if (t.pausedAt) {
+    t.paused += Math.max(0, Date.now() - t.pausedAt);
+    t.pausedAt = 0;
+  } else {
+    t.pausedAt = Date.now();
+  }
+  save();
+  syncTimer();
+  renderToday();
+  haptic();
+}
+
+// Parar: suma los minutos (redondeados) al día en que empezó. Menos de medio minuto no suma nada.
+async function stopTimer() {
+  const t = state.timer;
+  const habit = timerHabit();
+  if (!t || !habit) return;
+  const minutes = timerMinutes(t);
+  if (minutes >= TIMER_ASK_MINUTES) {
+    const ok = await askConfirm({
+      icon: 'play',
+      title: `¿Sumar ${fmtNumber.format(minutes)} min?`,
+      body: `<p>El temporizador de «${escapeHTML(habit.name)}» lleva ${escapeHTML(fmtTimer(timerElapsed(t)))}. Si se quedó en marcha sin querer, cancélalo y apunta el tiempo a mano.</p>`,
+      confirmText: 'Sumar',
+    });
+    if (!ok || state.timer !== t) return;
+  }
+  state.timer = null;
+  save();
+  syncTimer();
+  if (minutes < 1) {
+    render();
+    toast('Menos de un minuto: no se ha sumado nada');
+    return;
+  }
+  const result = setHabitAmount(habit, t.day, (habit.done[t.day] || 0) + minutes);
+  render();
+  const when = t.day === ui.today ? '' : ` (el ${shortDate(t.day)}, cuando empezó)`;
+  if (!result.newlyDone && !result.message) toast(`+${fmtNumber.format(minutes)} min a «${habit.name}»${when}`);
+}
+
+function cancelTimer() {
+  const t = state.timer;
+  const habit = timerHabit();
+  if (!t) return;
+  state.timer = null;
+  save();
+  syncTimer();
+  render();
+  toast('Temporizador cancelado', {
+    action: 'Deshacer',
+    onAction: () => {
+      if (state.timer || !isTimeHabit(findHabit(t.id))) return;
+      state.timer = t;
+      save();
+      syncTimer();
+      render();
+      toast(`El temporizador de «${habit.name}» sigue`);
+    },
+  });
+}
+
+// Pone al día la barra, el tic de cada segundo y la pantalla encendida (solo mientras cuenta).
+function syncTimer() {
+  if (state.timer && !isTimeHabit(timerHabit())) {
+    state.timer = null; // el hábito se borró, se archivó o ya no se mide en minutos
+    save();
+  }
+  const t = state.timer;
+  const running = Boolean(t && !t.pausedAt);
+  document.documentElement.classList.toggle('has-timer', Boolean(t));
+  $('#timer-bar').hidden = !t;
+  clearInterval(timerTick);
+  timerTick = running ? setInterval(tickTimer, 1000) : null;
+  keepAwake(running, 'timer');
+  if (!t) return;
+  const habit = timerHabit();
+  const bar = $('#timer-bar');
+  bar.classList.toggle('paused', Boolean(t.pausedAt));
+  bar.style.setProperty('--c', colorHex(habit.color));
+  $('#timer-emoji').textContent = habit.emoji;
+  $('#timer-name').textContent = habit.name;
+  $('#timer-state').textContent = [t.pausedAt ? 'en pausa' : '', t.day !== ui.today ? `cuenta para el ${shortDate(t.day)}` : ''].filter(Boolean).join(' · ');
+  const pause = $('#timer-pause');
+  pause.innerHTML = t.pausedAt ? ICONS.play : ICONS.pause;
+  pause.setAttribute('aria-label', t.pausedAt ? 'Reanudar el temporizador' : 'Pausar el temporizador');
+  $('#timer-stop').setAttribute('aria-label', `Parar y sumar los minutos a «${habit.name}»`);
+  tickTimer();
+}
+
+function tickTimer() {
+  const text = fmtTimer(timerElapsed());
+  $('#timer-time').textContent = text;
+  document.querySelectorAll('.timer-live').forEach((el) => { el.textContent = text; });
+}
+
+$('#timer-pause').addEventListener('click', toggleTimerPause);
+$('#timer-stop').addEventListener('click', stopTimer);
+$('#timer-cancel').addEventListener('click', cancelTimer);
+// Al volver a la app: se pone al día y vuelve a pedir la pantalla encendida.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.timer) syncTimer();
+});
+
+// ---------- Nota de un hábito en un día (desde Hoy o desde el Historial) ----------
+
+const habitNoteDialog = $('#habit-note-dialog');
+const habitNoteInput = $('#habit-note-input');
+let noteFor = null; // { id, day, from: 'today' | 'history' | 'detail' }
+
+// Guardar la nota no toca nada más: ni marcas, ni racha, ni XP.
+function setHabitNote(habit, day, text) {
+  const note = cleanHabitNote(text);
+  if (note) habit.notes[day] = note;
+  else delete habit.notes[day];
+  return save();
+}
+
+function openHabitNote(habitId, day, from) {
+  const habit = findHabit(habitId);
+  if (!habit || !canNote(habit, day)) return;
+  noteFor = { id: habit.id, day, from };
+  $('#habit-note-day').textContent = day === ui.today ? 'Hoy' : capitalize(fmtLong.format(parseKey(day)));
+  $('#habit-note-title').textContent = habit.name;
+  habitNoteInput.value = habit.notes[day] || '';
+  $('#habit-note-delete').hidden = !habit.notes[day];
+  syncHabitNoteCount();
+  habitNoteDialog.showModal();
+  habitNoteInput.focus();
+}
+
+function syncHabitNoteCount() {
+  $('#habit-note-count').textContent = `${habitNoteInput.value.length}/${HABIT_NOTE_MAX}`;
+}
+
+// Tras guardar, se actualiza la pantalla desde la que se abrió y el foco vuelve a su botón.
+function refreshAfterNote({ id, day, from }) {
+  if (from === 'history') {
+    const cell = $(`.heatmap[data-habit="${id}"] .hm-grid [data-k="${day}"]`);
+    if (cell) {
+      selectHeatCell(cell);
+      cell.closest('.card').querySelector('[data-note-day]')?.focus();
+    }
+    return;
+  }
+  if (from === 'detail') {
+    renderHabitDetail();
+    $('#habit-detail-body [data-detail-note]')?.focus();
+    return;
+  }
+  renderToday();
+  $(`[data-note="${id}"]`)?.focus();
+}
+
+function finishHabitNote(text) {
+  const target = noteFor;
+  const habit = target && findHabit(target.id);
+  habitNoteDialog.close();
+  if (!habit) return;
+  const before = habit.notes[target.day] || '';
+  if (!setHabitNote(habit, target.day, text)) return;
+  const after = habit.notes[target.day] || '';
+  refreshAfterNote(target);
+  if (before === after) return;
+  if (after) {
+    toast('Nota guardada');
+    return;
+  }
+  toast('Nota borrada', {
+    action: 'Deshacer',
+    onAction: () => {
+      const h = findHabit(target.id);
+      if (!h || h.notes[target.day]) return;
+      setHabitNote(h, target.day, before);
+      refreshAfterNote(target);
+      toast('Nota recuperada');
+    },
+  });
+}
+
+$('#habit-note-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  finishHabitNote(habitNoteInput.value);
+});
+habitNoteInput.addEventListener('input', syncHabitNoteCount);
+// Es una nota de una línea: Intro guarda.
+habitNoteInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  $('#habit-note-form').requestSubmit();
+});
+$('#habit-note-delete').addEventListener('click', () => finishHabitNote(''));
+$('#habit-note-cancel').addEventListener('click', () => habitNoteDialog.close());
+habitNoteDialog.addEventListener('click', (e) => {
+  if (e.target === habitNoteDialog) habitNoteDialog.close();
 });
 
 // Recaídas: apuntarla pide confirmación; volver a tocar la deshace.
@@ -1901,6 +2246,275 @@ $('#template-grid').addEventListener('click', (e) => {
   if (btn) openSheet(null, btn.dataset.type);
 });
 
+// ---------- El bonsái que crece contigo ----------
+// Una ilustración por cada título de nivel, de la Semilla (nivel 1) al Maestro (nivel 15 y siguientes).
+// Se dibuja con los colores del tema (claro u oscuro) y solo acompaña: no cambia ninguna regla.
+
+const bonsaiStage = (level) => Math.max(1, Math.min(LEVELS.length, level));
+
+// Hoja: una almendra de `size` que nace en (x, y) y apunta hacia `angle` grados.
+const bzLeaf = (x, y, angle, size, cls = 'bz-leaf') => `<path class="${cls}" transform="translate(${x} ${y}) rotate(${angle})" d="M0 0Q${
+  size * 0.5} ${-size * 0.38} ${size} 0Q${size * 0.5} ${size * 0.38} 0 0z"/>`;
+// Copa: una nube de hojas (tres o cuatro elipses), con sombra debajo y luz arriba.
+function bzPad(x, y, w, h) {
+  return `<g class="bz-pad">
+    <ellipse class="bz-leaf-3" cx="${x}" cy="${y + h * 0.18}" rx="${w * 0.5}" ry="${h * 0.42}"/>
+    <ellipse class="bz-leaf" cx="${x - w * 0.22}" cy="${y}" rx="${w * 0.3}" ry="${h * 0.42}"/>
+    <ellipse class="bz-leaf" cx="${x + w * 0.2}" cy="${y - h * 0.04}" rx="${w * 0.32}" ry="${h * 0.45}"/>
+    <ellipse class="bz-leaf-2" cx="${x - w * 0.02}" cy="${y - h * 0.22}" rx="${w * 0.24}" ry="${h * 0.3}"/>
+  </g>`;
+}
+
+// `small`: solo decorativo (el nivel ya se lee al lado).
+function bonsaiSVG(level, { size = 'big' } = {}) {
+  const s = bonsaiStage(level);
+  const title = LEVELS[s - 1].title;
+  const parts = [];
+  const trunk = (d, w) => parts.push(`<path class="bz-trunk" d="${d}" stroke-width="${w}"/>`);
+  if (s === 1) {
+    parts.push('<ellipse class="bz-seed" cx="60" cy="88.6" rx="3.6" ry="2.4" transform="rotate(-18 60 88.6)"/>');
+  } else if (s === 2) {
+    parts.push('<ellipse class="bz-seed" cx="56.5" cy="89.4" rx="3" ry="2" transform="rotate(-18 56.5 89.4)"/>');
+    trunk('M60 90.5Q60 86 60.4 82', 1.4);
+    parts.push(bzLeaf(60.4, 82, -150, 7), bzLeaf(60.4, 82, -35, 7));
+  } else if (s <= 4) {
+    trunk('M60 90.5C60 85 59 81 60.5 76', s === 3 ? 1.6 : 2.2);
+    parts.push(bzLeaf(60.5, 76, -145, 8), bzLeaf(60.5, 76, -40, 8.5), bzLeaf(60.5, 76, -95, 6.5, 'bz-leaf-2'), bzLeaf(59.6, 83, 200, 6));
+    if (s === 4) {
+      parts.push('<path class="bz-root" d="M60 90.6c-3 .2-7 1-10.5 2.4M60 90.6c3 .2 7 1 10.5 2.4M60 90.6c-1 .8-2.6 1.8-4.6 2.6"/>');
+      parts.push(bzLeaf(60.2, 80, -10, 6.5));
+    }
+  } else if (s <= 6) {
+    trunk(s === 5 ? 'M60 90.5C60 84 57 78 60 70' : 'M60 90.5C60 84 56 77 59 66', s === 5 ? 3 : 3.4);
+    parts.push('<path class="bz-root" d="M60 90.6c-3 .2-7 1-10.5 2.4M60 90.6c3 .2 7 1 10.5 2.4"/>');
+    const top = s === 5 ? [60, 70] : [59, 66];
+    parts.push(bzLeaf(...top, -150, 9), bzLeaf(...top, -30, 9.5), bzLeaf(...top, -95, 8, 'bz-leaf-2'), bzLeaf(...top, -60, 7), bzLeaf(...top, -120, 7));
+    if (s === 6) {
+      trunk('M58.4 77C54 76 50 75 46 72', 1.8);
+      parts.push(bzLeaf(46, 72, -160, 7.5), bzLeaf(46, 72, -110, 6.5, 'bz-leaf-2'), bzLeaf(47.5, 73, 170, 6));
+    } else {
+      parts.push(bzLeaf(59, 80, 190, 6.5));
+    }
+  } else if (s <= 8) {
+    trunk(s === 7 ? 'M60 90.5C60 84 56 77 59 64' : 'M60 90.5C60 84 55.5 77 59 62', s === 7 ? 3.8 : 4.2);
+    parts.push('<path class="bz-root" d="M60 90.6c-3 .2-7.5 1-11 2.4M60 90.6c3 .2 7.5 1 11 2.4"/>');
+    trunk('M58 77C54 76 50 75 46 72', 2);
+    if (s === 8) trunk('M59.8 70C64 69 69 68 73 65', 2);
+    parts.push('<g class="bz-crown">');
+    parts.push(bzPad(45, 70.5, s === 7 ? 13 : 16, s === 7 ? 7 : 8));
+    if (s === 8) parts.push(bzPad(74, 63.5, 17, 8.5));
+    parts.push(bzPad(59, s === 7 ? 60 : 57, s === 7 ? 24 : 25, s === 7 ? 12 : 12.5));
+    parts.push('</g>');
+  } else {
+    // Forma en adelante: tronco en S (moyogi), cada vez más grueso, con más copas y más viejo.
+    const w = s === 9 ? 4.6 : s === 10 ? 6 : s <= 12 ? 6.6 : 7.4;
+    const grow = s >= 13 ? 1.12 : s >= 12 ? 1.05 : 1;
+    if (s >= 10) parts.push(`<path class="bz-trunk-fill" d="M${53 - (s >= 13 ? 2 : 0)} 91C56.5 88.5 57.5 85.5 58 82h4.5c.3 3.5 1.5 6.5 ${6 + (s >= 13 ? 2 : 0)} 9z"/>`);
+    trunk('M60 90.5C62 84 52 78 56 70S64 58 58 52', w);
+    parts.push(`<path class="bz-root" d="M60 90.6c-3.5 .2-8 1-${s >= 14 ? 14 : 11.5} 2.6M60 90.6c3.5 .2 8 1 ${s >= 14 ? 14 : 11.5} 2.6${s >= 14 ? 'M58 90.8c-2 .9-4.5 1.9-7 2.5M62 90.8c2 .9 4.5 1.9 7 2.5' : ''}"/>`);
+    if (s >= 11) parts.push('<path class="bz-bark" d="M58.6 86.5l1.2-2.6M55.3 76.8l1.6-2.4M57.4 72.5l1-2.2M60.9 63.5l.8-2.6M59.2 58.4l-.6-2.2"/>');
+    trunk('M55.5 74C51 73 45 71.5 40 69.5', 2.4);
+    trunk('M60.5 62C65 61 71 60.5 76.5 59', 2.4);
+    if (s >= 12) trunk('M58.5 82C62 81 66 79.5 70 77', 1.9);
+    if (s >= 13) trunk('M55.5 76.5C51 77.5 46 79 41.5 81', 1.8);
+    if (s >= 14) parts.push('<path class="bz-jin" d="M57.5 55.5l-5.5-6.5M54.5 52l-2.8.4"/>');
+    parts.push('<g class="bz-crown">');
+    if (s >= 13) parts.push(bzPad(40, 80, 15 * grow, 7.5 * grow));
+    parts.push(bzPad(38.5, 68.5, 20 * grow, 9 * grow));
+    if (s >= 12) parts.push(bzPad(71, 75.5, 14 * grow, 7 * grow));
+    parts.push(bzPad(78, 58, 22 * grow, 10 * grow));
+    parts.push(bzPad(57, 47.5, 27 * grow, 13.5 * grow));
+    if (s >= 15) {
+      // El maestro florece.
+      [[33, 66], [42, 65.5], [52, 44], [60, 42.5], [64, 47], [74, 55.5], [82, 57], [37, 78], [69, 73.5], [47, 67.5]]
+        .forEach(([x, y]) => parts.push(`<circle class="bz-flower" cx="${x}" cy="${y}" r="1.4"/>`));
+    }
+    parts.push('</g>');
+  }
+  const moss = s >= 14 ? '<path class="bz-moss" d="M40 91.4q2-1.6 4 0M46 91.8q1.6-1.3 3.2 0M72 91.8q1.8-1.4 3.6 0M77.5 91.3q1.4-1.1 2.8 0"/>' : '';
+  const stone = s >= 15 ? '<ellipse class="bz-stone" cx="75" cy="90.4" rx="4.2" ry="2.1"/>' : '';
+  const label = `Tu bonsái, en la etapa ${title}: ${s === LEVELS.length ? 'la última' : `la ${s} de ${LEVELS.length}`}`;
+  const a11y = size === 'small' ? 'aria-hidden="true"' : `role="img" aria-label="${label}"`;
+  return `<svg class="bonsai ${size}" viewBox="18 34 84 84" ${a11y}>
+    <ellipse class="bz-soil" cx="60" cy="92.4" rx="29" ry="2.8"/>
+    ${moss}${stone}${parts.join('')}
+    <rect class="bz-pot" x="28" y="92" width="64" height="6" rx="2"/>
+    <path class="bz-pot" d="M32 98h56l-4.6 13a3 3 0 0 1-2.8 2H39.4a3 3 0 0 1-2.8-2z"/>
+    <rect class="bz-pot-dark" x="32" y="98" width="56" height="1.6"/>
+    <rect class="bz-pot-dark" x="40" y="112.4" width="8" height="2.4" rx="1"/>
+    <rect class="bz-pot-dark" x="72" y="112.4" width="8" height="2.4" rx="1"/>
+  </svg>`;
+}
+
+// ---------- Compartir una racha o un logro como imagen ----------
+// Se dibuja en un canvas con los colores claros de Bonsái y se comparte con el menú del móvil (o se
+// descarga). Solo lleva lo que dice la tarjeta: el hábito y su racha, o el logro, y tu bonsái.
+// Nunca datos de Salud ni del diario.
+
+const SHARE_SIZE = 1080;
+const SHARE_INK = { paper: '#F6F5F1', card: '#FFFFFF', hair: '#E3E1DA', ink: '#1E2320', ink2: '#5A605B', sage: '#3F5E4C', soft: '#E6ECE7' };
+const SHARE_SANS = '-apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif';
+const SHARE_SERIF = 'ui-serif, "New York", Georgia, "Times New Roman", serif';
+const SHARE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+
+// Lo que va en la imagen, sin dibujar nada (así se puede comprobar qué se comparte).
+function shareCard(kind, key) {
+  if (kind === 'streak') {
+    const habit = findHabit(key);
+    if (!habit) return null;
+    const s = streakInfo(habit);
+    const n = s.current || s.best;
+    if (!n) return null;
+    const unit = s.unit === 'week' ? ['semana', 'semanas'] : ['día', 'días'];
+    const quit = habit.kind === 'quit';
+    return {
+      kind,
+      emoji: habit.emoji,
+      kicker: s.current ? (quit ? 'Llevo' : 'Racha actual') : 'Mi mejor racha',
+      big: fmtNumber.format(n),
+      unit: n === 1 ? unit[0] : unit[1],
+      title: quit ? `sin ${quitWhat(habit)}` : habit.name,
+      line: !quit && s.current && s.best > s.current ? `Mi mejor racha: ${plural(s.best, ...unit)}` : '',
+      file: `bonsai-racha-${slugify(habit.name) || 'habito'}.png`,
+      label: quit ? `${plural(n, ...unit)} sin ${quitWhat(habit)}` : `Racha de ${plural(n, ...unit)} en «${habit.name}»`,
+    };
+  }
+  const a = ACHIEVEMENTS[Number(key)];
+  if (!a || !isUnlocked(a, computeStats())) return null;
+  return {
+    kind, icon: a.icon, kicker: 'Logro conseguido', title: a.name, line: a.desc,
+    file: `bonsai-logro-${slugify(a.name)}.png`, label: `Logro «${a.name}»: ${a.desc}`,
+  };
+}
+
+// Un SVG de la app convertido en imagen suelta (con sus colores dentro, porque fuera no hay CSS).
+function svgImage(markup, css, size) {
+  const svgText = markup.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" `)
+    .replace(/>/, `><style>${css}</style>`);
+  const img = new Image();
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+  return img.decode().then(() => img);
+}
+const SHARE_BONSAI_CSS = `svg{stroke:none}.bz-pot{fill:#B87559}.bz-pot-dark{fill:#9A5C43}.bz-soil{fill:#6E5A48}.bz-seed{fill:#9C7B5B}
+.bz-trunk{fill:none;stroke:#7A6352;stroke-linecap:round;stroke-linejoin:round}.bz-trunk-fill{fill:#7A6352}
+.bz-root{fill:none;stroke:#7A6352;stroke-width:1.4;stroke-linecap:round}.bz-bark{fill:none;stroke:#54412F;stroke-width:1;stroke-linecap:round}
+.bz-jin{fill:none;stroke:#CFC5B6;stroke-width:1.6;stroke-linecap:round}.bz-leaf{fill:#6F9677}.bz-leaf-2{fill:#8DB095}.bz-leaf-3{fill:#557D5E}
+.bz-flower{fill:#E7AEB8}.bz-moss{fill:none;stroke:#7FA06A;stroke-width:1.4;stroke-linecap:round}.bz-stone{fill:#A9A69C}`;
+
+// Texto centrado en una o dos líneas, cortando con «…» si no cabe.
+function shareText(ctx, text, y, maxWidth, lineHeight, maxLines = 2) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  words.forEach((w) => {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width <= maxWidth || !line) line = test;
+    else {
+      lines.push(line);
+      line = w;
+    }
+  });
+  if (line) lines.push(line);
+  const shown = lines.slice(0, maxLines);
+  if (lines.length > maxLines) {
+    let last = shown[maxLines - 1];
+    while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) last = last.slice(0, -1);
+    shown[maxLines - 1] = `${last.trimEnd()}…`;
+  }
+  shown.forEach((l, i) => ctx.fillText(l, SHARE_SIZE / 2, y + i * lineHeight));
+  return y + (shown.length - 1) * lineHeight;
+}
+
+async function drawShareCard(card) {
+  const c = document.createElement('canvas');
+  c.width = SHARE_SIZE;
+  c.height = SHARE_SIZE;
+  const ctx = c.getContext('2d');
+  const mid = SHARE_SIZE / 2;
+  ctx.fillStyle = SHARE_INK.paper;
+  ctx.fillRect(0, 0, SHARE_SIZE, SHARE_SIZE);
+  // La tarjeta blanca con su borde fino.
+  ctx.fillStyle = SHARE_INK.card;
+  ctx.strokeStyle = SHARE_INK.hair;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(72, 72, SHARE_SIZE - 144, SHARE_SIZE - 144, 48);
+  else ctx.rect(72, 72, SHARE_SIZE - 144, SHARE_SIZE - 144); // Safari antiguo: esquinas rectas
+  ctx.fill();
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+
+  // Arriba, tu bonsái; en las rachas, el emoji del hábito a su lado.
+  const bonsai = await svgImage(bonsaiSVG(computeStats().level, { size: 'small' }), SHARE_BONSAI_CSS, 220);
+  if (card.kind === 'streak') {
+    ctx.drawImage(bonsai, mid - 250, 130, 220, 220);
+    ctx.font = `150px ${SHARE_EMOJI}`;
+    ctx.fillText(card.emoji, mid + 140, 300);
+  } else {
+    ctx.fillStyle = SHARE_INK.soft;
+    ctx.beginPath();
+    ctx.arc(mid + 130, 240, 100, 0, Math.PI * 2);
+    ctx.fill();
+    const icon = await svgImage(ICONS[card.icon], `svg{fill:none;stroke:${SHARE_INK.sage};stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}`, 120);
+    ctx.drawImage(icon, mid + 70, 180, 120, 120);
+    ctx.drawImage(bonsai, mid - 330, 130, 220, 220);
+  }
+
+  ctx.fillStyle = SHARE_INK.ink2;
+  ctx.font = `500 44px ${SHARE_SANS}`;
+  ctx.fillText(card.kicker, mid, card.kind === 'streak' ? 450 : 520);
+  let y;
+  if (card.kind === 'streak') {
+    ctx.fillStyle = SHARE_INK.sage;
+    ctx.font = `700 220px ${SHARE_SANS}`;
+    ctx.fillText(card.big, mid, 660);
+    ctx.fillStyle = SHARE_INK.ink;
+    ctx.font = `500 56px ${SHARE_SANS}`;
+    ctx.fillText(card.unit, mid, 730);
+    ctx.font = `500 64px ${SHARE_SERIF}`;
+    y = shareText(ctx, card.title, 830, 780, 74);
+  } else {
+    ctx.fillStyle = SHARE_INK.ink;
+    ctx.font = `500 96px ${SHARE_SERIF}`;
+    y = shareText(ctx, card.title, 660, 800, 104);
+    ctx.fillStyle = SHARE_INK.ink2;
+    ctx.font = `400 50px ${SHARE_SANS}`;
+    y = shareText(ctx, card.line, y + 90, 780, 62);
+  }
+  if (card.kind === 'streak' && card.line) {
+    ctx.fillStyle = SHARE_INK.ink2;
+    ctx.font = `400 42px ${SHARE_SANS}`;
+    ctx.fillText(card.line, mid, Math.min(y + 70, 940));
+  }
+  ctx.fillStyle = SHARE_INK.sage;
+  ctx.font = `600 36px ${SHARE_SANS}`;
+  ctx.fillText('Bonsái', mid, SHARE_SIZE - 110);
+  return c;
+}
+
+async function shareAsImage(kind, key) {
+  const card = shareCard(kind, key);
+  if (!card) return;
+  try {
+    const canvas = await drawShareCard(card);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('sin imagen');
+    const file = new File([blob], card.file, { type: 'image/png' });
+    const result = await shareOrDownload(file, card.label);
+    if (result === 'downloaded') toast('Imagen descargada');
+  } catch (err) {
+    toast('No se pudo crear la imagen');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const streak = e.target.closest('[data-share-streak]');
+  if (streak) shareAsImage('streak', streak.dataset.shareStreak);
+  const badge = e.target.closest('[data-share-achievement]');
+  if (badge) shareAsImage('achievement', badge.dataset.shareAchievement);
+});
+
 // ---------- Pantalla "Progreso" ----------
 
 function renderProgress() {
@@ -1911,7 +2525,7 @@ function renderProgress() {
   const unlockedCount = ACHIEVEMENTS.filter((a) => isUnlocked(a, stats)).length;
 
   const hero = `<article class="card hero">
-    <div class="ring" style="--p:${(inLevel / span).toFixed(3)}"><b aria-hidden="true">${stats.level}</b></div>
+    ${bonsaiSVG(stats.level)}
     <div class="hero-level">Nivel ${stats.level}</div>
     <div class="hero-title">${escapeHTML(meta.title)}</div>
     <div class="xp-track big"><span class="xp-fill" style="width:${(inLevel / span) * 100}%"></span></div>
@@ -1990,13 +2604,14 @@ function renderProgress() {
     <div class="road" id="road">${road}</div>
   </article>`;
 
-  const badges = ACHIEVEMENTS.map((a) => {
+  const badges = ACHIEVEMENTS.map((a, i) => {
     const value = Math.min(stats[a.stat], a.goal);
     if (isUnlocked(a, stats)) {
       return `<div class="badge unlocked">
         <span class="badge-icon">${ICONS[a.icon]}</span>
         <b>${a.name}</b><span class="badge-desc">${a.desc}</span>
         <span class="badge-done">Conseguido</span>
+        <button type="button" class="link-btn badge-share" data-share-achievement="${i}" aria-label="Compartir el logro «${a.name}» como imagen">${ICONS.share}Compartir</button>
       </div>`;
     }
     return `<div class="badge locked">
@@ -2230,8 +2845,10 @@ function renderHistory() {
     const third = h.kind === 'quit'
       ? `<b>${Object.keys(h.slips).length}</b><span>Recaídas</span>`
       : `<b>${s.checkins}</b><span>Días hechos</span>`;
+    // Tocar el hábito (su nombre o sus cifras) abre su ficha; las cifras son el botón, para el teclado.
+    const thirdText = h.kind === 'quit' ? plural(Object.keys(h.slips).length, 'recaída', 'recaídas') : plural(s.checkins, 'día hecho', 'días hechos');
     return `<article class="card" style="--c:${colorHex(h.color)}">
-      <div class="card-head">
+      <div class="card-head" data-open-detail="${h.id}">
         <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
         <div class="card-title">
           <h2>${escapeHTML(h.name)}</h2>
@@ -2239,11 +2856,12 @@ function renderHistory() {
         </div>
         <button type="button" class="text-btn" data-edit="${h.id}">Editar</button>
       </div>
-      <div class="stats">
-        <div class="stat"><b>${s.current}</b><span>Racha (${unit})</span></div>
-        <div class="stat"><b>${s.best}</b><span>Mejor (${unit})</span></div>
-        <div class="stat">${third}</div>
-      </div>
+      <button type="button" class="stats stats-btn" data-detail="${h.id}"
+        aria-label="Ver la ficha de «${escapeHTML(h.name)}»: racha de ${plural(s.current, unit.slice(0, -1), unit)}, la mejor de ${s.best}, ${thirdText}">
+        <span class="stat"><b>${s.current}</b><span>Racha (${unit})</span></span>
+        <span class="stat"><b>${s.best}</b><span>Mejor (${unit})</span></span>
+        <span class="stat">${third}</span>
+      </button>
       ${heatmapHTML(h.id, (key) => habitCellClass(h, key))}
     </article>`;
   });
@@ -2303,7 +2921,10 @@ function heatmapHTML(id, classOf) {
       <span class="hm-caption">Toca un día para ver el detalle</span>
       <button type="button" class="link-btn" data-goto hidden>Ver día ›</button>
     </div>
-    ${id === 'all' ? '<p class="hm-note" hidden></p>' : ''}`;
+    ${id === 'all' ? '<p class="hm-note" hidden></p>' : `<div class="hm-habit-note" hidden>
+      <p class="hm-note" hidden></p>
+      <button type="button" class="link-btn" data-note-day data-habit="${id}"></button>
+    </div>`}`;
 }
 
 function dayCaption(habitId, key) {
@@ -2332,6 +2953,314 @@ function dayCaption(habitId, key) {
     || (amount && amountOn(habit, key) ? amount : 'Sin hacer');
   return `${label} · ${text}`;
 }
+
+// ---------- Ficha de un hábito (se abre desde el Historial) ----------
+// Todo sale del historial con las mismas funciones que calculan las rachas, así que las cifras cuadran.
+
+const DETAIL_NOTES_PAGE = 20;
+const DETAIL_CHART_DAYS = 30;
+
+// Cumplimiento de los últimos `days` días (hasta hoy): lo hecho entre los días que tocaba, sin descansos
+// ni pausas. Hoy solo cuenta si ya está hecho, porque aún está en curso. Los semanales cuentan por semanas
+// (las últimas `weeks`), igual que en el resumen semanal: una semana con días en pausa, o antes de crearlo,
+// solo cuenta si se cumplió, y la semana en curso, cuando ya está cumplida.
+function habitRate(habit, days, weeks) {
+  const today = ui.today;
+  let due = 0;
+  let done = 0;
+  if (habit.schedule.type === 'weekly') {
+    const thisWeek = weekStartOf(today);
+    for (let i = 0; i < weeks; i++) {
+      const ws = shiftKey(thisWeek, -7 * i);
+      const keys = weekKeys(ws).filter((d) => d <= today);
+      if (!keys.some((d) => isActive(habit, d))) continue;
+      const met = countDays(keys, (d) => isDone(habit, d)) >= habit.schedule.times;
+      const blocked = keys.some((d) => !isActive(habit, d));
+      if (!met && (ws === thisWeek || blocked)) continue;
+      due++;
+      if (met) done++;
+    }
+    return { unit: 'week', due, done, rate: due ? done / due : null };
+  }
+  forEachDay(shiftKey(today, -(days - 1)), today, (key, weekday) => {
+    if (!isDue(habit, key, weekday)) return;
+    const ok = isDone(habit, key);
+    if (key === today && !ok) return;
+    due++;
+    if (ok) done++;
+  });
+  return { unit: 'day', due, done, rate: due ? done / due : null };
+}
+
+// Mejor día de la semana en los últimos 90 días. En los diarios y de algunos días: el de mayor cumplimiento
+// (con al menos 3 días que tocaran). En los semanales, que valen cualquier día: el día en que más lo haces.
+function bestWeekday(habit, days = 90) {
+  const today = ui.today;
+  const due = Array(7).fill(0);
+  const done = Array(7).fill(0);
+  const weekly = habit.schedule.type === 'weekly';
+  forEachDay(shiftKey(today, -(days - 1)), today, (key, weekday) => {
+    const ok = isDone(habit, key);
+    if (weekly) {
+      if (ok) done[weekday]++;
+      return;
+    }
+    if (!isDue(habit, key, weekday) || (key === today && !ok)) return;
+    due[weekday]++;
+    if (ok) done[weekday]++;
+  });
+  if (weekly) {
+    const max = Math.max(...done);
+    if (done.reduce((a, b) => a + b, 0) < TREND_MIN_WEEKDAY) return { enough: false };
+    return { enough: true, weekly: true, days: done.flatMap((n, i) => (n === max ? [i] : [])), count: max };
+  }
+  const rates = due.map((n, i) => (n >= TREND_MIN_WEEKDAY ? done[i] / n : null));
+  const valid = rates.filter((r) => r !== null);
+  if (valid.length < 2) return { enough: false };
+  const max = Math.max(...valid);
+  if (max - Math.min(...valid) < 0.1) return { enough: true, even: true };
+  return { enough: true, days: rates.flatMap((r, i) => (r === max ? [i] : [])), rate: max };
+}
+
+// Lo apuntado cada día de los últimos 30 (en los de tiempo, distancia o contador).
+function amountSeries(habit, days = DETAIL_CHART_DAYS) {
+  const list = [];
+  forEachDay(shiftKey(ui.today, -(days - 1)), ui.today, (key) => {
+    list.push({ key, value: habit.done[key] || 0, status: dayStatus(habit, key), done: isDone(habit, key) });
+  });
+  return list;
+}
+
+const fmtRangeDate = (key) => (key.slice(0, 4) === ui.today.slice(0, 4) ? shortDate(key) : fmtCaptionYear.format(parseKey(key)).replace(/\./g, ''));
+const rangeLabel = (from, to) => (from === to ? `el ${fmtRangeDate(from)}` : `del ${fmtRangeDate(from)} al ${fmtRangeDate(to)}`);
+const weekdayList = (days) => fmtList.format(days.map((d) => `los ${WEEKDAY_NAMES[d]}${WEEKDAY_NAMES[d].endsWith('s') ? '' : 's'}`));
+
+const habitDetail = $('#habit-detail');
+
+function openHabitDetail(id) {
+  if (!findHabit(id)) return;
+  ui.detailId = id;
+  ui.detailNotes = DETAIL_NOTES_PAGE;
+  ui.detailSel = null;
+  document.documentElement.classList.add('locked');
+  if (!habitDetail.open) habitDetail.showModal();
+  renderHabitDetail();
+  $('#habit-detail-body').scrollTop = 0;
+  $('#habit-detail-title').focus();
+}
+
+function renderHabitDetail() {
+  const habit = findHabit(ui.detailId);
+  if (!habit) {
+    if (habitDetail.open) habitDetail.close();
+    return;
+  }
+  const s = streakInfo(habit);
+  const quit = habit.kind === 'quit';
+  $('#habit-detail-title').textContent = habit.name;
+  const sub = [quit ? `Dejar · ${quitWhat(habit)}` : scheduleLabel(habit.schedule),
+    hasAmount(habit) ? `Meta: ${isTarget(habit) ? qty(habit, habit.goal) : `${habit.goal} ${countUnit(habit)}`}` : '',
+    `desde el ${fmtRangeDate(habitStart(habit))}`].filter(Boolean).join(' · ');
+  const head = `<div class="detail-head" style="--c:${colorHex(habit.color)}">
+      <span class="emoji" aria-hidden="true">${escapeHTML(habit.emoji)}</span>
+      <p>${escapeHTML(sub)}</p>
+    </div>`;
+  $('#habit-detail-body').innerHTML = head + [
+    detailRateCard(habit),
+    quit ? detailQuitCard(habit, s) : detailWeekdayCard(habit),
+    hasAmount(habit) ? detailAmountCard(habit) : '',
+    detailStreaksCard(s, habit.id),
+    detailNotesCard(habit),
+  ].join('');
+}
+
+function detailRateCard(habit) {
+  const weekly = habit.schedule.type === 'weekly';
+  const periods = weekly ? [[4, 'Últimas 4 semanas'], [13, 'Últimas 13 semanas']] : [[30, 'Últimos 30 días'], [90, 'Últimos 90 días']];
+  const stats = periods.map(([n, label]) => {
+    const r = weekly ? habitRate(habit, 0, n) : habitRate(habit, n, 0);
+    const what = weekly ? plural(r.due, 'semana', 'semanas') : plural(r.due, 'día', 'días');
+    const detail = r.due ? `${r.done} de ${what}` : 'Sin datos aún';
+    return `<div class="stat"><b>${r.rate === null ? '—' : pctText(r.rate)}</b><span>${label}</span><span>${detail}</span></div>`;
+  }).join('');
+  const how = habit.kind === 'quit' ? 'Días sin recaer entre los que estuvo activo (sin pausas).'
+    : weekly ? `Semanas en las que llegaste a ${plural(habit.schedule.times, 'vez', 'veces')}. La semana en curso cuenta cuando la cumples.`
+      : 'Días hechos entre los que tocaba, sin descansos ni pausas. Hoy cuenta cuando ya está hecho.';
+  return `<article class="card">
+      <div class="card-head"><h2>Cumplimiento</h2></div>
+      <div class="stats two">${stats}</div>
+      <p class="card-text small">${how}</p>
+    </article>`;
+}
+
+function detailWeekdayCard(habit) {
+  const best = bestWeekday(habit);
+  let text;
+  if (!best.enough) text = 'Aún no hay datos suficientes (hace falta que haya tocado al menos 3 veces en dos días distintos de la semana).';
+  else if (best.even) text = 'En los últimos 90 días no hay un día claramente mejor: lo llevas parecido todos los días.';
+  else if (best.weekly) text = `En los últimos 90 días, lo haces más ${weekdayList(best.days)} (${plural(best.count, 'vez', 'veces')}).`;
+  else text = `En los últimos 90 días, ${weekdayList(best.days)} (${pctText(best.rate)} de las veces que tocaba).`;
+  return `<article class="card">
+      <div class="card-head"><h2>Mejor día de la semana</h2></div>
+      <p class="card-text">${escapeHTML(capitalize(text))}</p>
+    </article>`;
+}
+
+function detailQuitCard(habit, s) {
+  const slips = Object.keys(habit.slips).sort().reverse();
+  const shown = slips.slice(0, 10);
+  const list = slips.length
+    ? `<ul class="detail-list">${shown.map((d) => `<li>${escapeHTML(capitalize(fmtLong.format(parseKey(d))))}</li>`).join('')}</ul>${
+      slips.length > shown.length ? `<p class="card-text small">Y ${plural(slips.length - shown.length, 'recaída más', 'recaídas más')}.</p>` : ''}`
+    : '<p class="card-text small">Ninguna recaída apuntada.</p>';
+  return `<article class="card">
+      <div class="card-head"><h2>Sin ${escapeHTML(quitWhat(habit))}</h2></div>
+      <div class="stats">
+        <div class="stat"><b>${s.current}</b><span>Días seguidos ahora</span></div>
+        <div class="stat"><b>${s.checkins}</b><span>Días sin recaer en total</span></div>
+        <div class="stat"><b>${slips.length}</b><span>Recaídas</span></div>
+      </div>
+      <h3 class="detail-sub">Recaídas</h3>
+      ${list}
+    </article>`;
+}
+
+function detailAmountCard(habit) {
+  const series = amountSeries(habit);
+  const max = Math.max(habit.goal, ...series.map((d) => d.value));
+  const W = 300;
+  const H = 110;
+  const gap = 2;
+  const bw = (W - gap * (series.length - 1)) / series.length;
+  const y = (v) => H - (v / (max * 1.1)) * H;
+  const bars = series.map((d, i) => {
+    const x = i * (bw + gap);
+    const cls = d.value >= habit.goal ? 'met' : d.value ? 'part' : 'zero';
+    const h = d.value ? Math.max(2, H - y(d.value)) : 2;
+    const sel = ui.detailSel === d.key ? ' sel' : '';
+    return `<rect class="${cls}${sel}" data-k="${d.key}" x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="${Math.min(2, bw / 2).toFixed(2)}"/>`;
+  }).join('');
+  const goalY = y(habit.goal).toFixed(2);
+  const withValue = series.filter((d) => d.value > 0);
+  const met = series.filter((d) => d.value >= habit.goal).length;
+  const avg = withValue.length ? withValue.reduce((a, d) => a + d.value, 0) / withValue.length : 0;
+  const unit = isTarget(habit) ? habit.unit : countUnit(habit);
+  const fmt = (v) => `${fmtAmount.format(round2(v))}${unit ? ` ${unit}` : ''}`;
+  const summary = withValue.length
+    ? `En los últimos 30 días apuntaste algo ${plural(withValue.length, 'día', 'días')}, con una media de ${fmt(avg)} esos días, y llegaste a la meta ${plural(met, 'día', 'días')}.`
+    : 'En los últimos 30 días no hay nada apuntado.';
+  const sel = series.find((d) => d.key === ui.detailSel);
+  const selText = sel ? `${capitalize(fmtCaption.format(parseKey(sel.key)).replace(/\./g, ''))} · ${
+    sel.status === 'paused' ? 'En pausa' : sel.status === 'off' ? 'Aún no existía' : sel.value ? `${fmt(sel.value)}${sel.value >= habit.goal ? ' · meta cumplida' : ''}` : 'Nada apuntado'}` : 'Toca una barra para ver ese día';
+  const rows = [...series].reverse().filter((d) => d.status !== 'off')
+    .map((d) => `<tr><th scope="row">${escapeHTML(capitalize(fmtCaption.format(parseKey(d.key)).replace(/\./g, '')))}</th><td>${
+      d.status === 'paused' ? 'En pausa' : d.value ? escapeHTML(fmt(d.value)) : '—'}</td></tr>`).join('');
+  return `<article class="card detail-amount" style="--c:${colorHex(habit.color)}">
+      <div class="card-head"><h2>Cantidades</h2><span class="legend-goal">Meta: ${escapeHTML(fmt(habit.goal))}</span></div>
+      <svg class="amount-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" tabindex="0" role="img"
+        aria-label="Cantidades de los últimos 30 días. ${escapeHTML(summary)} Usa las flechas para recorrer los días.">
+        ${bars}<line class="goal" x1="0" x2="${W}" y1="${goalY}" y2="${goalY}"/>
+      </svg>
+      <div class="chart-scale" aria-hidden="true"><span>Hace 30 días</span><span>Hoy</span></div>
+      <p class="chart-sel" aria-live="polite">${escapeHTML(selText)}</p>
+      <p class="card-text small">${escapeHTML(summary)}</p>
+      <details class="detail-table">
+        <summary>Ver los datos día a día</summary>
+        <table><thead><tr><th scope="col">Día</th><th scope="col">Apuntado</th></tr></thead><tbody>${rows}</tbody></table>
+      </details>
+    </article>`;
+}
+
+function detailStreaksCard(s, habitId) {
+  const unit = s.unit === 'week' ? ['semana', 'semanas'] : ['día', 'días'];
+  const past = s.runs.filter((r) => !r.current).reverse();
+  const current = s.runs.find((r) => r.current);
+  // «La mejor» solo si una racha anterior supera a todas las demás (también a la actual).
+  const top = [...s.runs].sort((a, b) => b.length - a.length);
+  const best = top.length && !top[0].current && (top.length === 1 || top[0].length > top[1].length) ? top[0] : null;
+  const item = (r) => `<li><b>${plural(r.length, ...unit)}</b><span>${escapeHTML(rangeLabel(r.from, r.to))}${r === best ? ' · la mejor' : ''}</span></li>`;
+  const shown = past.slice(0, 10);
+  return `<article class="card">
+      <div class="card-head"><h2>Rachas</h2></div>
+      <p class="card-text">${current ? `Racha actual: <b>${plural(current.length, ...unit)}</b>, desde ${
+        s.unit === 'week' ? 'la semana del' : 'el'} ${escapeHTML(fmtRangeDate(current.from))}.${
+        past.length && past.every((r) => current.length > r.length) ? ' Es la mejor que has tenido.' : ''}` : 'Ahora mismo no tienes racha.'}</p>
+      <h3 class="detail-sub">Rachas anteriores</h3>
+      ${past.length ? `<ul class="detail-list runs">${shown.map(item).join('')}</ul>${past.length > shown.length
+        ? `<p class="card-text small">Y ${plural(past.length - shown.length, 'racha más', 'rachas más')}.</p>` : ''}`
+        : '<p class="card-text small">Aún no hay rachas anteriores.</p>'}
+      ${s.current || s.best ? `<button type="button" class="secondary-btn wide spaced" data-share-streak="${habitId}">${ICONS.share}${
+        s.current ? 'Compartir tu racha' : 'Compartir tu mejor racha'}</button>` : ''}
+    </article>`;
+}
+
+function detailNotesCard(habit) {
+  const notes = Object.entries(habit.notes).sort(([a], [b]) => (a < b ? 1 : -1));
+  const shown = notes.slice(0, ui.detailNotes);
+  const addToday = canNote(habit, ui.today) && !habit.notes[ui.today]
+    ? `<button type="button" class="link-btn" data-detail-note="${ui.today}">${ICONS.bubble}Añadir una nota de hoy</button>` : '';
+  return `<article class="card">
+      <div class="card-head"><h2>Notas</h2>${notes.length ? `<span class="card-count">${notes.length}</span>` : ''}</div>
+      ${notes.length ? `<ul class="detail-notes">${shown.map(([day, note]) => `<li><button type="button" data-detail-note="${day}"
+        aria-label="Nota del ${escapeHTML(fmtLong.format(parseKey(day)))}: ${escapeHTML(note)}. Editar">
+        <span class="detail-note-day">${escapeHTML(capitalize(fmtCaption.format(parseKey(day)).replace(/\./g, '')))}</span>
+        <span class="detail-note-text">${escapeHTML(note)}</span></button></li>`).join('')}</ul>`
+        : '<p class="card-text small">Aún no hay notas. Puedes añadirlas desde Hoy o tocando un día en el Historial.</p>'}
+      ${notes.length > shown.length ? `<button type="button" class="link-btn" data-detail-more>Ver ${Math.min(DETAIL_NOTES_PAGE, notes.length - shown.length)} más</button>` : ''}
+      ${addToday}
+    </article>`;
+}
+
+// Tocar (o recorrer con las flechas) la gráfica de cantidades enseña el día debajo.
+function selectDetailDay(key) {
+  ui.detailSel = key;
+  const chart = $('#habit-detail-body .amount-chart');
+  if (!chart) return;
+  const focused = document.activeElement === chart;
+  const card = chart.closest('.card');
+  card.outerHTML = detailAmountCard(findHabit(ui.detailId));
+  if (focused) $('#habit-detail-body .amount-chart').focus();
+}
+
+$('#habit-detail-body').addEventListener('click', (e) => {
+  const bar = e.target.closest('.amount-chart rect[data-k]');
+  if (bar) {
+    selectDetailDay(bar.dataset.k);
+    return;
+  }
+  const note = e.target.closest('[data-detail-note]');
+  if (note) {
+    openHabitNote(ui.detailId, note.dataset.detailNote, 'detail');
+    return;
+  }
+  if (e.target.closest('[data-detail-more]')) {
+    ui.detailNotes += DETAIL_NOTES_PAGE;
+    renderHabitDetail();
+  }
+});
+
+$('#habit-detail-body').addEventListener('keydown', (e) => {
+  const chart = e.target.closest('.amount-chart');
+  const step = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
+  if (!chart || !step) return;
+  e.preventDefault();
+  const keys = [...chart.querySelectorAll('rect[data-k]')].map((r) => r.dataset.k);
+  const i = keys.indexOf(ui.detailSel);
+  selectDetailDay(keys[Math.max(0, Math.min(keys.length - 1, i < 0 ? keys.length - 1 : i + step))]);
+});
+
+$('#habit-detail-close').addEventListener('click', () => habitDetail.close());
+habitDetail.addEventListener('click', (e) => { if (e.target === habitDetail) habitDetail.close(); });
+habitDetail.addEventListener('close', () => {
+  document.documentElement.classList.remove('locked');
+  const id = ui.detailId;
+  ui.detailId = null;
+  // Si se tocaron notas, el Historial se pone al día; el foco vuelve a las cifras del hábito.
+  if (ui.view === 'history') {
+    renderHistory();
+    $(`#history [data-detail="${id}"]`)?.focus();
+  }
+});
 
 // ---------- Pantalla "Salud" ----------
 
@@ -2950,23 +3879,61 @@ async function clearHealth() {
 
 // ---------- Exportar a CSV y recordatorio ----------
 
-// Todos los registros de Salud (también los de medidas ocultas), tal como se apuntaron. Punto y coma y coma
-// decimal, como espera Excel en español, y marca UTF-8 para que salgan bien las tildes.
+// CSV como espera Excel en español: punto y coma, coma decimal y marca UTF-8 para que salgan bien las tildes.
+// Lo usan Salud y el historial de hábitos.
+const csvNumber = (v) => (v === undefined || v === '' ? '' : String(v).replace('.', ','));
+// Los textos que empiezan por = + - @ se protegen para que la hoja no los tome por fórmulas.
+function csvText(s) {
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return /[";\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+const csvFile = (header, rows) => `﻿${[header, ...rows].map((row) => row.join(';')).join('\r\n')}\r\n`;
+
+// Todos los registros de Salud (también los de medidas ocultas), tal como se apuntaron.
 function healthCSV() {
-  const number = (v) => (v === undefined ? '' : String(v).replace('.', ','));
-  // Las notas que empiezan por = + - @ se protegen para que la hoja no las tome por fórmulas.
-  const text = (s) => {
-    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-    return /[";\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-  };
   const header = ['Fecha', 'Medida', 'Valor', 'Diastólica', 'Pulso', 'Unidad', 'Nota'];
   const rows = [...state.health.entries].sort(byHealthDate).map((e) => {
     const known = Object.hasOwn(HEALTH_METRICS, e.metric) ? HEALTH_METRICS[e.metric] : null;
     const symbol = known && known.units[e.unit] ? known.units[e.unit].symbol : e.unit;
-    return [e.date, text(known ? known.label : e.metric), number(e.value), number(e.value2), number(e.pulse), text(symbol), text(e.note)];
+    return [e.date, csvText(known ? known.label : e.metric), csvNumber(e.value), csvNumber(e.value2), csvNumber(e.pulse), csvText(symbol), csvText(e.note)];
   });
-  return `﻿${[header, ...rows].map((row) => row.join(';')).join('\r\n')}\r\n`;
+  return csvFile(header, rows);
 }
+
+// Historial de hábitos: una fila por hábito y día con algo apuntado (una marca, una recaída o una nota),
+// por fechas y en el orden de tus hábitos (también los archivados). Nada de Salud ni del diario.
+const habitKindLabel = (h) => (h.kind === 'quit' ? 'Dejar algo'
+  : isTarget(h) ? (MEASURES[h.measure] || { label: 'Cantidad' }).label
+    : h.goal > 1 ? 'Contador' : 'Sí o no');
+function habitsCSV() {
+  const header = ['Fecha', 'Hábito', 'Tipo', 'Hecho', 'Cantidad', 'Unidad', 'Recaída', 'Nota'];
+  const rows = [];
+  state.habits.forEach((h, order) => {
+    const days = new Set([...Object.keys(h.done), ...Object.keys(h.slips), ...Object.keys(h.notes)]);
+    days.forEach((day) => {
+      const amount = hasAmount(h) && h.done[day] !== undefined;
+      rows.push({ day, order, cells: [
+        day,
+        csvText(h.name),
+        habitKindLabel(h),
+        isDone(h, day) ? 'Sí' : 'No',
+        amount ? csvNumber(h.done[day]) : '',
+        amount ? csvText(isTarget(h) ? h.unit : countUnit(h)) : '',
+        h.kind === 'quit' && h.slips[day] ? 'Sí' : '',
+        csvText(h.notes[day] || ''),
+      ] });
+    });
+  });
+  rows.sort((a, b) => (a.day === b.day ? a.order - b.order : a.day < b.day ? -1 : 1));
+  return csvFile(header, rows.map((r) => r.cells));
+}
+
+async function exportHabitsCSV() {
+  const file = new File([habitsCSV()], `bonsai-historial-${ui.today}.csv`, { type: 'text/csv' });
+  const result = await shareOrDownload(file, 'Historial de hábitos en CSV');
+  if (result === 'downloaded') toast('Archivo CSV descargado');
+}
+$('#habits-csv-btn').addEventListener('click', exportHabitsCSV);
 
 async function exportHealthCSV() {
   const file = new File([healthCSV()], `bonsai-salud-${ui.today}.csv`, { type: 'text/csv' });
@@ -3337,18 +4304,28 @@ function deleteEmotion(id) {
 // ralentiza la app, y al volver de otra app se pone al día.
 let zenRun = null;
 let wakeLock = null;
+let wakeRequest = null;
+const awakeFor = new Set(); // quién necesita ahora la pantalla encendida: 'zen' o 'timer' (el temporizador de un hábito)
 
-async function keepAwake(on) {
+// La pantalla se queda encendida mientras alguien la necesite; así Zen no la apaga si el temporizador sigue.
+async function keepAwake(on, who = 'zen') {
+  if (on) awakeFor.add(who);
+  else awakeFor.delete(who);
   try {
-    if (on && !wakeLock && navigator.wakeLock) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => { wakeLock = null; });
-    } else if (!on && wakeLock) {
-      await wakeLock.release();
+    if (awakeFor.size && !wakeLock && !wakeRequest && navigator.wakeLock) {
+      wakeRequest = navigator.wakeLock.request('screen');
+      const lock = await wakeRequest;
+      wakeRequest = null;
+      wakeLock = lock;
+      lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+      if (!awakeFor.size) await keepAwake(false, who); // se dejó de necesitar mientras se pedía
+    } else if (!awakeFor.size && wakeLock) {
+      const lock = wakeLock;
       wakeLock = null;
+      await lock.release();
     }
   } catch (err) {
-    // sin permiso para mantenerla encendida: la práctica sigue igual
+    wakeRequest = null; // sin permiso para mantenerla encendida: todo sigue igual
   }
 }
 
@@ -4222,6 +5199,7 @@ function renderSettings() {
   });
 
   renderRoutineList();
+  renderVacation();
   renderBackupNotes();
   renderPrefControls();
 
@@ -4315,6 +5293,149 @@ function deleteHabit(habit) {
   toast(`«${habit.name}» eliminado`, { action: 'Deshacer', onAction: undoTo(snapshot) });
 }
 
+// ---------- Modo vacaciones ----------
+// Pausa a la vez todos los hábitos activos con la pausa de siempre, así que las rachas no se rompen.
+// Al volver solo se reanudan los que pausó el modo vacaciones; los que ya estaban en pausa siguen igual.
+
+// Qué haría hoy: `pause`, los hábitos a pausar (desde hoy, o desde mañana si hoy ya está hecho, como siempre);
+// `already`, los que ya estaban en pausa (o tienen una pausa por empezar), que no se tocan.
+function vacationPlan(back = null) {
+  const today = ui.today;
+  const pause = [];
+  const already = [];
+  for (const h of visibleHabits()) {
+    if (isPaused(h, today) || h.pauses.some((p) => p.from > today)) {
+      already.push(h);
+      continue;
+    }
+    const from = firstFreeDay(h);
+    if (!back || from < back) pause.push({ habit: h, from }); // hecho hoy y vuelves mañana: no hace falta pausarlo
+  }
+  return { pause, already };
+}
+
+// `back`: el día en que vuelven a contar (o null, hasta tocar «He vuelto»).
+function startVacation(back = null) {
+  const today = ui.today;
+  if (state.vacation || (back && (!isDateKey(back) || back <= today))) return false;
+  const { pause } = vacationPlan(back);
+  const to = back ? shiftKey(back, -1) : null;
+  pause.forEach(({ habit, from }) => habit.pauses.push({ from, to }));
+  state.vacation = { from: today, back, habits: pause.map(({ habit, from }) => ({ id: habit.id, from })) };
+  return save();
+}
+
+// «He vuelto»: termina ayer las pausas del modo vacaciones (las que siguen tal cual las dejó) y quita las que
+// aún no habían empezado. Si reanudaste alguno a mano, su pausa ya no coincide y no se toca.
+function endVacation() {
+  const v = state.vacation;
+  if (!v) return false;
+  const today = ui.today;
+  const to = v.back ? shiftKey(v.back, -1) : null;
+  v.habits.forEach(({ id, from }) => {
+    const h = findHabit(id);
+    if (!h) return;
+    h.pauses = h.pauses.flatMap((p) => {
+      if (p.from !== from || p.to !== to) return [p];
+      if (p.from >= today) return [];
+      return [{ from: p.from, to: shiftKey(today, -1) }];
+    });
+  });
+  state.vacation = null;
+  return save();
+}
+
+// Con fecha de vuelta, las pausas terminan solas; al llegar ese día solo queda dar el modo por terminado.
+function checkVacationEnd() {
+  const v = state.vacation;
+  if (!v || !v.back || ui.today < v.back) return false;
+  state.vacation = null;
+  save();
+  toast('Se acabaron las vacaciones: tus hábitos vuelven a contar desde hoy');
+  return true;
+}
+
+function renderVacation() {
+  const v = state.vacation;
+  $('#vacation-note').hidden = !v || !visibleHabits().length;
+  if (v) {
+    $('#vacation-note-text').innerHTML = `<b>De vacaciones</b>${v.back ? ` · vuelves el ${escapeHTML(shortDate(v.back))}` : ''}`;
+  }
+  $('#vacation-status').textContent = v
+    ? `De vacaciones desde el ${shortDate(v.from)}${v.back ? `; vuelves el ${fmtLong.format(parseKey(v.back))}` : ', sin fecha de vuelta'}. ${
+      capitalize(plural(v.habits.length, 'hábito pausado', 'hábitos pausados'))}: al volver se reanudan solo esos.`
+    : 'Pausa a la vez todos tus hábitos activos, por ejemplo durante un viaje. Tus rachas no se rompen.';
+  $('#vacation-btn').textContent = v ? 'He vuelto' : 'Activar modo vacaciones';
+}
+
+const vacationDialog = $('#vacation-dialog');
+const vacationBack = $('#vacation-back');
+
+function openVacation() {
+  vacationBack.value = '';
+  vacationBack.min = shiftKey(ui.today, 1);
+  showVacationError('');
+  renderVacationList();
+  vacationDialog.showModal();
+}
+
+function showVacationError(message) {
+  $('#vacation-back-error').textContent = message;
+  $('#vacation-back-error').hidden = !message;
+  if (message) vacationBack.setAttribute('aria-invalid', 'true');
+  else vacationBack.removeAttribute('aria-invalid');
+}
+
+function renderVacationList() {
+  const back = vacationBack.value > ui.today ? vacationBack.value : null;
+  const { pause, already } = vacationPlan(back);
+  const item = ({ habit, from }) => `<li class="keep">${ICONS.pause}<span>${escapeHTML(habit.emoji)} ${escapeHTML(habit.name)}${
+    from > ui.today ? ' · desde mañana: hoy ya cuenta' : ''}</span></li>`;
+  $('#vacation-list').innerHTML = (pause.length
+    ? `<p class="section-label spaced">Se pausan (${pause.length})</p><ul class="confirm-list">${pause.map(item).join('')}</ul>`
+    : '<p class="card-text">No hay hábitos activos que pausar.</p>')
+    + (already.length ? `<p class="hint left">Ya estaban en pausa y siguen igual: ${escapeHTML(fmtList.format(already.map((h) => h.name)))}.</p>` : '');
+  $('#vacation-submit').disabled = !pause.length;
+}
+
+vacationBack.addEventListener('input', () => {
+  showVacationError('');
+  renderVacationList();
+});
+
+$('#vacation-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const back = vacationBack.value || null;
+  if (back && back <= ui.today) {
+    showVacationError('Elige un día a partir de mañana, o déjalo en blanco.');
+    vacationBack.focus();
+    return;
+  }
+  const snapshot = JSON.stringify(state);
+  if (!startVacation(back)) return;
+  vacationDialog.close();
+  render();
+  haptic();
+  toast(back ? `De vacaciones hasta el ${shortDate(shiftKey(back, -1))}` : 'Modo vacaciones activado', { action: 'Deshacer', onAction: undoTo(snapshot) });
+});
+$('#vacation-cancel').addEventListener('click', () => vacationDialog.close());
+vacationDialog.addEventListener('click', (e) => {
+  if (e.target === vacationDialog) vacationDialog.close();
+});
+
+function finishVacation() {
+  const snapshot = JSON.stringify(state);
+  if (!endVacation()) return;
+  render();
+  haptic();
+  toast('Has vuelto: tus hábitos cuentan otra vez desde hoy', { action: 'Deshacer', onAction: undoTo(snapshot) });
+}
+
+$('#vacation-btn').addEventListener('click', () => (state.vacation ? finishVacation() : openVacation()));
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-vacation-end]')) finishVacation();
+});
+
 profileName.addEventListener('input', () => {
   state.profile.name = profileName.value.trim().slice(0, 24);
   save();
@@ -4368,7 +5489,7 @@ $('#reset-btn').addEventListener('click', async () => {
       <ul class="confirm-list">
         <li>${ICONS.x}<span>Tu XP y tu nivel vuelven a cero</span></li>
         <li>${ICONS.x}<span>Todos los logros se bloquean otra vez</span></li>
-        <li>${ICONS.x}<span>Se borra el historial de días y las rachas</span></li>
+        <li>${ICONS.x}<span>Se borra el historial de días (con sus notas) y las rachas</span></li>
         <li class="keep">${ICONS.check}<span>Tus hábitos, rutinas, perfil, diario y Salud se mantienen</span></li>
       </ul>
       <button type="button" class="link-btn" data-export>Exportar una copia antes</button>`,
@@ -4382,6 +5503,7 @@ $('#reset-btn').addEventListener('click', async () => {
     h.done = {};
     h.slips = {};
     h.shields = {};
+    h.notes = {};
     h.created = ui.today;
   });
   state.bank = emptyBank();
@@ -4560,7 +5682,7 @@ const INFO = {
   welcome: () => ({
     title: 'Cómo se usa Bonsái',
     body: `<ul class="summary-list">
-      ${stepItem('plus', 'Crea un hábito', 'Toca + y elige qué quieres cultivar. Cada tipo trae su meta: minutos, vasos, páginas…')}
+      ${stepItem('plus', 'Crea un hábito', 'Toca + y elige qué quieres cultivar, o empieza con un pack. Cada tipo trae su meta: minutos, vasos, páginas…')}
       ${stepItem('checkCircle', 'Márcalo al hacerlo', 'Un toque y ganas XP. En los de cantidad, mantén pulsado para apuntar lo que hiciste. Con ‹ › vas a días anteriores.')}
       ${stepItem('flame', 'Cuida tu racha', 'Los días de descanso y las pausas no la rompen, y los protectores te cubren si un día se te olvida.')}
       ${stepItem('target', 'Retos y niveles', 'Cada lunes hay 3 retos nuevos. Con la XP subes de nivel, de Semilla a Maestro.')}
@@ -4576,11 +5698,17 @@ const INFO = {
       faqItem('¿Qué son los protectores?', `Ganas 1 cada vez que un hábito llega a ${SHIELD_EVERY}, ${SHIELD_EVERY * 2}, ${SHIELD_EVERY * 3}… días seguidos (como mucho guardas ${SHIELD_MAX}). Si ayer se te olvidó un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta uno solo y la racha se mantiene. Ese día no da XP y, si luego lo marcas, el protector vuelve.`),
       faqItem('¿Cómo funcionan los retos?', 'Cada lunes salen 3 retos elegidos según tus hábitos, los mismos toda la semana. Dan de 30 a 60 XP. Los ves en Hoy y, con detalle, en Progreso.'),
       faqItem('¿Cómo apunto una cantidad?', 'En los de tiempo, distancia o páginas, un toque marca la meta y, si mantienes pulsado, apuntas lo que hiciste de verdad. En los contadores (vasos, piezas…) y en los que haces varias veces al día, cada toque suma 1 y mantener pulsado resta 1. Con teclado, la tecla − hace lo mismo que mantener pulsado.'),
+      faqItem('¿Cómo funciona el temporizador?', 'Los hábitos de minutos tienen un botón ▶ en Hoy. Cuenta desde que lo empiezas, aunque cierres la app o se bloquee el móvil, y se puede pausar, reanudar o cancelar. Al parar, suma los minutos (redondeados) al día en que empezó, aunque haya pasado la medianoche, igual que si los apuntaras a mano. Solo hay uno a la vez y, mientras cuenta, la pantalla se mantiene encendida si el navegador lo permite.'),
+      faqItem('¿Puedo apuntar cómo me fue?', 'Sí: toca el bocadillo junto a la casilla del hábito en Hoy, o toca un día en su mapa del Historial y «Añadir nota». Es una nota corta (hasta 140 caracteres), distinta de la del diario, y no cambia la racha ni la XP. Las verás en la ficha del hábito.'),
+      faqItem('¿Qué es la ficha de un hábito?', 'Se abre tocando un hábito en el Historial. Enseña qué parte cumpliste de lo que tocaba en los últimos 30 y 90 días (sin descansos ni pausas; en los semanales, por semanas), tu mejor día de la semana, las cantidades de los últimos 30 días, tus rachas anteriores con sus fechas y tus notas. En los de dejar algo, los días sin hacerlo y las recaídas. Sale de las mismas cuentas que las rachas.'),
       faqItem('¿Puedo marcar un día que se me olvidó?', 'Sí. En Hoy, usa las flechas ‹ › para ir a días anteriores. O en el Historial: toca el día y luego «Ver día».'),
       faqItem('¿Pausar, archivar o eliminar?', 'Pausar (vacaciones, una lesión…) lo aparta sin romper la racha. Archivar lo quita de Hoy y del Historial, pero conservas su XP y puedes restaurarlo desde Ajustes. Eliminar lo borra, con unos segundos para deshacerlo, y tu XP total no cambia.'),
-      faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti.'),
+      faqItem('¿Qué hace el modo vacaciones?', 'Desde Ajustes, pausa a la vez todos tus hábitos activos, con fecha de vuelta si quieres. Usa la pausa de siempre, así que las rachas no se rompen. Al volver (ese día, o al tocar «He vuelto») se reanudan solos los que pausó; los que ya estaban en pausa siguen igual.'),
+      faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti. Los packs para empezar, al tocar +, crean varios hábitos y su rutina de una vez, sin duplicar los que ya tienes.'),
       faqItem('¿Qué guarda Salud?', 'Las medidas que elijas: peso, cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no interpreta tus medidas ni da consejos médicos. Se abre desde su tarjeta en Hoy, que puedes ocultar aquí, en Ajustes.'),
       faqItem('¿Qué es Zen?', 'Un rincón para la calma, desde la tarjeta de Hoy: respiración guiada, meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1, además de gratitud y emociones. No da XP ni rachas; si quieres, al terminar una práctica marca el hábito que elijas (en los de minutos, como Meditar, suma lo practicado). Cuenta cada práctica de un minuto o más.'),
+      faqItem('¿Puedo sacar mis datos o compartir mis rachas?', 'En Ajustes, «Historial de hábitos en CSV» crea una hoja de cálculo con cada día que tiene una marca, una recaída o una nota. Desde la ficha de un hábito puedes compartir tu racha como imagen, y desde Progreso, tus logros. Las imágenes nunca llevan datos de Salud ni del diario.'),
+      faqItem('¿Hay accesos directos?', 'En Android, con Bonsái instalado desde Chrome, mantén pulsado su icono: aparecen Zen, Registrar salud y Nuevo hábito. En iPhone, Safari no los ofrece.'),
       faqItem('¿Dónde se guardan mis datos? ¿Se sincronizan?', 'Solo en este dispositivo: no hay cuenta ni servidor, así que no se sincronizan solos. Para pasarlos a otro móvil, exporta una copia y luego impórtala allí.'),
       faqItem('¿Qué pasa si borro la app?', 'En el iPhone, borrar el icono borra también sus datos; en Android puede pasar al borrar los datos de Chrome. Por eso conviene exportar una copia de vez en cuando (Bonsái te lo puede recordar).'),
     ].join(''),
@@ -4588,6 +5716,17 @@ const INFO = {
   news: () => ({
     title: 'Novedades',
     body: `<h3 class="news-title">Versión ${APP_VERSION}</h3>
+      <ul class="news-list">
+        <li>Una nota en cada hábito y día («cómo fue», «por qué no pude»), desde Hoy o tocando un día en el Historial.</li>
+        <li>La ficha de cada hábito, tocándolo en el Historial: cumplimiento de 30 y 90 días, mejor día de la semana, cantidades, rachas anteriores con sus fechas y notas.</li>
+        <li>Temporizador en los hábitos de minutos: sigue contando aunque cierres la app y, al parar, suma los minutos.</li>
+        <li>Modo vacaciones, en Ajustes: pausa todos tus hábitos a la vez sin romper las rachas.</li>
+        <li>Un bonsái que crece contigo, de Semilla a Maestro, en Progreso y en Hoy.</li>
+        <li>Packs para empezar, como «Dormir mejor» o «Mañana tranquila».</li>
+        <li>Tu historial de hábitos en CSV, y compartir una racha o un logro como imagen.</li>
+        <li>En Android, accesos directos al mantener pulsado el icono: Zen, Registrar salud y Nuevo hábito.</li>
+      </ul>
+      <h3 class="news-title">Versión 0.8 beta</h3>
       <ul class="news-list">
         <li>Zen, desde una tarjeta en Hoy: respiración guiada (caja, 4-7-8 y tranquila), meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1.</li>
         <li>Gratitud y emociones, con su historial, y una reflexión distinta cada día.</li>
@@ -5200,6 +6339,8 @@ function render() {
   else if (ui.view === 'history') renderHistory();
   else renderSettings();
   if (healthSheet.open) renderHealth();
+  if (habitDetail.open) renderHabitDetail();
+  if (state.timer) syncTimer();
 }
 
 function showView(view) {
@@ -5223,6 +6364,7 @@ function checkDateChange() {
   if (ui.day === ui.today) ui.day = now;
   ui.today = now;
   useShields();
+  checkVacationEnd();
   render();
   maybeShowSummary();
 }
@@ -5552,7 +6694,7 @@ $('#type-groups').innerHTML = TYPE_GROUPS.map(([group, label]) => `<section clas
 
 // Buscador: sin tildes ni mayúsculas, por nombre, grupo u otras palabras («comer» encuentra «Hacer las comidas»).
 // Personalizado siempre queda a mano y, si has escrito algo, lo propone con ese nombre.
-const searchText = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const searchText = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const typeWords = new Map(HABIT_TYPES.map((t) => [t.id, searchText(`${t.name} ${t.k || ''} ${TYPE_GROUPS.find(([g]) => g === t.group)[1]}`)]));
 const typeSearch = $('#type-search');
 
@@ -5576,9 +6718,137 @@ function filterTypes() {
     found += shown;
   });
   $('#type-empty').hidden = !query || found > 0;
+  $('#pack-group').hidden = Boolean(query); // los packs, solo sin búsqueda
   const customName = $('#type-groups [data-type="custom"] .type-name');
   customName.textContent = raw ? `Crear «${raw.slice(0, 40)}»` : 'Personalizado';
 }
+
+// ---------- Packs para empezar: varios hábitos del catálogo y su rutina de una vez ----------
+
+const PACKS = [
+  { id: 'sleep', emoji: '🌙', name: 'Dormir mejor', desc: 'Menos pantallas por la noche, acostarte a tu hora y dormir tus horas.', types: ['unplug', 'bedtime', 'sleep', 'coffee'] },
+  { id: 'morning', emoji: '🌅', name: 'Mañana tranquila', desc: 'Empezar el día sin prisas: levantarte, hacer la cama, agua, meditar y desayunar.', types: ['wake', 'bed', 'water', 'meditate', 'breakfast'] },
+  { id: 'move', emoji: '🚶', name: 'Moverte más', desc: 'Pequeños movimientos que se notan: caminar, estirar, escaleras y pausas.', types: ['walk', 'stretch', 'stairs', 'breaks'] },
+  { id: 'calm', emoji: '🍃', name: 'Mente en calma', desc: 'Un rato para ti cada día: meditar, respirar, agradecer y escribir.', types: ['meditate', 'breathe', 'gratitude', 'journal'] },
+  { id: 'food', emoji: '🥗', name: 'Comer mejor', desc: 'Hacer tus comidas, fruta y verdura, agua y sin picar entre horas.', types: ['eat', 'fruit', 'veggies', 'water', 'snacks'] },
+  { id: 'home', emoji: '🏠', name: 'Casa en orden', desc: 'Lo básico de la casa, poco a poco: cama, platos, ordenar y lavadoras.', types: ['bed', 'dishes', 'tidy', 'laundry'] },
+  { id: 'focus', emoji: '🎯', name: 'Concentrarte', desc: 'Planificar el día, empezar por lo importante, pomodoros y menos redes.', types: ['plan', 'priority', 'pomodoro', 'social'] },
+];
+const findPack = (id) => PACKS.find((p) => p.id === id);
+
+// Un hábito nuevo de un tipo, con lo que propone su edición (su medida y meta, sus veces al día, su frecuencia).
+function habitFromType(type, habits = state.habits) {
+  const measure = type.measures ? measureSpec(type, type.measures[0].id) : null;
+  return newHabit({
+    name: type.name,
+    emoji: type.emoji,
+    color: nextColor(habits),
+    type: type.id,
+    kind: type.kind || 'build',
+    schedule: type.kind === 'quit' ? { type: 'daily' } : type.schedule ? { ...type.schedule } : { type: 'daily' },
+    ...(measure && type.kind !== 'quit'
+      ? { goal: measure.def, unit: measure.unit, mode: measure.mode, measure: measure.id }
+      : { goal: type.kind === 'quit' ? 1 : type.goal || 1, unit: '', mode: 'count', measure: '' }),
+  });
+}
+
+// El hábito que ya tienes de ese tipo (o con ese nombre), si hay uno a la vista: así no se duplica sin preguntar.
+function packExisting(type) {
+  const name = searchText(type.name);
+  return visibleHabits().find((h) => h.type === type.id || searchText(h.name) === name) || null;
+}
+
+// Qué haría: los tipos del pack, cuáles ya tienes y qué pasa con la rutina.
+function packPlan(pack) {
+  const items = pack.types.map((id) => ({ type: typeOf(id), existing: packExisting(typeOf(id)) }));
+  const routine = state.routines.find((r) => r.name.toLocaleLowerCase('es') === pack.name.toLocaleLowerCase('es')) || null;
+  return { items, routine, canRoutine: Boolean(routine) || state.routines.length < ROUTINE_MAX };
+}
+
+// Crea los tipos elegidos y, si se pide, su rutina (con los que ya tenías y no están en otra rutina).
+function addPack(pack, typeIds, withRoutine) {
+  const { items, routine, canRoutine } = packPlan(pack);
+  const created = [];
+  items.filter((it) => typeIds.includes(it.type.id)).forEach((it) => {
+    const habit = habitFromType(it.type);
+    state.habits.push(habit);
+    created.push(habit);
+  });
+  if (withRoutine && canRoutine) {
+    const kept = items.filter((it) => it.existing && !typeIds.includes(it.type.id) && !routineOf(it.existing.id)).map((it) => it.existing.id);
+    const current = routine ? routine.habitIds.filter((id) => !findHabit(id)?.archived) : [];
+    saveRoutine({ id: routine ? routine.id : null, name: pack.name, habitIds: [...current, ...kept, ...created.map((h) => h.id)] });
+  }
+  save();
+  return created;
+}
+
+const packTile = (pack) => `<button type="button" class="type-tile" data-pack="${pack.id}">
+    <span class="t-emoji" aria-hidden="true">${pack.emoji}</span>
+    <span class="type-text"><span class="type-name">${escapeHTML(pack.name)}</span> <span class="type-hint">${plural(pack.types.length, 'hábito', 'hábitos')} y su rutina</span></span>
+  </button>`;
+$('#pack-grid').innerHTML = PACKS.map(packTile).join('');
+$('#pack-grid-welcome').innerHTML = PACKS.map(packTile).join('');
+
+const packDialog = $('#pack-dialog');
+let packOpen = null;
+
+function openPack(id) {
+  const pack = findPack(id);
+  if (!pack) return;
+  packOpen = pack;
+  const { items, routine, canRoutine } = packPlan(pack);
+  $('#pack-title').textContent = pack.name;
+  $('#pack-desc').textContent = pack.desc;
+  $('#pack-habits').innerHTML = items.map(({ type, existing }) => `<label class="check-row">
+      <span class="emoji" aria-hidden="true">${type.emoji}</span>
+      <span class="check-text"><b>${escapeHTML(type.name)}</b><span>${existing
+        ? `Ya tienes «${escapeHTML(existing.name)}»: no se duplica, salvo que lo marques`
+        : escapeHTML(typeHint(type))}</span></span>
+      <input type="checkbox" value="${type.id}"${existing ? '' : ' checked'}>
+    </label>`).join('');
+  $('#pack-routine-label').textContent = routine ? `Añadirlos a tu rutina «${routine.name}»` : `Crear la rutina «${pack.name}»`;
+  $('#pack-routine-hint').textContent = canRoutine
+    ? 'Para verlos juntos en Hoy. Los que ya tenías entran si no están en otra rutina.'
+    : `Ya tienes ${ROUTINE_MAX} rutinas, el máximo: se añaden sin rutina.`;
+  $('#pack-routine').checked = canRoutine;
+  $('#pack-routine').disabled = !canRoutine;
+  syncPack();
+  packDialog.showModal();
+}
+
+function packChosen() {
+  return [...document.querySelectorAll('#pack-habits input:checked')].map((i) => i.value);
+}
+
+function syncPack() {
+  const n = packChosen().length;
+  $('#pack-submit').textContent = n ? `Añadir ${plural(n, 'hábito', 'hábitos')}` : 'Elige al menos uno';
+  $('#pack-submit').disabled = !n;
+}
+
+$('#pack-habits').addEventListener('change', syncPack);
+$('#pack-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const pack = packOpen;
+  const chosen = packChosen();
+  if (!pack || !chosen.length) return;
+  const snapshot = JSON.stringify(state);
+  const created = addPack(pack, chosen, $('#pack-routine').checked);
+  packDialog.close();
+  if (sheet.open) closeSheet();
+  render();
+  haptic();
+  toast(`${capitalize(plural(created.length, 'hábito añadido', 'hábitos añadidos'))} de «${pack.name}»`, { action: 'Deshacer', onAction: undoTo(snapshot) });
+});
+$('#pack-cancel').addEventListener('click', () => packDialog.close());
+packDialog.addEventListener('click', (e) => {
+  if (e.target === packDialog) packDialog.close();
+});
+document.addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-pack]');
+  if (tile) openPack(tile.dataset.pack);
+});
 
 typeSearch.addEventListener('input', filterTypes);
 // Intro solo cierra el teclado (no envía el formulario).
@@ -5906,6 +7176,7 @@ function backupCounts(data) {
   return {
     habits: data.habits.length,
     marked: data.habits.reduce((n, h) => n + Object.keys(h.done).length, 0),
+    notes: data.habits.reduce((n, h) => n + Object.keys(h.notes).length, 0),
     diary: Object.keys(data.days).length,
     health: data.health.entries.length,
     routines: data.routines.length,
@@ -5919,7 +7190,8 @@ function backupCounts(data) {
 function backupItems(c, { health = true } = {}) {
   return [
     `${plural(c.habits, 'hábito', 'hábitos')}${c.marked ? ` y ${plural(c.marked, 'día marcado', 'días marcados')}` : ''}`,
-    c.diary ? `Diario: ${plural(c.diary, 'día', 'días')} con ánimo o nota` : '',
+    c.notes ? `${plural(c.notes, 'nota', 'notas')} en tus hábitos` : '',
+    c.diary ?`Diario: ${plural(c.diary, 'día', 'días')} con ánimo o nota` : '',
     c.routines ? plural(c.routines, 'rutina', 'rutinas') : '',
     health && c.health ? `Salud: ${plural(c.health, 'registro', 'registros')}` : '',
     c.zen || c.gratitude || c.emotions ? `Zen: ${fmtList.format([
@@ -6181,6 +7453,19 @@ let skipClick = false;
 const habitArea = $('#habit-area');
 
 habitArea.addEventListener('click', (e) => {
+  const noteBtn = e.target.closest('[data-note]');
+  if (noteBtn) {
+    openHabitNote(noteBtn.dataset.note, ui.day, 'today');
+    return;
+  }
+  const timerBtn = e.target.closest('[data-timer]');
+  if (timerBtn) {
+    const id = timerBtn.dataset.timer;
+    if (state.timer && state.timer.id === id) toggleTimerPause();
+    else startTimer(id);
+    $(`[data-timer="${id}"]`)?.focus();
+    return;
+  }
   const btn = e.target.closest('.habit');
   if (!btn) return;
   if (skipClick) {
@@ -6294,6 +7579,16 @@ $('#history').addEventListener('click', (e) => {
     openSheet(edit.dataset.edit);
     return;
   }
+  const detail = e.target.closest('[data-detail], [data-open-detail]');
+  if (detail) {
+    openHabitDetail(detail.dataset.detail || detail.dataset.openDetail);
+    return;
+  }
+  const noteBtn = e.target.closest('[data-note-day]');
+  if (noteBtn) {
+    openHabitNote(noteBtn.dataset.habit, noteBtn.dataset.noteDay, 'history');
+    return;
+  }
   const goto = e.target.closest('[data-goto]');
   if (goto) {
     ui.day = goto.dataset.goto;
@@ -6313,11 +7608,18 @@ function selectHeatCell(cell) {
   cell.classList.add('sel');
   const caption = dayCaption(map.dataset.habit, cell.dataset.k);
   foot.querySelector('.hm-caption').textContent = caption;
-  const noteEl = foot.nextElementSibling;
-  const note = map.dataset.habit === 'all' ? (state.days[cell.dataset.k] || {}).note : '';
-  if (noteEl && noteEl.classList.contains('hm-note')) {
-    noteEl.hidden = !note;
-    noteEl.textContent = note || '';
+  // Debajo, la nota del diario (en el mapa general) o la nota del hábito ese día, con su botón.
+  const extra = foot.nextElementSibling;
+  const habit = map.dataset.habit === 'all' ? null : findHabit(map.dataset.habit);
+  const note = habit ? habit.notes[cell.dataset.k] : (state.days[cell.dataset.k] || {}).note;
+  const noteEl = extra.classList.contains('hm-note') ? extra : extra.querySelector('.hm-note');
+  noteEl.hidden = !note;
+  noteEl.textContent = note || '';
+  if (habit) {
+    const noteBtn = extra.querySelector('[data-note-day]');
+    extra.hidden = !canNote(habit, cell.dataset.k);
+    noteBtn.dataset.noteDay = cell.dataset.k;
+    noteBtn.innerHTML = `${note ? ICONS.bubbleFull : ICONS.bubble}${note ? 'Editar nota' : 'Añadir nota'}`;
   }
   const gotoBtn = foot.querySelector('[data-goto]');
   gotoBtn.dataset.goto = cell.dataset.k;
@@ -6375,15 +7677,42 @@ setInterval(checkDateChange, 60 * 1000);
 
 // ---------- Arranque ----------
 
+// Accesos directos del icono (en Android, al mantenerlo pulsado): ?abrir=zen, salud o nuevo.
+// Se quita de la dirección para que recargar no lo vuelva a abrir.
+function openFromShortcut() {
+  let target = null;
+  try {
+    target = new URLSearchParams(location.search || '').get('abrir');
+  } catch (err) {
+    return null;
+  }
+  if (!['zen', 'salud', 'nuevo'].includes(target)) return null;
+  try {
+    history.replaceState(null, '', location.pathname + (location.hash || ''));
+  } catch (err) {
+    // sin historial (por ejemplo, en las pruebas): no pasa nada
+  }
+  if (target === 'zen') openZen();
+  else if (target === 'nuevo') openSheet();
+  else {
+    openHealth();
+    if (state.health.metrics.length) openHealthEntry(); // el registro rápido de tus medidas
+  }
+  return target;
+}
+
 // La primera vez que se abre esta versión, los retos empiezan a contar desde esta semana.
 if (!state.challengesSince) {
   state.challengesSince = weekStartOf(ui.today);
   save();
 }
 useShields();
+checkVacationEnd();
 applyPrefs();
+syncTimer(); // un temporizador que se quedó en marcha sigue contando desde su hora de inicio
 showView(state.prefs.startView);
-maybeShowSummary();
+// Si se abrió desde un acceso directo, eso va primero (el resumen de la semana saldrá la próxima vez).
+if (!openFromShortcut()) maybeShowSummary();
 if (loadProblem) toast('No se pudieron leer tus datos guardados. Se han apartado sin borrarlos: míralo en Ajustes');
 
 // Pide al navegador que no borre nuestros datos si le falta espacio.
