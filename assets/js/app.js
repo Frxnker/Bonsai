@@ -1,22 +1,18 @@
 'use strict';
 
 const APP_VERSION = '0.4 beta';
-const STORAGE_KEY = 'racha:v1'; // no cambia con el nombre de la app: así nadie pierde sus datos
-// Copias de seguridad que se aceptan al importar: las nuevas ('bonsai') y las de cuando la app se llamaba Racha.
+const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
-const HEATMAP_WEEKS = 53; // un año
-const LONG_PRESS_MS = 500; // mantener pulsado resta 1 en los hábitos con cantidad
+const HEATMAP_WEEKS = 53;
+const LONG_PRESS_MS = 500;
 
-// ---------- Progresión: XP, niveles y logros ----------
+const XP_PER_CHECK = 10;
+const XP_STREAK_CAP = 10;
+const XP_PERFECT_DAY = 25;
+const SHIELD_EVERY = 7;
+const SHIELD_MAX = 3;
+const SHIELD_MIN_STREAK = 3;
 
-const XP_PER_CHECK = 10;   // cada hábito hecho
-const XP_STREAK_CAP = 10;  // bonus de racha: +1 por día seguido, hasta +10
-const XP_PERFECT_DAY = 25; // todos los hábitos del día hechos
-const SHIELD_EVERY = 7;      // 1 protector por cada 7 días seguidos de racha
-const SHIELD_MAX = 3;        // como mucho 3 guardados
-const SHIELD_MIN_STREAK = 3; // solo se gastan para salvar rachas de 3 días o más
-
-// Ánimo del día (1–5) y nota corta. Cada ánimo es una cara de línea: solo cambia la boca.
 const MOOD_NAMES = ['Mal', 'Regular', 'Normal', 'Bien', 'Genial'];
 const MOOD_MOUTHS = [
   'M8.5 16.5c1-1.3 2.2-2 3.5-2s2.5.7 3.5 2',
@@ -27,21 +23,17 @@ const MOOD_MOUTHS = [
 ];
 const NOTE_MAX = 200;
 const MILESTONES = [3, 7, 14, 30, 60, 100, 180, 365];
-const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52]; // metas para los hábitos de "X veces por semana"
+const WEEK_MILESTONES = [2, 4, 8, 12, 26, 52];
 
-// Días de la semana: 0 = lunes … 6 = domingo
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
-// Títulos de nivel: el crecimiento de un bonsái, de la semilla al maestro.
-// Del 16 en adelante se repite el último con número («Maestro 2», «Maestro 3»…).
 const LEVELS = [
   'Semilla', 'Brote', 'Plántula', 'Arraigo', 'Tallo',
   'Rama', 'Copa', 'Poda', 'Forma', 'Tronco',
   'Corteza', 'Árbol joven', 'Árbol maduro', 'Árbol antiguo', 'Maestro',
 ].map((title) => ({ title }));
 
-// stat: qué número mira el logro (ver computeStats) · goal: cuánto hace falta
 const ACHIEVEMENTS = [
   { icon: 'checkCircle', name: 'Primer paso', desc: 'Marca tu primer hábito', stat: 'checkins', goal: 1 },
   { icon: 'flame', name: 'En marcha', desc: 'Racha de 3 días', stat: 'best', goal: 3 },
@@ -62,10 +54,6 @@ const ACHIEVEMENTS = [
   { icon: 'target', name: 'Retador', desc: 'Completa 10 retos semanales', stat: 'challenges', goal: 10 },
 ];
 
-// ---------- Tipos de hábito ----------
-// Cómo se mide la meta de cada día:
-// - 'target': un toque marca que has cumplido la meta; manteniendo pulsado se apunta la cantidad real (20 de 30 min).
-// - 'count': cada toque suma 1 (vasos, piezas…) y manteniendo pulsado se resta 1.
 const MEASURES = {
   min: { label: 'Tiempo', unit: 'min', mode: 'target', min: 5, max: 180, step: 5 },
   steps: { label: 'Pasos', unit: 'pasos', mode: 'target', min: 1000, max: 30000, step: 500 },
@@ -76,8 +64,6 @@ const MEASURES = {
   pieces: { label: 'Piezas', unit: 'piezas', mode: 'count', min: 1, max: 8, step: 1 },
 };
 
-// Tipos que se eligen al crear un hábito: cada uno trae nombre, emoji, frecuencia y forma de medir
-// (con su valor por defecto y, si hace falta, otros límites para el deslizador). 'custom' es el formulario libre.
 const HABIT_TYPES = [
   { id: 'walk', group: 'move', emoji: '🚶', name: 'Caminar', measures: [{ id: 'min', def: 30 }, { id: 'steps', def: 8000 }] },
   { id: 'run', group: 'move', emoji: '🏃', name: 'Correr', schedule: { type: 'weekly', times: 3 }, measures: [{ id: 'km', def: 5, max: 42 }, { id: 'min', def: 30 }] },
@@ -106,14 +92,12 @@ const TYPE_GROUPS = [['move', 'Moverte'], ['mind', 'Mente'], ['health', 'Salud']
 const WELCOME_TYPES = ['walk', 'water', 'read', 'meditate', 'sleep', 'workout', 'fruit', 'social'];
 const typeOf = (id) => HABIT_TYPES.find((t) => t.id === id) || HABIT_TYPES[HABIT_TYPES.length - 1];
 
-// Límites del deslizador de una medida dentro de un tipo (los del tipo mandan sobre los generales).
 function measureSpec(type, id) {
   const base = MEASURES[id];
   const own = (type.measures || []).find((m) => m.id === id) || {};
   return { ...base, id, def: own.def ?? base.min, min: own.min ?? base.min, max: own.max ?? base.max, step: own.step ?? base.step };
 }
 
-// Lo que se lee debajo de cada tipo en la lista: «Tiempo o pasos», «Vasos», «Sí o no»…
 function typeHint(type) {
   if (type.id === 'custom') return 'Cualquier hábito, como tú quieras';
   if (type.kind === 'quit') return 'Días sin recaer';
@@ -127,7 +111,6 @@ const SUGGESTED_EMOJIS = [
   '📵', '🍎', '🚭', '💰', '🧠', '🎨', '🛏️', '📝',
 ];
 
-// Cada hábito tiene su color (se usa en su icono, su casilla y su mapa de calor).
 const COLORS = [
   { id: 'salvia', name: 'Salvia', hex: '#6F9677' },
   { id: 'jade', name: 'Jade', hex: '#4E8C7E' },
@@ -138,13 +121,11 @@ const COLORS = [
   { id: 'ocre', name: 'Ocre', hex: '#BF9544' },
   { id: 'piedra', name: 'Piedra', hex: '#858379' },
 ];
-// Colores de la versión anterior → su equivalente zen.
 const OLD_COLORS = {
   violeta: 'glicina', rosa: 'sakura', naranja: 'arcilla', amarillo: 'ocre',
   verde: 'salvia', turquesa: 'jade', azul: 'niebla', rojo: 'arcilla',
 };
 const colorHex = (id) => (COLORS.find((c) => c.id === id) || COLORS[0]).hex;
-// El primer color que aún no use ningún hábito (o el siguiente en la rueda).
 const nextColor = (habits) => (
   COLORS.find((c) => !habits.some((h) => h.color === c.id)) || COLORS[habits.length % COLORS.length]
 ).id;
