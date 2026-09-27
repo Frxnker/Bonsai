@@ -1489,7 +1489,9 @@ input[type="range"] {
 
 /* Desplegable con el mismo aspecto que los campos de texto */
 .field select {
+  display: block;
   width: 100%;
+  min-width: 0;
   height: 48px;
   padding: 0 40px 0 14px;
   border: 1px solid var(--hair);
@@ -1742,11 +1744,14 @@ input[type="range"] {
 }
 .hint.left { margin: 10px 4px 0; text-align: left; }
 
-.field { display: grid; gap: 6px; }
+/* Una sola columna que nunca pasa del ancho del contenedor (en un grid, el mínimo de cada campo sería su contenido) */
+.field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .field.spaced { margin-top: 22px; }
 .field span { padding-left: 4px; color: var(--ink-2); font-size: 13px; font-weight: 500; }
 .field input {
+  display: block;
   width: 100%;
+  min-width: 0;
   height: 48px;
   padding: 0 14px;
   border: 1px solid var(--hair);
@@ -1757,6 +1762,15 @@ input[type="range"] {
 }
 .field input::placeholder { color: var(--ink-2); opacity: 1; }
 .field input:focus { border-color: var(--sage); outline: none; box-shadow: 0 0 0 3px var(--sage-soft); }
+/* Fecha y hora: en iPhone, Safari les pone su propio aspecto, un ancho mínimo mayor que el del campo
+   y el texto centrado. Sin él quedan idénticos a los demás campos (el selector nativo se sigue abriendo). */
+.field input[type="date"],
+.field input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+.field input::-webkit-date-and-time-value { margin: 0; text-align: left; }
 .unit-field { margin-top: 12px; }
 
 /* Control segmentado, como en iOS */
@@ -1915,7 +1929,6 @@ input[type="range"] {
   align-items: end;
   gap: 10px;
 }
-.time-field input { padding: 0 10px; text-align: center; }
 .reminder-row .secondary-btn { min-height: 48px; padding: 0 10px; font-size: 14px; line-height: 1.2; }
 
 /* ---------- Diálogos ---------- */
