@@ -93,7 +93,7 @@ const SUGGESTED_EMOJIS = [
   '📵', '🍎', '🚭', '💰', '🧠', '🎨', '🛏️', '📝',
 ];
 
-// Cada hábito tiene su color (se usa en su tarjeta, su casilla y su mapa de calor).
+// Cada hábito tiene su color (se usa en su icono, su casilla y su mapa de calor).
 const COLORS = [
   { id: 'salvia', name: 'Salvia', hex: '#6F9677' },
   { id: 'jade', name: 'Jade', hex: '#4E8C7E' },
@@ -1211,7 +1211,7 @@ async function toggleSlip(habit, button) {
   const ok = await askConfirm({
     icon: 'heart',
     title: day === ui.today ? '¿Has recaído hoy?' : '¿Recaíste ese día?',
-    body: '<p>No pasa nada: apúntalo y sigue. La racha vuelve a empezar al día siguiente. Si te has equivocado, toca otra vez la tarjeta para deshacerlo.</p>',
+    body: '<p>No pasa nada: apúntalo y sigue. La racha vuelve a empezar al día siguiente. Si te has equivocado, toca otra vez el hábito para deshacerlo.</p>',
     confirmText: 'Sí, he recaído',
   });
   if (!ok) return;
@@ -2281,7 +2281,7 @@ function setSheetKind(kind) {
   $('#freq-block').hidden = quit;
   $('#goal-block').hidden = quit;
   $('#kind-hint').hidden = !quit;
-  $('#kind-hint').textContent = 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca la tarjeta para apuntarlo.';
+  $('#kind-hint').textContent = 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca el hábito para apuntarlo.';
   nameInput.placeholder = quit ? 'Ej. Dejar de fumar' : 'Ej. Beber 2 litros de agua';
 }
 
