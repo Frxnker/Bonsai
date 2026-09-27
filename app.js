@@ -1649,6 +1649,13 @@ const fmtMonthYear = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'nu
 const profileName = $('#profile-name');
 const profileAvatar = $('#profile-avatar');
 
+// Los emojis editables (avatar y emoji del hábito) se ven en un <span> centrado; el <input> de encima
+// es invisible y solo recoge lo que escribes. Dentro de un <input>, Safari los recorta y los descentra.
+// Si el campo está vacío mientras escribes, se ve `fallback`.
+function showEmoji(input, fallback = '') {
+  input.parentElement.querySelector('.emoji-glyph').textContent = input.value || fallback;
+}
+
 $('#avatar-grid').innerHTML = AVATARS
   .map((e) => `<button type="button" data-avatar="${e}" aria-label="${e}">${e}</button>`)
   .join('');
@@ -1662,6 +1669,7 @@ function renderSettings() {
   // No pisamos lo que la persona está escribiendo.
   if (document.activeElement !== profileName) profileName.value = profile.name;
   if (document.activeElement !== profileAvatar) profileAvatar.value = profile.avatar;
+  showEmoji(profileAvatar, profile.avatar);
 
   const nameDisplay = $('#profile-name-display');
   nameDisplay.textContent = profile.name || 'Añade tu nombre';
@@ -1769,12 +1777,16 @@ profileAvatar.addEventListener('focus', () => profileAvatar.select());
 profileAvatar.addEventListener('input', () => {
   const emoji = lastGrapheme(profileAvatar.value);
   profileAvatar.value = emoji;
+  showEmoji(profileAvatar, state.profile.avatar);
   if (!emoji) return;
   state.profile.avatar = emoji;
   save();
   renderSettings();
 });
-profileAvatar.addEventListener('blur', () => { profileAvatar.value = state.profile.avatar; });
+profileAvatar.addEventListener('blur', () => {
+  profileAvatar.value = state.profile.avatar;
+  showEmoji(profileAvatar);
+});
 profileAvatar.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') profileAvatar.blur();
 });
@@ -2212,6 +2224,7 @@ $('#emoji-grid').innerHTML = SUGGESTED_EMOJIS
   .join('');
 
 function syncEmojiGrid() {
+  showEmoji(emojiInput, '⭐'); // el mismo que se guarda si lo dejas vacío
   document.querySelectorAll('#emoji-grid button').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.emoji === emojiInput.value));
   });
@@ -2356,13 +2369,13 @@ $('#color-row').innerHTML = COLORS.map((c) => (
   `<button type="button" class="color-swatch" role="radio" data-color="${c.id}" aria-label="${c.name}" style="--sw:${c.hex}"></button>`
 )).join('');
 
-// Marca el color elegido y tiñe el emoji grande con él.
+// Marca el color elegido y tiñe el recuadro del emoji con él.
 function setSheetColor(id) {
   ui.sheetColor = id;
   document.querySelectorAll('#color-row .color-swatch').forEach((btn) => {
     btn.setAttribute('aria-checked', String(btn.dataset.color === id));
   });
-  emojiInput.style.setProperty('--c', colorHex(id));
+  $('#habit-emoji-field').style.setProperty('--c', colorHex(id));
 }
 
 $('#color-row').addEventListener('click', (e) => {

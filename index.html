@@ -166,7 +166,10 @@
       <p class="section-label group">Tu perfil</p>
       <article class="card">
         <div class="profile-row">
-          <input class="avatar-input" id="profile-avatar" aria-label="Tu avatar (toca para escribir un emoji)" inputmode="text" enterkeyhint="done" autocomplete="off">
+          <div class="emoji-field avatar-field">
+            <span class="emoji-glyph" aria-hidden="true"></span>
+            <input class="emoji-capture" id="profile-avatar" aria-label="Tu avatar (toca para escribir un emoji)" inputmode="text" enterkeyhint="done" autocomplete="off">
+          </div>
           <div class="profile-info">
             <b class="profile-name" id="profile-name-display"></b>
             <span class="profile-level" id="profile-level"></span>
@@ -258,7 +261,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
           Otro tipo
         </button>
-        <input class="emoji-input" id="habit-emoji" aria-label="Emoji del hábito" inputmode="text" enterkeyhint="done">
+        <div class="emoji-field habit-emoji-field" id="habit-emoji-field">
+          <span class="emoji-glyph" aria-hidden="true"></span>
+          <input class="emoji-capture" id="habit-emoji" aria-label="Emoji del hábito" inputmode="text" enterkeyhint="done" autocomplete="off">
+        </div>
         <p class="hint">Toca el emoji para escribir otro, o elige uno abajo.</p>
 
         <div id="kind-block">
