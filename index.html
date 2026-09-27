@@ -427,6 +427,10 @@
       <!-- Paso 1: elegir el tipo de hábito -->
       <div class="sheet-body" id="type-picker" hidden>
         <h3 class="picker-title">¿Qué quieres cultivar?</h3>
+        <div class="field type-search">
+          <input id="type-search" type="search" placeholder="Buscar: comer, dientes, leer…" aria-label="Buscar un tipo de hábito" enterkeyhint="search" autocomplete="off">
+        </div>
+        <p class="hint left" id="type-empty" hidden>Ningún tipo se llama así, pero puedes crearlo a tu manera.</p>
         <div id="type-groups"></div>
       </div>
 
@@ -486,7 +490,7 @@
         </div>
 
         <div id="goal-block">
-          <p class="section-label spaced">Meta de cada día</p>
+          <p class="section-label spaced" id="goal-title">Meta de cada día</p>
           <div class="stepper" id="goal-stepper">
             <button type="button" data-step="-1" aria-label="Bajar la meta">−</button>
             <input id="goal-value" type="number" min="1" max="99" inputmode="numeric" aria-label="Meta de cada día (de 1 a 99)">

@@ -214,33 +214,130 @@ const MEASURES = {
   pages: { label: 'Páginas', unit: 'páginas', mode: 'target', min: 5, max: 150, step: 5 },
   glasses: { label: 'Vasos', unit: 'vasos', mode: 'count', min: 2, max: 16, step: 1 },
   pieces: { label: 'Piezas', unit: 'piezas', mode: 'count', min: 1, max: 8, step: 1 },
+  servings: { label: 'Raciones', unit: 'raciones', mode: 'count', min: 1, max: 10, step: 1 },
 };
 
+// Tipos para elegir al crear un hábito. Los que no se miden son de sí o no; `goal` propone cuántas veces
+// al día (se cambia en su edición) y `k` son otras palabras con las que encontrarlo en el buscador.
+const MINUTES = (def, extra) => [{ id: 'min', def, ...extra }];
+const WEEKLY = (times) => ({ type: 'weekly', times });
 const HABIT_TYPES = [
-  { id: 'walk', group: 'move', emoji: '🚶', name: 'Caminar', measures: [{ id: 'min', def: 30 }, { id: 'steps', def: 8000 }] },
-  { id: 'run', group: 'move', emoji: '🏃', name: 'Correr', schedule: { type: 'weekly', times: 3 }, measures: [{ id: 'km', def: 5, max: 42 }, { id: 'min', def: 30 }] },
-  { id: 'bike', group: 'move', emoji: '🚴', name: 'Montar en bici', schedule: { type: 'weekly', times: 2 }, measures: [{ id: 'km', def: 15, min: 1, max: 100, step: 1 }, { id: 'min', def: 45 }] },
-  { id: 'workout', group: 'move', emoji: '💪', name: 'Hacer ejercicio', schedule: { type: 'weekly', times: 3 }, measures: [{ id: 'min', def: 45 }] },
-  { id: 'stretch', group: 'move', emoji: '🤸', name: 'Estirar', measures: [{ id: 'min', def: 10, max: 60 }] },
-  { id: 'meditate', group: 'mind', emoji: '🧘', name: 'Meditar', measures: [{ id: 'min', def: 10, min: 1, max: 60, step: 1 }] },
-  { id: 'read', group: 'mind', emoji: '📚', name: 'Leer', measures: [{ id: 'pages', def: 20 }, { id: 'min', def: 20 }] },
-  { id: 'study', group: 'mind', emoji: '🎓', name: 'Estudiar', measures: [{ id: 'min', def: 45 }] },
-  { id: 'language', group: 'mind', emoji: '🗣️', name: 'Practicar un idioma', measures: [{ id: 'min', def: 15 }] },
-  { id: 'music', group: 'mind', emoji: '🎸', name: 'Tocar un instrumento', measures: [{ id: 'min', def: 20 }] },
+  { id: 'eat', group: 'basics', emoji: '🍽️', name: 'Hacer las comidas', goal: 3, k: 'comer comida almorzar almuerzo cenar cena' },
+  { id: 'breakfast', group: 'basics', emoji: '🥣', name: 'Desayunar', k: 'comer' },
+  { id: 'teeth', group: 'basics', emoji: '🪥', name: 'Lavarse los dientes', goal: 2, k: 'cepillarse dientes higiene' },
+  { id: 'shower', group: 'basics', emoji: '🚿', name: 'Ducharse', k: 'higiene baño' },
+  { id: 'bed', group: 'basics', emoji: '🛏️', name: 'Hacer la cama' },
+  { id: 'wake', group: 'basics', emoji: '🌅', name: 'Levantarse temprano', k: 'madrugar despertarse' },
+  { id: 'bedtime', group: 'basics', emoji: '🌙', name: 'Acostarse pronto', k: 'dormir' },
+  { id: 'cook', group: 'basics', emoji: '🍳', name: 'Cocinar en casa', k: 'comer comida' },
+
+  { id: 'walk', group: 'move', emoji: '🚶', name: 'Caminar', measures: [{ id: 'min', def: 30 }, { id: 'steps', def: 8000 }], k: 'andar pasear pasos' },
+  { id: 'run', group: 'move', emoji: '🏃', name: 'Correr', schedule: WEEKLY(3), measures: [{ id: 'km', def: 5, max: 42 }, { id: 'min', def: 30 }], k: 'running' },
+  { id: 'bike', group: 'move', emoji: '🚴', name: 'Montar en bici', schedule: WEEKLY(2), measures: [{ id: 'km', def: 15, min: 1, max: 100, step: 1 }, { id: 'min', def: 45 }], k: 'bicicleta ciclismo' },
+  { id: 'workout', group: 'move', emoji: '💪', name: 'Hacer ejercicio', schedule: WEEKLY(3), measures: MINUTES(45), k: 'entrenar' },
+  { id: 'gym', group: 'move', emoji: '🏋️', name: 'Ir al gimnasio', schedule: WEEKLY(3), k: 'pesas fuerza entrenar' },
+  { id: 'stretch', group: 'move', emoji: '🤸', name: 'Estirar', measures: MINUTES(10, { max: 60 }), k: 'estiramientos' },
+  { id: 'yoga', group: 'move', emoji: '🧘‍♀️', name: 'Hacer yoga', measures: MINUTES(30), k: 'pilates' },
+  { id: 'swim', group: 'move', emoji: '🏊', name: 'Nadar', schedule: WEEKLY(2), measures: MINUTES(30), k: 'piscina natación' },
+  { id: 'sport', group: 'move', emoji: '⚽', name: 'Hacer deporte', schedule: WEEKLY(2), measures: MINUTES(60), k: 'fútbol baloncesto pádel tenis' },
+  { id: 'hike', group: 'move', emoji: '🥾', name: 'Hacer senderismo', schedule: WEEKLY(1), measures: [{ id: 'km', def: 10, max: 40 }, { id: 'min', def: 120 }], k: 'montaña excursión' },
+  { id: 'dance', group: 'move', emoji: '💃', name: 'Bailar', measures: MINUTES(20) },
+  { id: 'stairs', group: 'move', emoji: '🪜', name: 'Subir por las escaleras', k: 'ascensor' },
+  { id: 'breaks', group: 'move', emoji: '⏱️', name: 'Pausas para moverte', goal: 4, k: 'levantarse silla' },
+
+  { id: 'meditate', group: 'mind', emoji: '🧘', name: 'Meditar', measures: MINUTES(10, { min: 1, max: 60, step: 1 }), k: 'mindfulness calma' },
+  { id: 'read', group: 'mind', emoji: '📚', name: 'Leer', measures: [{ id: 'pages', def: 20 }, { id: 'min', def: 20 }], k: 'libro lectura' },
+  { id: 'language', group: 'mind', emoji: '🗣️', name: 'Practicar un idioma', measures: MINUTES(15), k: 'inglés francés alemán' },
+  { id: 'music', group: 'mind', emoji: '🎸', name: 'Tocar un instrumento', measures: MINUTES(20), k: 'guitarra piano música' },
   { id: 'journal', group: 'mind', emoji: '✍️', name: 'Escribir diario' },
-  { id: 'water', group: 'health', emoji: '💧', name: 'Beber agua', measures: [{ id: 'glasses', def: 8 }] },
-  { id: 'sleep', group: 'health', emoji: '😴', name: 'Dormir bien', measures: [{ id: 'hours', def: 8 }],
+  { id: 'write', group: 'mind', emoji: '🖋️', name: 'Escribir', measures: MINUTES(20), k: 'novela relatos' },
+  { id: 'draw', group: 'mind', emoji: '🎨', name: 'Dibujar o pintar', measures: MINUTES(20), k: 'arte' },
+  { id: 'learn', group: 'mind', emoji: '💡', name: 'Aprender algo nuevo', k: 'curso' },
+  { id: 'puzzle', group: 'mind', emoji: '🧩', name: 'Hacer un pasatiempo', k: 'sudoku crucigrama puzle ajedrez' },
+  { id: 'podcast', group: 'mind', emoji: '🎧', name: 'Escuchar un pódcast', k: 'podcast audiolibro' },
+
+  { id: 'water', group: 'health', emoji: '💧', name: 'Beber agua', measures: [{ id: 'glasses', def: 8 }], k: 'hidratarse' },
+  { id: 'sleep', group: 'health', emoji: '😴', name: 'Dormir bien', measures: [{ id: 'hours', def: 8 }], k: 'descansar',
     hint: 'Márcalo al despertar: un toque si has dormido tus horas, o mantén pulsado para apuntar las horas reales.' },
   { id: 'fruit', group: 'health', emoji: '🍎', name: 'Comer fruta', measures: [{ id: 'pieces', def: 3 }] },
-  { id: 'floss', group: 'health', emoji: '🦷', name: 'Usar hilo dental' },
-  { id: 'vitamins', group: 'health', emoji: '💊', name: 'Tomar vitaminas' },
-  { id: 'smoke', group: 'quit', emoji: '🚭', name: 'Dejar de fumar', kind: 'quit' },
-  { id: 'sugar', group: 'quit', emoji: '🍬', name: 'Sin azúcar', kind: 'quit' },
-  { id: 'social', group: 'quit', emoji: '📵', name: 'Menos redes', kind: 'quit' },
-  { id: 'alcohol', group: 'quit', emoji: '🍷', name: 'Sin alcohol', kind: 'quit' },
+  { id: 'veggies', group: 'health', emoji: '🥦', name: 'Comer verdura', measures: [{ id: 'servings', def: 2 }], k: 'verduras ensalada' },
+  { id: 'healthy', group: 'health', emoji: '🥗', name: 'Comer sano', k: 'comida' },
+  { id: 'floss', group: 'health', emoji: '🦷', name: 'Usar hilo dental', k: 'dientes' },
+  { id: 'vitamins', group: 'health', emoji: '💊', name: 'Tomar vitaminas', k: 'suplementos' },
+  { id: 'meds', group: 'health', emoji: '🩺', name: 'Tomar la medicación', k: 'pastillas medicina' },
+  { id: 'eyes', group: 'health', emoji: '👀', name: 'Descansar la vista', goal: 3, k: 'ojos pantalla' },
+
+  { id: 'gratitude', group: 'care', emoji: '🙏', name: 'Agradecer algo', k: 'gracias gratitud' },
+  { id: 'breathe', group: 'care', emoji: '🌬️', name: 'Respirar hondo', goal: 3, k: 'respiración calma' },
+  { id: 'outside', group: 'care', emoji: '🌳', name: 'Salir a la calle', k: 'aire libre paseo' },
+  { id: 'nature', group: 'care', emoji: '🌿', name: 'Tiempo en la naturaleza', measures: MINUTES(30), k: 'campo parque' },
+  { id: 'sun', group: 'care', emoji: '☀️', name: 'Tomar el sol', measures: MINUTES(15, { max: 60 }), k: 'luz' },
+  { id: 'metime', group: 'care', emoji: '🛋️', name: 'Un rato para ti', measures: MINUTES(30), k: 'descansar' },
+  { id: 'listenmusic', group: 'care', emoji: '🎶', name: 'Escuchar música' },
+  { id: 'skincare', group: 'care', emoji: '🧴', name: 'Cuidar la piel', k: 'crema protector solar' },
+  { id: 'unplug', group: 'care', emoji: '🔌', name: 'Sin pantallas antes de dormir', k: 'móvil desconectar' },
+  { id: 'fun', group: 'care', emoji: '🎈', name: 'Hacer algo que te guste', k: 'afición hobby' },
+
+  { id: 'tidy', group: 'home', emoji: '🧹', name: 'Ordenar', measures: MINUTES(15, { max: 120 }), k: 'recoger casa' },
+  { id: 'clean', group: 'home', emoji: '🧽', name: 'Limpiar la casa', schedule: WEEKLY(2), k: 'limpieza' },
+  { id: 'dishes', group: 'home', emoji: '🧼', name: 'Fregar los platos', k: 'lavavajillas cocina' },
+  { id: 'laundry', group: 'home', emoji: '🧺', name: 'Poner una lavadora', schedule: WEEKLY(2), k: 'ropa colada tender' },
+  { id: 'plants', group: 'home', emoji: '🪴', name: 'Regar las plantas', schedule: WEEKLY(2) },
+  { id: 'trash', group: 'home', emoji: '🗑️', name: 'Sacar la basura', k: 'reciclar' },
+  { id: 'dog', group: 'home', emoji: '🐕', name: 'Pasear al perro', goal: 2, k: 'mascota' },
+  { id: 'pet', group: 'home', emoji: '🐾', name: 'Dar de comer a la mascota', goal: 2, k: 'gato perro' },
+  { id: 'shop', group: 'home', emoji: '🛒', name: 'Hacer la compra', schedule: WEEKLY(1), k: 'supermercado' },
+
+  { id: 'family', group: 'people', emoji: '👪', name: 'Tiempo en familia', k: 'padres hijos' },
+  { id: 'call', group: 'people', emoji: '📞', name: 'Llamar a alguien querido', k: 'amigos familia' },
+  { id: 'friends', group: 'people', emoji: '🫂', name: 'Quedar con amigos', schedule: WEEKLY(1), k: 'amistades' },
+  { id: 'partner', group: 'people', emoji: '❤️', name: 'Tiempo en pareja' },
+  { id: 'kind', group: 'people', emoji: '🤝', name: 'Hacer algo amable', k: 'favor ayudar' },
+  { id: 'listen', group: 'people', emoji: '👂', name: 'Escuchar sin interrumpir' },
+  { id: 'volunteer', group: 'people', emoji: '🤲', name: 'Hacer voluntariado', schedule: WEEKLY(1), k: 'ayudar' },
+
+  { id: 'plan', group: 'work', emoji: '🗓️', name: 'Planificar el día', k: 'agenda organizar' },
+  { id: 'priority', group: 'work', emoji: '✅', name: 'Hacer la tarea más importante', k: 'prioridad' },
+  { id: 'pomodoro', group: 'work', emoji: '🍅', name: 'Pomodoros', goal: 4, k: 'concentración bloques' },
+  { id: 'focus', group: 'work', emoji: '🎯', name: 'Trabajo concentrado', measures: MINUTES(60), k: 'concentración' },
+  { id: 'study', group: 'work', emoji: '🎓', name: 'Estudiar', measures: MINUTES(45), k: 'repasar' },
+  { id: 'code', group: 'work', emoji: '💻', name: 'Programar', measures: MINUTES(30), k: 'código' },
+  { id: 'inbox', group: 'work', emoji: '📥', name: 'Vaciar la bandeja de entrada', k: 'correo email' },
+  { id: 'desk', group: 'work', emoji: '🗂️', name: 'Ordenar el escritorio' },
+  { id: 'weekplan', group: 'work', emoji: '📋', name: 'Revisar la semana', schedule: WEEKLY(1), k: 'planificar' },
+  { id: 'offwork', group: 'work', emoji: '🔕', name: 'Desconectar del trabajo' },
+
+  { id: 'expenses', group: 'money', emoji: '🧾', name: 'Apuntar los gastos', k: 'dinero' },
+  { id: 'savings', group: 'money', emoji: '💰', name: 'Ahorrar', schedule: WEEKLY(1), k: 'hucha dinero' },
+  { id: 'budget', group: 'money', emoji: '📊', name: 'Revisar las cuentas', schedule: WEEKLY(1), k: 'presupuesto banco dinero' },
+  { id: 'lunchbox', group: 'money', emoji: '🥡', name: 'Llevar comida de casa', k: 'táper tupper' },
+
+  { id: 'smoke', group: 'quit', emoji: '🚭', name: 'Dejar de fumar', kind: 'quit', k: 'tabaco' },
+  { id: 'vape', group: 'quit', emoji: '💨', name: 'Dejar de vapear', kind: 'quit' },
+  { id: 'alcohol', group: 'quit', emoji: '🍷', name: 'Sin alcohol', kind: 'quit', k: 'beber' },
+  { id: 'sugar', group: 'quit', emoji: '🍬', name: 'Sin azúcar', kind: 'quit', k: 'dulces' },
+  { id: 'junk', group: 'quit', emoji: '🍟', name: 'Sin comida basura', kind: 'quit', k: 'comer' },
+  { id: 'soda', group: 'quit', emoji: '🥤', name: 'Sin refrescos', kind: 'quit' },
+  { id: 'coffee', group: 'quit', emoji: '☕', name: 'Menos café', kind: 'quit', k: 'cafeína' },
+  { id: 'snacks', group: 'quit', emoji: '🍪', name: 'Sin picar entre horas', kind: 'quit', k: 'comer' },
+  { id: 'social', group: 'quit', emoji: '📵', name: 'Menos redes', kind: 'quit', k: 'móvil' },
+  { id: 'screen', group: 'quit', emoji: '📱', name: 'Menos pantalla', kind: 'quit', k: 'móvil' },
+  { id: 'series', group: 'quit', emoji: '📺', name: 'Menos series', kind: 'quit', k: 'tele' },
+  { id: 'games', group: 'quit', emoji: '🎮', name: 'Menos videojuegos', kind: 'quit' },
+  { id: 'snooze', group: 'quit', emoji: '⏰', name: 'Sin posponer la alarma', kind: 'quit', k: 'despertador' },
+  { id: 'nails', group: 'quit', emoji: '💅', name: 'No morderse las uñas', kind: 'quit' },
+  { id: 'impulse', group: 'quit', emoji: '🛍️', name: 'Sin compras impulsivas', kind: 'quit', k: 'dinero gastar' },
+  { id: 'gambling', group: 'quit', emoji: '🎰', name: 'Sin apuestas', kind: 'quit', k: 'juego' },
+  { id: 'complain', group: 'quit', emoji: '🤐', name: 'Sin quejarse', kind: 'quit' },
+  { id: 'swearing', group: 'quit', emoji: '🙊', name: 'Sin palabrotas', kind: 'quit', k: 'tacos' },
+
   { id: 'custom', group: 'custom', emoji: '', name: '' },
 ];
-const TYPE_GROUPS = [['move', 'Moverte'], ['mind', 'Mente'], ['health', 'Salud'], ['quit', 'Dejar algo'], ['custom', 'A tu manera']];
+const TYPE_GROUPS = [
+  ['basics', 'Lo básico'], ['move', 'Moverte'], ['mind', 'Mente'], ['health', 'Salud'], ['care', 'Cuidarte'],
+  ['home', 'Casa'], ['people', 'Personas'], ['work', 'Trabajo y estudio'], ['money', 'Dinero'],
+  ['quit', 'Dejar algo'], ['custom', 'A tu manera'],
+];
 const WELCOME_TYPES = ['walk', 'water', 'read', 'meditate', 'sleep', 'workout', 'fruit', 'social'];
 const typeOf = (id) => HABIT_TYPES.find((t) => t.id === id) || HABIT_TYPES[HABIT_TYPES.length - 1];
 
@@ -253,7 +350,8 @@ function measureSpec(type, id) {
 function typeHint(type) {
   if (type.id === 'custom') return 'Cualquier hábito, como tú quieras';
   if (type.kind === 'quit') return 'Días sin recaer';
-  if (!type.measures) return 'Sí o no';
+  if (type.goal > 1) return `${type.goal} veces al día`;
+  if (!type.measures) return type.schedule ? `${plural(type.schedule.times, 'vez', 'veces')} por semana` : 'Sí o no';
   return type.measures.map((m, i) => (i ? MEASURES[m.id].label.toLowerCase() : MEASURES[m.id].label)).join(' o ');
 }
 
@@ -261,6 +359,7 @@ const SUGGESTED_EMOJIS = [
   '💧', '🏃', '📚', '🧘', '😴', '🥗', '💊', '🦷',
   '✍️', '🎸', '🚶', '💪', '🧹', '🌱', '☀️', '🙏',
   '📵', '🍎', '🚭', '💰', '🧠', '🎨', '🛏️', '📝',
+  '🍽️', '🪥', '🚿', '🧺', '🐕', '📞', '🎯', '🌙',
 ];
 
 const COLORS = [
@@ -605,7 +704,7 @@ function normalizeDays(days) {
   return clean;
 }
 
-// Frecuencia: diario (por defecto), días concretos (0 = lunes) o X veces por semana (1–6).
+// Frecuencia: diario (por defecto), días concretos (0 = lunes) o X veces por semana (1–7).
 function normalizeSchedule(s) {
   if (s && s.type === 'days' && Array.isArray(s.days)) {
     const days = [...new Set(s.days.map(Number))].filter((d) => Number.isInteger(d) && d >= 0 && d <= 6).sort((a, b) => a - b);
@@ -614,7 +713,7 @@ function normalizeSchedule(s) {
   }
   if (s && s.type === 'weekly') {
     const times = Math.round(Number(s.times));
-    if (times >= 1 && times <= 6) return { type: 'weekly', times };
+    if (times >= 1 && times <= 7) return { type: 'weekly', times };
   }
   return { type: 'daily' };
 }
@@ -1478,10 +1577,11 @@ function quitMeta(habit) {
   return `<span class="flame">${days}</span> sin ${escapeHTML(quitWhat(habit))}`;
 }
 
-// Cantidad: "3/8 vasos"
-// Contadores: "3/8 vasos". De tiempo, distancia…: "20/30 min" y, al cumplirla, lo hecho ("30 min"). Texto plano.
+// Contadores: "3/8 vasos" (o "1/2 veces", sin unidad). De tiempo, distancia…: "20/30 min" y, al cumplirla,
+// lo hecho ("30 min"). Texto plano.
+const countUnit = (habit) => habit.unit || 'veces';
 function amountText(habit, key) {
-  if (!isTarget(habit)) return `${amountOn(habit, key)}/${habit.goal}${habit.unit ? ` ${habit.unit}` : ''}`;
+  if (!isTarget(habit)) return `${amountOn(habit, key)}/${habit.goal} ${countUnit(habit)}`;
   const v = habit.done[key] || 0;
   return v >= habit.goal ? qty(habit, v) : `${fmtAmount.format(v)}/${qty(habit, habit.goal)}`;
 }
@@ -1544,7 +1644,7 @@ function habitRow(habit) {
       label = `${safeName}: ${done ? `hecho, ${amount}` : amount.replace('/', ' de ')}. Toca para ${done ? 'desmarcarlo' : 'marcar la meta'}; mantén pulsado para apuntar la cantidad`;
     } else {
       if (!done) mark = ICONS.plus;
-      label = `${safeName}: ${amountOn(habit, day)} de ${habit.goal}${habit.unit ? ` ${escapeHTML(habit.unit)}` : ''}. Toca para sumar 1; mantén pulsado para restar 1`;
+      label = `${safeName}: ${amountOn(habit, day)} de ${habit.goal} ${escapeHTML(countUnit(habit))}. Toca para sumar 1; mantén pulsado para restar 1`;
     }
   } else {
     meta = rest ? (done ? 'Día extra' : `${rest}${shortStreak(habit) ? ` · ${shortStreak(habit)}` : ''}`) : streakMeta(habit);
@@ -2124,7 +2224,7 @@ function renderHistory() {
     const unit = s.unit === 'week' ? 'semanas' : 'días';
     const sub = [
       h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule),
-      hasAmount(h) ? `Meta: ${escapeHTML(qty(h, h.goal))}` : '',
+      hasAmount(h) ? `Meta: ${escapeHTML(isTarget(h) ? qty(h, h.goal) : `${h.goal} ${countUnit(h)}`)}` : '',
       isPaused(h, ui.today) ? 'En pausa' : '',
     ].filter(Boolean).join(' · ');
     const third = h.kind === 'quit'
@@ -4472,10 +4572,10 @@ const INFO = {
     title: 'Preguntas frecuentes',
     body: [
       faqItem('¿Cómo gano XP?', `+${XP_PER_CHECK} por cada hábito hecho, más 1 por cada día (o semana) de racha, hasta +${XP_STREAK_CAP}. Un día perfecto (todo lo que tocaba) da +${XP_PERFECT_DAY}; cada reto semanal, de +30 a +60, y un día extra (hacerlo en su día de descanso), +${XP_PER_CHECK}. Todo sale de tu historial: si desmarcas un día, esa XP se resta.`),
-      faqItem('¿Cuándo se rompe una racha?', 'Cuando pasa sin hacerlo un día que tocaba. Los días de descanso y los de pausa no cuentan. En los de «X veces por semana», la racha son semanas cumplidas, y la semana en curso no la rompe hasta que termina.'),
+      faqItem('¿Cuándo se rompe una racha?', 'Cuando pasa sin hacerlo un día que tocaba. Los días de descanso y los de pausa no cuentan. En los de «X veces por semana» (de 1 a 7), la racha son semanas cumplidas, y la semana en curso no la rompe hasta que termina.'),
       faqItem('¿Qué son los protectores?', `Ganas 1 cada vez que un hábito llega a ${SHIELD_EVERY}, ${SHIELD_EVERY * 2}, ${SHIELD_EVERY * 3}… días seguidos (como mucho guardas ${SHIELD_MAX}). Si ayer se te olvidó un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta uno solo y la racha se mantiene. Ese día no da XP y, si luego lo marcas, el protector vuelve.`),
       faqItem('¿Cómo funcionan los retos?', 'Cada lunes salen 3 retos elegidos según tus hábitos, los mismos toda la semana. Dan de 30 a 60 XP. Los ves en Hoy y, con detalle, en Progreso.'),
-      faqItem('¿Cómo apunto una cantidad?', 'En los de tiempo, distancia o páginas, un toque marca la meta y, si mantienes pulsado, apuntas lo que hiciste de verdad. En los contadores (vasos, piezas…), cada toque suma 1 y mantener pulsado resta 1. Con teclado, la tecla − hace lo mismo que mantener pulsado.'),
+      faqItem('¿Cómo apunto una cantidad?', 'En los de tiempo, distancia o páginas, un toque marca la meta y, si mantienes pulsado, apuntas lo que hiciste de verdad. En los contadores (vasos, piezas…) y en los que haces varias veces al día, cada toque suma 1 y mantener pulsado resta 1. Con teclado, la tecla − hace lo mismo que mantener pulsado.'),
       faqItem('¿Puedo marcar un día que se me olvidó?', 'Sí. En Hoy, usa las flechas ‹ › para ir a días anteriores. O en el Historial: toca el día y luego «Ver día».'),
       faqItem('¿Pausar, archivar o eliminar?', 'Pausar (vacaciones, una lesión…) lo aparta sin romper la racha. Archivar lo quita de Hoy y del Historial, pero conservas su XP y puedes restaurarlo desde Ajustes. Eliminar lo borra, con unos segundos para deshacerlo, y tu XP total no cambia.'),
       faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti.'),
@@ -4493,6 +4593,9 @@ const INFO = {
         <li>Gratitud y emociones, con su historial, y una reflexión distinta cada día.</li>
         <li>Al terminar una práctica, puede marcarse el hábito que elijas, como Meditar.</li>
         <li>Salud se abre ahora desde una tarjeta en Hoy, como Zen, y la barra se queda con 4 pestañas.</li>
+        <li>Casi 100 tipos de hábito, también los básicos (hacer las comidas, lavarse los dientes, ducharse…), por grupos y con buscador.</li>
+        <li>Los hábitos de sí o no se pueden hacer varias veces al día: cada toque suma 1.</li>
+        <li>«Por semana» llega ahora hasta 7 veces.</li>
       </ul>
       <h3 class="news-title">Versión 0.7 beta</h3>
       <ul class="news-list">
@@ -5188,12 +5291,13 @@ function syncFrequency() {
   });
   $('#freq-times-value').textContent = s.times;
   $('#freq-times [data-step="-1"]').disabled = s.times <= 1;
-  $('#freq-times [data-step="1"]').disabled = s.times >= 6;
+  $('#freq-times [data-step="1"]').disabled = s.times >= 7;
 
   let hint = {
     daily: 'Cuenta todos los días.',
     days: s.days.length ? 'Solo cuentan los días elegidos. Los demás son de descanso y no rompen la racha.' : 'Elige al menos un día.',
-    weekly: 'Vale cualquier día de la semana. La racha se cuenta en semanas cumplidas.',
+    weekly: s.times === 7 ? 'Cada día que lo haces cuenta una vez, así que 7 son todos los días de la semana. La racha se cuenta en semanas cumplidas.'
+      : 'Vale cualquier día de la semana. La racha se cuenta en semanas cumplidas.',
   }[s.type];
   const habit = ui.editingId && findHabit(ui.editingId);
   if (habit && JSON.stringify(sheetScheduleValue()) !== JSON.stringify(habit.schedule)) {
@@ -5224,7 +5328,7 @@ $('#freq-days').addEventListener('click', (e) => {
 $('#freq-times').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-step]');
   if (!btn) return;
-  ui.sheetSchedule.times = Math.min(6, Math.max(1, ui.sheetSchedule.times + Number(btn.dataset.step)));
+  ui.sheetSchedule.times = Math.min(7, Math.max(1, ui.sheetSchedule.times + Number(btn.dataset.step)));
   syncFrequency();
   haptic();
 });
@@ -5315,11 +5419,11 @@ function setSheetKind(kind) {
   document.querySelectorAll('#kind-type [data-kind]').forEach((btn) => {
     btn.setAttribute('aria-checked', String(btn.dataset.kind === kind));
   });
-  const custom = ui.sheetType === 'custom';
+  const measured = Boolean(typeOf(ui.sheetType).measures);
   $('#freq-block').hidden = quit;
-  // El formulario libre usa el contador de siempre; los tipos, su deslizador (si se miden).
-  $('#goal-block').hidden = quit || !custom;
-  $('#measure-block').hidden = quit || custom || !typeOf(ui.sheetType).measures;
+  // Los que se miden usan su deslizador; el formulario libre y los de sí o no, el contador (veces al día).
+  $('#goal-block').hidden = quit || measured;
+  $('#measure-block').hidden = quit || !measured;
   $('#kind-hint').hidden = !quit;
   $('#kind-hint').textContent = 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca el hábito para apuntarlo.';
   nameInput.placeholder = quit ? 'Ej. Dejar de fumar' : 'Ej. Beber 2 litros de agua';
@@ -5400,14 +5504,17 @@ function setSheetGoal(goal, unit) {
   syncGoal();
 }
 
+// En el formulario libre, una meta con unidad opcional («8 vasos»); en los tipos de sí o no, cuántas veces al día.
 function syncGoal() {
   const goal = clampGoal(goalInput.value);
-  $('#unit-field').hidden = goal <= 1;
-  $('#goal-label').textContent = goal <= 1 ? 'vez al día' : 'al día';
+  const custom = ui.sheetType === 'custom';
+  $('#goal-title').textContent = custom ? 'Meta de cada día' : 'Veces al día';
+  $('#unit-field').hidden = goal <= 1 || !custom;
+  $('#goal-label').textContent = goal <= 1 ? 'vez al día' : custom && unitInput.value.trim() ? 'al día' : 'veces al día';
   $('#goal-stepper [data-step="-1"]').disabled = goal <= 1;
   $('#goal-stepper [data-step="1"]').disabled = goal >= 99;
   let hint = goal <= 1
-    ? 'Un toque y listo.'
+    ? 'Un toque y listo. Si lo haces varias veces al día, súbelo y cada toque sumará 1.'
     : 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.';
   const habit = ui.editingId && findHabit(ui.editingId);
   if (habit && goal !== habit.goal) hint += ' Los días pasados se recalcularán con la nueva meta.';
@@ -5434,12 +5541,52 @@ $('#goal-stepper').addEventListener('click', (e) => {
   haptic();
 });
 goalInput.addEventListener('input', syncGoal);
+unitInput.addEventListener('input', syncGoal);
 goalInput.addEventListener('change', () => { goalInput.value = clampGoal(goalInput.value); syncGoal(); });
 
 // Tipos para elegir al crear un hábito, por grupos
-$('#type-groups').innerHTML = TYPE_GROUPS.map(([group, label]) => `
+$('#type-groups').innerHTML = TYPE_GROUPS.map(([group, label]) => `<section class="type-group" data-group="${group}">
   <p class="section-label">${label}</p>
-  <div class="type-grid">${HABIT_TYPES.filter((t) => t.group === group).map(typeTile).join('')}</div>`).join('');
+  <div class="type-grid">${HABIT_TYPES.filter((t) => t.group === group).map(typeTile).join('')}</div>
+</section>`).join('');
+
+// Buscador: sin tildes ni mayúsculas, por nombre, grupo u otras palabras («comer» encuentra «Hacer las comidas»).
+// Personalizado siempre queda a mano y, si has escrito algo, lo propone con ese nombre.
+const searchText = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const typeWords = new Map(HABIT_TYPES.map((t) => [t.id, searchText(`${t.name} ${t.k || ''} ${TYPE_GROUPS.find(([g]) => g === t.group)[1]}`)]));
+const typeSearch = $('#type-search');
+
+function typeMatches(type, query) {
+  const words = typeWords.get(type.id);
+  return query.split(/\s+/).every((q) => words.includes(q));
+}
+
+function filterTypes() {
+  const raw = typeSearch.value.trim();
+  const query = searchText(raw);
+  let found = 0;
+  document.querySelectorAll('#type-groups .type-group').forEach((section) => {
+    let shown = 0;
+    section.querySelectorAll('[data-type]').forEach((tile) => {
+      const custom = tile.dataset.type === 'custom';
+      tile.hidden = Boolean(query) && !custom && !typeMatches(typeOf(tile.dataset.type), query);
+      if (!tile.hidden && !custom) shown++;
+    });
+    section.hidden = section.dataset.group !== 'custom' && !shown;
+    found += shown;
+  });
+  $('#type-empty').hidden = !query || found > 0;
+  const customName = $('#type-groups [data-type="custom"] .type-name');
+  customName.textContent = raw ? `Crear «${raw.slice(0, 40)}»` : 'Personalizado';
+}
+
+typeSearch.addEventListener('input', filterTypes);
+// Intro solo cierra el teclado (no envía el formulario).
+typeSearch.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  typeSearch.blur();
+});
 
 // Sin hábito ni tipo: se elige el tipo. Con tipo (o al editar): su edición, ya adaptada.
 function openSheet(id = null, typeId = null) {
@@ -5447,6 +5594,8 @@ function openSheet(id = null, typeId = null) {
   ui.editingId = habit ? habit.id : null;
   $('#sheet-title').textContent = habit ? 'Editar hábito' : 'Nuevo hábito';
   saveBtn.textContent = habit ? 'Guardar' : 'Añadir';
+  typeSearch.value = '';
+  filterTypes();
   if (habit || typeId) startEditor(habit, habit ? habit.type : typeId);
   else showTypePicker();
   document.documentElement.classList.add('locked');
@@ -5480,7 +5629,7 @@ function startEditor(habit, typeId) {
   // Empezar o dejar solo se elige en el formulario libre, y al crearlo.
   $('#kind-block').hidden = Boolean(habit) || !custom;
   setSheetKind(habit ? habit.kind : type.kind || 'build');
-  setSheetGoal(habit && custom ? habit.goal : 1, habit && custom ? habit.unit : '');
+  setSheetGoal(habit && !type.measures ? habit.goal : type.goal || 1, habit && custom ? habit.unit : '');
   setSheetMeasure(habit, type);
   setSheetColor(habit ? habit.color : nextColor(state.habits));
   setSheetSchedule(habit ? habit.schedule : type.schedule || { type: 'daily' });
@@ -5498,6 +5647,12 @@ $('#type-groups').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-type]');
   if (!btn) return;
   startEditor(null, btn.dataset.type);
+  // «Crear «…»»: el formulario libre con lo que habías buscado como nombre.
+  const typed = typeSearch.value.trim();
+  if (btn.dataset.type === 'custom' && typed) {
+    nameInput.value = capitalize(typed).slice(0, 40);
+    updateSaveButton();
+  }
   haptic();
 });
 $('#change-type').addEventListener('click', showTypePicker);
@@ -5547,11 +5702,11 @@ form.addEventListener('submit', (e) => {
   const type = typeOf(ui.sheetType);
   const kind = habit ? habit.kind : ui.sheetKind;
   const quit = kind === 'quit';
-  // La meta: la del formulario libre (contador), la del deslizador del tipo, o 1 (sí/no y dejar algo).
+  // La meta: la del contador (formulario libre y sí/no: veces al día), la del deslizador del tipo, o 1 (dejar algo).
   let measure = { goal: 1, unit: '', mode: 'count', measure: '' };
-  if (!quit && type.id === 'custom') {
+  if (!quit && !type.measures) {
     const goal = clampGoal(goalInput.value);
-    measure = { goal, unit: goal > 1 ? unitInput.value.trim().slice(0, 20) : '', mode: 'count', measure: '' };
+    measure = { goal, unit: goal > 1 && type.id === 'custom' ? unitInput.value.trim().slice(0, 20) : '', mode: 'count', measure: '' };
   } else if (!quit && ui.sheetMeasure) {
     const spec = measureSpec(type, ui.sheetMeasure);
     measure = { goal: round2(measureRange.value), unit: spec.unit, mode: spec.mode, measure: spec.id };

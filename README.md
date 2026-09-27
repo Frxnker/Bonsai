@@ -46,9 +46,9 @@ Versión actual: **0.8 beta**.
 
 - Tocas un hábito cuando lo haces y ganas **XP**; subes de **nivel** y consigues **logros**.
 - Cada hábito lleva su **racha** (días seguidos, o semanas en los semanales).
-- **21 tipos de hábito** listos para usar (caminar, correr, leer, meditar, beber agua, dormir, dejar de fumar…), cada uno con su **edición a medida**: por ejemplo, un deslizador para elegir cuántos minutos quieres caminar. Y uno **personalizado** para cualquier otra cosa.
-- Se miden de cuatro formas: **sí/no**, **tiempo o distancia** («30 min», «5 km»: un toque marca la meta), **contador** («3/8 vasos») y **dejar algo** («12 días sin fumar»).
-- Eliges la **frecuencia**: cada día, algunos días de la semana o X veces por semana.
+- **98 tipos de hábito** listos para usar, en 10 grupos y con **buscador**: desde lo básico (hacer las comidas, lavarse los dientes, ducharse, hacer la cama…) hasta moverte, mente, salud, cuidarte, casa, personas, trabajo y estudio, dinero y dejar algo. Cada uno con su **edición a medida**: por ejemplo, un deslizador para elegir cuántos minutos quieres caminar. Y uno **personalizado** para cualquier otra cosa.
+- Se miden de cuatro formas: **sí/no** (una o **varias veces al día**, como lavarse los dientes 2 veces), **tiempo o distancia** («30 min», «5 km»: un toque marca la meta), **contador** («3/8 vasos») y **dejar algo** («12 días sin fumar»).
+- Eliges la **frecuencia**: cada día, algunos días de la semana o de 1 a 7 veces por semana.
 - Puedes **pausar** un hábito (vacaciones, lesión…) sin romper la racha, o **archivarlo**.
 - Los **protectores** salvan tu racha si un día se te olvida.
 - Cada semana hay **3 retos** que dan XP extra.
@@ -90,7 +90,7 @@ Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app
   - «6 días · próxima meta: 7» cuando ya lo has hecho. Las metas son 3, 7, 14, 30, 60, 100, 180 y 365 días.
   - «Empieza tu racha hoy» si aún no tienes racha.
   - Semanales: «2 semanas · 2/3 esta semana» (con ✓ al cumplir la semana).
-  - Contador: «3/8 vasos · 5 días», y un anillo fino alrededor de la casilla muestra lo que llevas.
+  - Contador: «3/8 vasos · 5 días» (o «1/2 veces» en los que haces varias veces al día), y un anillo fino alrededor de la casilla muestra lo que llevas.
   - Tiempo, distancia…: «20/30 min · 5 días» (o «30 min» al cumplirla).
   - Dejar algo: «12 días sin fumar».
   - Descanso: «Hoy descansa · 5 días» o «Día extra» si lo haces igualmente.
@@ -114,35 +114,68 @@ Si aún no tienes hábitos, Hoy muestra una bienvenida con los 3 pasos de la app
 
 Toca **+**. Primero eliges **qué tipo de hábito** quieres y después se abre **su edición, adaptada a ese tipo**. No se crea nada hasta que pulsas **Añadir** (y **«‹ Otro tipo»** te devuelve a la lista).
 
+**El buscador**, arriba de la lista, filtra mientras escribes, sin importar tildes ni mayúsculas. Busca en el nombre, en el grupo y en otras palabras: «comer» encuentra Hacer las comidas, Desayunar, Comer fruta…; «dientes», Lavarse los dientes y Usar hilo dental. Los grupos sin resultados se ocultan. Si no hay ninguno, lo dice y **Personalizado** pasa a ser **Crear «lo que has escrito»**, que abre el formulario libre con ese nombre ya puesto.
+
 **Los tipos**, por grupos:
 
 | Grupo | Tipo | Cómo se mide (y lo que propone) |
 | --- | --- | --- |
+| Lo básico | 🍽️ Hacer las comidas | Veces al día (propone 3) |
+|  | 🥣 Desayunar · 🚿 Ducharse · 🛏️ Hacer la cama · 🌅 Levantarse temprano · 🌙 Acostarse pronto · 🍳 Cocinar en casa | Sí o no |
+|  | 🪥 Lavarse los dientes | Veces al día (propone 2) |
 | Moverte | 🚶 Caminar | Tiempo (5–180 min, 30) o pasos (1.000–30.000, 8.000) |
-| | 🏃 Correr | Distancia (0,5–42 km, 5) o tiempo · 3 veces por semana |
-| | 🚴 Montar en bici | Distancia (1–100 km, 15) o tiempo · 2 veces por semana |
-| | 💪 Hacer ejercicio | Tiempo (45 min) · 3 veces por semana |
-| | 🤸 Estirar | Tiempo (5–60 min, 10) |
+|  | 🏃 Correr | Distancia (0,5–42 km, 5) o tiempo (5–180 min, 30) · 3 veces por semana |
+|  | 🚴 Montar en bici | Distancia (1–100 km, 15) o tiempo (5–180 min, 45) · 2 veces por semana |
+|  | 💪 Hacer ejercicio | Tiempo (5–180 min, 45) · 3 veces por semana |
+|  | 🏋️ Ir al gimnasio | Sí o no · 3 veces por semana |
+|  | 🤸 Estirar | Tiempo (5–60 min, 10) |
+|  | 🧘‍♀️ Hacer yoga | Tiempo (5–180 min, 30) |
+|  | 🏊 Nadar | Tiempo (5–180 min, 30) · 2 veces por semana |
+|  | ⚽ Hacer deporte | Tiempo (5–180 min, 60) · 2 veces por semana |
+|  | 🥾 Hacer senderismo | Distancia (0,5–40 km, 10) o tiempo (5–180 min, 120) · 1 vez por semana |
+|  | 💃 Bailar | Tiempo (5–180 min, 20) |
+|  | 🪜 Subir por las escaleras | Sí o no |
+|  | ⏱️ Pausas para moverte | Veces al día (propone 4) |
 | Mente | 🧘 Meditar | Tiempo (1–60 min, 10) |
-| | 📚 Leer | Páginas (5–150, 20) o tiempo |
-| | 🎓 Estudiar | Tiempo (45 min) |
-| | 🗣️ Practicar un idioma | Tiempo (15 min) |
-| | 🎸 Tocar un instrumento | Tiempo (20 min) |
-| | ✍️ Escribir diario | Sí o no |
+|  | 📚 Leer | Páginas (5–150, 20) o tiempo (5–180 min, 20) |
+|  | 🗣️ Practicar un idioma | Tiempo (5–180 min, 15) |
+|  | 🎸 Tocar un instrumento · 🖋️ Escribir · 🎨 Dibujar o pintar | Tiempo (5–180 min, 20) |
+|  | ✍️ Escribir diario · 💡 Aprender algo nuevo · 🧩 Hacer un pasatiempo · 🎧 Escuchar un pódcast | Sí o no |
 | Salud | 💧 Beber agua | Contador de vasos (2–16, 8) |
-| | 😴 Dormir bien | Horas (4–12, de media en media, 8) |
-| | 🍎 Comer fruta | Contador de piezas (1–8, 3) |
-| | 🦷 Usar hilo dental | Sí o no |
-| | 💊 Tomar vitaminas | Sí o no |
-| Dejar algo | 🚭 Dejar de fumar · 🍬 Sin azúcar · 📵 Menos redes · 🍷 Sin alcohol | Días sin recaer |
+|  | 😴 Dormir bien | Horas (4–12 h, 8) |
+|  | 🍎 Comer fruta | Contador de piezas (1–8, 3) |
+|  | 🥦 Comer verdura | Contador de raciones (1–10, 2) |
+|  | 🥗 Comer sano · 🦷 Usar hilo dental · 💊 Tomar vitaminas · 🩺 Tomar la medicación | Sí o no |
+|  | 👀 Descansar la vista | Veces al día (propone 3) |
+| Cuidarte | 🙏 Agradecer algo · 🌳 Salir a la calle · 🎶 Escuchar música · 🧴 Cuidar la piel · 🔌 Sin pantallas antes de dormir · 🎈 Hacer algo que te guste | Sí o no |
+|  | 🌬️ Respirar hondo | Veces al día (propone 3) |
+|  | 🌿 Tiempo en la naturaleza · 🛋️ Un rato para ti | Tiempo (5–180 min, 30) |
+|  | ☀️ Tomar el sol | Tiempo (5–60 min, 15) |
+| Casa | 🧹 Ordenar | Tiempo (5–120 min, 15) |
+|  | 🧽 Limpiar la casa · 🧺 Poner una lavadora · 🪴 Regar las plantas | Sí o no · 2 veces por semana |
+|  | 🧼 Fregar los platos · 🗑️ Sacar la basura | Sí o no |
+|  | 🐕 Pasear al perro · 🐾 Dar de comer a la mascota | Veces al día (propone 2) |
+|  | 🛒 Hacer la compra | Sí o no · 1 vez por semana |
+| Personas | 👪 Tiempo en familia · 📞 Llamar a alguien querido · ❤️ Tiempo en pareja · 🤝 Hacer algo amable · 👂 Escuchar sin interrumpir | Sí o no |
+|  | 🫂 Quedar con amigos · 🤲 Hacer voluntariado | Sí o no · 1 vez por semana |
+| Trabajo y estudio | 🗓️ Planificar el día · ✅ Hacer la tarea más importante · 📥 Vaciar la bandeja de entrada · 🗂️ Ordenar el escritorio · 🔕 Desconectar del trabajo | Sí o no |
+|  | 🍅 Pomodoros | Veces al día (propone 4) |
+|  | 🎯 Trabajo concentrado | Tiempo (5–180 min, 60) |
+|  | 🎓 Estudiar | Tiempo (5–180 min, 45) |
+|  | 💻 Programar | Tiempo (5–180 min, 30) |
+|  | 📋 Revisar la semana | Sí o no · 1 vez por semana |
+| Dinero | 🧾 Apuntar los gastos · 🥡 Llevar comida de casa | Sí o no |
+|  | 💰 Ahorrar · 📊 Revisar las cuentas | Sí o no · 1 vez por semana |
+| Dejar algo | 🚭 Dejar de fumar · 💨 Dejar de vapear · 🍷 Sin alcohol · 🍬 Sin azúcar · 🍟 Sin comida basura · 🥤 Sin refrescos · ☕ Menos café · 🍪 Sin picar entre horas · 📵 Menos redes · 📱 Menos pantalla · 📺 Menos series · 🎮 Menos videojuegos · ⏰ Sin posponer la alarma · 💅 No morderse las uñas · 🛍️ Sin compras impulsivas · 🎰 Sin apuestas · 🤐 Sin quejarse · 🙊 Sin palabrotas | Días sin recaer |
 | A tu manera | Personalizado | El formulario libre: empezar o dejar algo, meta de 1 a 99 y unidad |
 
 **La edición** se adapta al tipo:
 
 - **Emoji y nombre**, ya puestos (puedes cambiarlos; el nombre admite hasta 40 caracteres).
-- **Meta de cada día:** un **deslizador** con los límites de ese tipo. Si se puede medir de dos formas, arriba eliges cuál (por ejemplo, «Tiempo | Pasos» al caminar). Debajo se explica cómo se marca.
+- **Meta de cada día** (en los que se miden): un **deslizador** con los límites de ese tipo. Si se puede medir de dos formas, arriba eliges cuál (por ejemplo, «Tiempo | Pasos» al caminar). Debajo se explica cómo se marca.
 - **Frecuencia:** cada día, algunos días o X veces por semana (ver [Frecuencia](#frecuencia)). Algunos tipos traen una propuesta (correr, 3 veces por semana).
-- Los de **sí o no** no tienen meta, y los de **dejar algo** tampoco tienen frecuencia (son diarios).
+- **Veces al día** (en los de sí o no): botones − y + de 1 a 99. Con 1, un toque y listo; con más, cada toque suma 1 (lavarse los dientes, 2 veces al día). Algunos tipos traen una propuesta (hacer las comidas, 3; pasear al perro, 2).
+- Los de **dejar algo** no tienen frecuencia ni veces al día (son diarios).
 - **Personalizado** es el formulario de siempre: «Quiero empezar a…» o «Quiero dejar de…», y una meta de 1 a 99 con botones − y + y una unidad opcional.
 - **Color:** 8 tonos (Salvia, Jade, Niebla, Glicina, Sakura, Arcilla, Ocre y Piedra). Se usa en su icono, su casilla y su mapa de calor. Por defecto se propone uno que no uses aún.
 - **Recordatorio:** una hora y el botón **«Añadir al calendario»** (ver [Recordatorios](#recordatorios-en-el-calendario)).
@@ -152,7 +185,7 @@ Toca **+**. Primero eliges **qué tipo de hábito** quieres y después se abre *
 
 ## Tipos de hábito
 
-### Sí/no (meta 1)
+### Sí/no (una vez al día)
 Un toque y listo. Tocar otra vez lo desmarca.
 
 ### De tiempo, distancia, pasos, horas o páginas
@@ -161,9 +194,9 @@ Un toque y listo. Tocar otra vez lo desmarca.
 - Debajo del nombre verás «20/30 min» o, al cumplirla, lo que hiciste («35 min»).
 - **Si cambias la meta**, los días que marcaste con un toque siguen contando como cumplidos. Si cambias la forma de medir (de minutos a pasos, por ejemplo), los días pasados se convierten en proporción.
 
-### Contador (vasos, piezas… o una meta de 2 a 99 en Personalizado)
+### Contador (vasos, piezas…, varias veces al día o una meta de 2 a 99 en Personalizado)
 - Cada toque **suma 1** hasta llegar a la meta. **Mantener pulsado** (medio segundo) **resta 1**. Con teclado, las teclas **−**, **Retroceso** o **Suprimir** también restan.
-- Muestra «3/8 vasos» y un **anillo alrededor de la casilla** se va completando con el color del hábito.
+- Muestra «3/8 vasos» (o «1/2 veces», si no tiene unidad) y un **anillo alrededor de la casilla** se va completando con el color del hábito.
 - Solo cuenta como hecho (y da XP) **al llegar a la meta**. Si tocas cuando ya está completo, te recuerda que puedes mantener pulsado para restar.
 - En el Historial, los días a medias salen más tenues.
 
@@ -178,7 +211,7 @@ Un toque y listo. Tocar otra vez lo desmarca.
 
 - **Cada día.**
 - **Algunos días** (por ejemplo, L · X · V; por defecto de lunes a viernes). Solo cuentan los días elegidos. Los demás son de **descanso**: no rompen la racha y en Hoy se ven atenuados con «Hoy descansa». Si aun así lo haces, cuenta como **día extra** (+10 XP, sin tocar la racha).
-- **X veces por semana** (de 1 a 6). Vale cualquier día. La racha se cuenta en **semanas cumplidas** y la tarjeta muestra «2/3 esta semana». La semana en curso no rompe la racha hasta que termina. Una semana con días en pausa (o la primera, si empezaste a mitad) no rompe la racha aunque no la cumplas.
+- **X veces por semana** (de 1 a 7). Vale cualquier día, y cada día que lo haces cuenta una vez (con 7, hay que hacerlo todos los días de la semana). La racha se cuenta en **semanas cumplidas** y la tarjeta muestra «2/3 esta semana». La semana en curso no rompe la racha hasta que termina. Una semana con días en pausa (o la primera, si empezaste a mitad) no rompe la racha aunque no la cumplas.
 
 ## Pausar, archivar y eliminar
 

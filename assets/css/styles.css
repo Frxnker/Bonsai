@@ -1093,8 +1093,10 @@ h1 {
   font-size: calc(24px * var(--text));
   font-weight: 500;
 }
-#type-groups .section-label { margin-top: 20px; }
-#type-groups .section-label:first-child { margin-top: 0; }
+.type-search input { -webkit-appearance: none; appearance: none; }
+.type-search input::-webkit-search-decoration { -webkit-appearance: none; }
+.type-group { margin-top: 20px; }
+#type-empty { margin-top: 16px; }
 .back-btn { margin: -12px 0 4px -6px; }
 .back-btn svg { width: 18px; height: 18px; }
 
