@@ -1,7 +1,9 @@
 'use strict';
 
-const APP_VERSION = '0.9 beta';
-const STORAGE_KEY = 'racha:v1';
+const APP_VERSION = '1.0 beta';
+const STORAGE_KEY = 'racha:v1'; // no cambia con el nombre de la app: así nadie pierde sus datos
+// Copias de seguridad que se aceptan al importar: las nuevas ('bonsai') y las de cuando la app se llamaba Racha.
+const BACKUP_APPS = ['bonsai', 'racha'];
 const HEATMAP_WEEKS = 53; // un año
 const LONG_PRESS_MS = 500; // mantener pulsado resta 1 en los hábitos con cantidad
 
@@ -1529,7 +1531,7 @@ const profileAvatar = $('#profile-avatar');
 $('#avatar-grid').innerHTML = AVATARS
   .map((e) => `<button type="button" data-avatar="${e}" aria-label="${e}">${e}</button>`)
   .join('');
-$('#app-version').innerHTML = `Racha · versión ${APP_VERSION}<br>Tus datos se guardan solo en este dispositivo.`;
+$('#app-version').innerHTML = `Bonsái · versión ${APP_VERSION}<br>Tus datos se guardan solo en este dispositivo.`;
 
 function renderSettings() {
   const stats = computeStats();
@@ -1544,7 +1546,7 @@ function renderSettings() {
   nameDisplay.textContent = profile.name || 'Añade tu nombre';
   nameDisplay.classList.toggle('no-name', !profile.name);
   $('#profile-level').textContent = `${meta.emoji} Nivel ${stats.level} · ${meta.title}`;
-  $('#profile-since').textContent = `En Racha desde ${fmtMonthYear.format(parseKey(profile.since))}`;
+  $('#profile-since').textContent = `En Bonsái desde ${fmtMonthYear.format(parseKey(profile.since))}`;
   document.querySelectorAll('#avatar-grid button').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.avatar === profile.avatar));
   });
@@ -1952,16 +1954,16 @@ function buildICS({ id, name, emoji, schedule, time }) {
     : `FREQ=WEEKLY;BYDAY=${ICS_DAYS[weekdayOf(first)]}`;
   const title = `${emoji} ${name}`;
   const about = schedule.type === 'weekly'
-    ? `Esta semana toca «${name}» ${plural(schedule.times, 'vez', 'veces')}. Márcalo en Racha.`
-    : `Es hora de «${name}». Márcalo en Racha.`;
+    ? `Esta semana toca «${name}» ${plural(schedule.times, 'vez', 'veces')}. Márcalo en Bonsái.`
+    : `Es hora de «${name}». Márcalo en Bonsái.`;
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Racha//Recordatorios//ES',
+    'PRODID:-//Bonsai//Recordatorios//ES',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${id}-${Date.now()}@racha`,
+    `UID:${id}-${Date.now()}@bonsai`,
     `DTSTAMP:${stamp}`,
     `DTSTART:${local(start)}`,
     `DTEND:${local(end)}`,
@@ -2025,7 +2027,7 @@ $('#reminder-btn').addEventListener('click', async () => {
     schedule: quit ? { type: 'daily' } : sheetScheduleValue(),
     time: $('#reminder-time').value || '09:00',
   });
-  const file = new File([ics], `racha-${slugify(name)}.ics`, { type: 'text/calendar' });
+  const file = new File([ics], `bonsai-${slugify(name)}.ics`, { type: 'text/calendar' });
   haptic();
   const result = await shareOrDownload(file, `Recordatorio: ${name}`);
   if (result === 'downloaded') toast('📅 Abre el archivo descargado para añadirlo a tu calendario');
@@ -2596,8 +2598,8 @@ function haptic() {
 // ---------- Copia de seguridad ----------
 
 async function exportData() {
-  const payload = { app: 'racha', version: 1, exportedAt: new Date().toISOString(), data: state };
-  const fileName = `racha-copia-${ui.today}.json`;
+  const payload = { app: 'bonsai', version: 1, exportedAt: new Date().toISOString(), data: state };
+  const fileName = `bonsai-copia-${ui.today}.json`;
   const file = new File([JSON.stringify(payload, null, 2)], fileName, { type: 'application/json' });
 
   const markDone = () => {
@@ -2608,7 +2610,7 @@ async function exportData() {
   };
 
   // En el móvil se abre el menú Compartir ("Guardar en Archivos", AirDrop…); si no, se descarga.
-  const result = await shareOrDownload(file, 'Copia de Racha');
+  const result = await shareOrDownload(file, 'Copia de Bonsái');
   if (result !== 'cancelled') markDone();
 }
 
@@ -2619,12 +2621,14 @@ $('#import-file').addEventListener('change', async (e) => {
   let data;
   try {
     const parsed = JSON.parse(await file.text());
-    data = normalize(parsed && parsed.data ? parsed.data : parsed);
+    // Si la copia dice de qué app es, tiene que ser de Bonsái (o de cuando se llamaba Racha).
+    const known = !parsed || !parsed.app || BACKUP_APPS.includes(parsed.app);
+    data = known ? normalize(parsed && parsed.data ? parsed.data : parsed) : null;
   } catch (err) {
     data = null;
   }
   if (!data) {
-    toast('Ese archivo no es una copia de Racha');
+    toast('Ese archivo no es una copia de Bonsái');
     return;
   }
   const ok = await askConfirm({

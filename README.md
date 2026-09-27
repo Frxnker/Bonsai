@@ -1,8 +1,10 @@
-# 🔥 Racha
+# Bonsái
 
 Tracker de hábitos para usar en el móvil (iPhone o Android) como una app normal (PWA). Está hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin login: **tus datos se quedan en tu móvil**, no hace falta cuenta y **funciona sin conexión**.
 
-Versión actual: **0.9 beta**.
+Versión actual: **1.0 beta**.
+
+> **Antes se llamaba Racha; tus datos se conservan.** Al actualizar no se pierde nada: tus hábitos, tu nivel y tu diario siguen ahí, y las copias de seguridad de Racha se pueden importar igual que las nuevas.
 
 ## Índice
 
@@ -313,7 +315,7 @@ Los logros de racha se miden en días, en cualquier hábito diario, de algunos d
 
 - **Tu perfil:**
   - Nombre (hasta 24 caracteres) y avatar: elige uno de los 24 o toca el grande y escribe cualquier emoji.
-  - También muestra tu nivel y desde cuándo usas Racha. Todo se guarda al momento.
+  - También muestra tu nivel y desde cuándo usas Bonsái. Todo se guarda al momento.
 - **Copia de seguridad:**
   - **Exportar** comparte o descarga un archivo con todos tus datos.
   - **Importar** recupera una copia, previa confirmación. Las copias de versiones anteriores también valen.
@@ -340,7 +342,7 @@ Los logros de racha se miden en días, en cualquier hábito diario, de algunos d
 
 ## Tus datos
 
-- Todo se guarda en el propio móvil (`localStorage`, clave `racha:v1`). No hay servidor, cuenta ni seguimiento.
+- Todo se guarda en el propio móvil (`localStorage`, clave `racha:v1`: conserva el nombre antiguo para que nadie pierda sus datos). No hay servidor, cuenta ni seguimiento.
 - Solo se guarda lo que decides tú:
   - tus hábitos y días marcados;
   - recaídas, pausas y protectores usados;
@@ -367,7 +369,7 @@ Haz doble clic en `index.html` y se abrirá en tu navegador. Así funciona todo 
 
 1. Entra en **github.com** y crea una cuenta gratuita, si aún no la tienes.
 2. Arriba a la derecha, pulsa **+ → New repository**.
-   - **Repository name:** `racha`
+   - **Repository name:** `racha` (el repositorio conserva el nombre antiguo, así la dirección de la app no cambia)
    - Déjalo en **Public**; es necesario para que Pages sea gratis.
    - Pulsa **Create repository**.
 3. En la página del repositorio vacío, pulsa el enlace **«uploading an existing file»**.
@@ -387,14 +389,14 @@ Haz doble clic en `index.html` y se abrirá en tu navegador. Así funciona todo 
 1. Abre esa dirección en **Safari**.
 2. Toca el botón **Compartir** (el cuadrado con una flecha hacia arriba). En las versiones recientes de iOS puede estar dentro del menú **«⋯»**.
 3. Baja y toca **«Añadir a pantalla de inicio»**. Si aparece la opción **«Abrir como app web»**, déjala activada.
-4. Toca **Añadir**. Aparecerá el icono de Racha junto a tus otras apps.
+4. Toca **Añadir**. Aparecerá el icono de Bonsái junto a tus otras apps.
 5. Ábrela siempre **desde ese icono**. Se verá a pantalla completa, sin las barras de Safari.
 
 ### Android (Chrome)
 
 1. Abre esa dirección en **Chrome**.
 2. Toca el menú **⋮** (arriba a la derecha) y elige **«Instalar app»**. Si no aparece, elige **«Añadir a pantalla de inicio»** y después **Instalar**. A veces Chrome muestra directamente un aviso abajo para instalarla.
-3. Aparecerá el icono de Racha en tu pantalla de inicio (y en el cajón de apps).
+3. Aparecerá el icono de Bonsái en tu pantalla de inicio (y en el cajón de apps).
 4. Ábrela desde ese icono: se verá a pantalla completa, como una app más.
 
 ## Actualizar la app ya publicada
@@ -413,7 +415,7 @@ Tus hábitos, tu XP, tu nivel, tu diario y tu perfil no se pierden al actualizar
 En **Ajustes → Copia de seguridad**:
 
 - **Exportar copia** abre el menú Compartir. En el iPhone, elige **«Guardar en Archivos»** (por ejemplo, en iCloud Drive). En Android, guárdala en **Drive** o en tus archivos (si no se abre el menú, se descarga en la carpeta Descargas).
-- **Importar copia** te deja elegir ese archivo para recuperar todos tus datos, por ejemplo en un móvil nuevo. Las copias de versiones anteriores de Racha también se pueden importar.
+- **Importar copia** te deja elegir ese archivo para recuperar todos tus datos, por ejemplo en un móvil nuevo. Las copias de versiones anteriores (también las de cuando la app se llamaba Racha) se pueden importar.
 
 ## ⚠️ Tres cosas importantes
 

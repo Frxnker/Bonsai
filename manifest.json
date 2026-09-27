@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Racha · Hábitos",
-  "short_name": "Racha",
-  "description": "Tracker de hábitos con rachas, niveles, retos semanales y diario. Funciona sin conexión y sin cuenta.",
+  "name": "Bonsái · Hábitos",
+  "short_name": "Bonsái",
+  "description": "Cultiva tus hábitos con calma: rachas, niveles, retos semanales y diario. Funciona sin conexión y sin cuenta.",
   "lang": "es",
   "dir": "ltr",
   "start_url": "./",
