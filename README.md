@@ -8,11 +8,12 @@ La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro 
 
 ## Qué hace
 
-- **Hábitos:** 98 tipos listos para usar, por grupos y con buscador (desde lo básico, como hacer las comidas o lavarse los dientes, hasta deporte, casa, trabajo o dejar algo), uno personalizado y **packs para empezar** («Dormir mejor», «Mañana tranquila»…) que crean varios hábitos y su rutina de una vez.
-- **Cómo se marcan:** sí o no (una o varias veces al día), tiempo o distancia («30 min»), contador («3/8 vasos») o dejar algo («12 días sin fumar»).
+- **Hábitos:** 100 tipos listos para usar, por grupos y con buscador (desde lo básico, como hacer las comidas o lavarse los dientes, hasta deporte, casa, trabajo o dejar algo), uno personalizado y **packs para empezar** («Dormir mejor», «Mañana tranquila»…) que crean varios hábitos y su rutina de una vez.
+- **Cómo se marcan:** sí o no (una o varias veces al día), tiempo o distancia («30 min»), contador («3/8 vasos»), dejar algo («12 días sin fumar») o **con límite** («1 de 2 cafés»).
+- **Hábitos con límite:** los de dejar algo pueden tener un máximo al día («como mucho 2 cafés», «1 h de redes»). Se elige al crearlos o editarlos, en «Cómo lo mides». Apuntas lo que llevas, una barra avisa (también con texto) al llegar al máximo y el día solo cuenta como recaída si te pasas; si te equivocas, corriges la cantidad y vuelve a contar. Las rachas y la XP son las de dejar algo.
 - **Frecuencia:** cada día, algunos días de la semana o de 1 a 7 veces por semana. Se pueden pausar (sin romper la racha), todos a la vez con el **modo vacaciones**, o archivar.
-- **Temporizador** en los hábitos de minutos: sigue contando aunque cierres la app y, al parar, suma los minutos.
-- **Notas y ficha:** una nota corta en cada hábito y día, y una ficha por hábito (tócalo en el Historial) con su cumplimiento de 30 y 90 días, mejor día, cantidades, rachas anteriores y notas.
+- **Temporizador** en los hábitos de minutos (también en los de límite en minutos): sigue contando aunque cierres la app y, al parar, suma los minutos.
+- **Notas y ficha:** una nota corta en cada hábito y día, y una ficha por hábito (tócalo en el Historial) con su cumplimiento de 30 y 90 días, mejor día, cantidades (con la línea de la meta o del máximo), rachas anteriores y notas.
 - **Progreso:** XP, niveles, rachas, protectores de racha, 3 retos cada semana y logros, con un **bonsái que crece** con tu nivel. Todo se calcula a partir de tu historial, así que siempre cuadra. Las rachas y los logros se pueden compartir como imagen (sin datos de Salud ni del diario).
 - **Diario:** ánimo y nota de cada día, un resumen cada lunes, una revisión semanal y tendencias que solo describen lo que has registrado.
 - **Rutinas** («Mañana», «Noche»…) para ver tus hábitos agrupados.
@@ -29,7 +30,7 @@ La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro 
   - **Exportar copia** guarda un archivo con tus hábitos (con sus notas), tu historial, el diario, las rutinas, Zen, el modo vacaciones, el temporizador en marcha, tus ajustes y, si quieres, Salud. En el iPhone, elige «Guardar en Archivos»; en Android, guárdala en Drive o en tus archivos. Lleva datos personales: guárdala en un sitio privado.
   - **Importar copia** comprueba el archivo, te enseña qué trae y qué va a reemplazar, y guarda antes tus datos actuales para que puedas deshacerlo.
   - La app puede recordarte que hagas una copia cada cierto tiempo.
-- **Historial de hábitos en CSV**, también en Copia de seguridad: para abrirlo en una hoja de cálculo (no se puede importar y no lleva Salud ni el diario).
+- **Historial de hábitos en CSV**, también en Copia de seguridad: para abrirlo en una hoja de cálculo (no se puede importar y no lleva Salud ni el diario). En los de límite lleva la cantidad de cada día y marca como recaída los días en que te pasaste.
 - **Salud de Apple y Health Connect:** el iPhone y Android solo dejan leerlos a las apps nativas, así que Bonsái no puede importar pasos, sueño ni peso automáticamente. Se apuntan a mano.
 
 ## Tres cosas importantes
@@ -75,4 +76,4 @@ Pruebas, con [Node.js](https://nodejs.org) 20 o posterior y sin instalar nada:
 node --test "tests/*.test.mjs"
 ```
 
-Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos, las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud, Zen, las rutinas, los ajustes y las copias de seguridad.
+Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos (también los de límite), las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud, Zen, las rutinas, los ajustes y las copias de seguridad. `tests/rules-fixture.mjs` genera datos variados y una «huella» de todas las cuentas: `tests/limit.test.mjs` comprueba que sale la misma que con la versión anterior a los hábitos con límite.

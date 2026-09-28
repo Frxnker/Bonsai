@@ -216,10 +216,12 @@ const MEASURES = {
   glasses: { label: 'Vasos', unit: 'vasos', mode: 'count', min: 2, max: 16, step: 1 },
   pieces: { label: 'Piezas', unit: 'piezas', mode: 'count', min: 1, max: 8, step: 1 },
   servings: { label: 'Raciones', unit: 'raciones', mode: 'count', min: 1, max: 10, step: 1 },
+  coffees: { label: 'Cafés', unit: 'cafés', one: 'café', mode: 'count', min: 1, max: 10, step: 1 },
 };
 
 // Tipos para elegir al crear un hábito. Los que no se miden son de sí o no; `goal` propone cuántas veces
 // al día (se cambia en su edición) y `k` son otras palabras con las que encontrarlo en el buscador.
+// `limits`, en los de dejar algo, propone un máximo al día (hábito con límite) y cómo se mide.
 const MINUTES = (def, extra) => [{ id: 'min', def, ...extra }];
 const WEEKLY = (times) => ({ type: 'weekly', times });
 const HABIT_TYPES = [
@@ -331,6 +333,9 @@ const HABIT_TYPES = [
   { id: 'gambling', group: 'quit', emoji: '🎰', name: 'Sin apuestas', kind: 'quit', k: 'juego' },
   { id: 'complain', group: 'quit', emoji: '🤐', name: 'Sin quejarse', kind: 'quit' },
   { id: 'swearing', group: 'quit', emoji: '🙊', name: 'Sin palabrotas', kind: 'quit', k: 'tacos' },
+  { id: 'coffeelimit', group: 'quit', emoji: '☕', name: 'Limitar el café', kind: 'quit', limits: [{ id: 'coffees', def: 2 }], k: 'cafeína máximo límite menos' },
+  { id: 'sociallimit', group: 'quit', emoji: '📲', name: 'Limitar las redes', kind: 'quit',
+    limits: [{ id: 'min', def: 60, min: 5, max: 240 }, { id: 'hours', def: 1, min: 0.5, max: 6 }], k: 'redes sociales móvil pantalla tiempo máximo límite menos' },
 
   { id: 'custom', group: 'custom', emoji: '', name: '' },
 ];
@@ -344,12 +349,16 @@ const typeOf = (id) => HABIT_TYPES.find((t) => t.id === id) || HABIT_TYPES[HABIT
 
 function measureSpec(type, id) {
   const base = MEASURES[id];
-  const own = (type.measures || []).find((m) => m.id === id) || {};
+  const own = [...(type.measures || []), ...(type.limits || [])].find((m) => m.id === id) || {};
   return { ...base, id, def: own.def ?? base.min, min: own.min ?? base.min, max: own.max ?? base.max, step: own.step ?? base.step };
 }
 
 function typeHint(type) {
   if (type.id === 'custom') return 'Cualquier hábito, como tú quieras';
+  if (type.limits) {
+    const spec = measureSpec(type, type.limits[0].id);
+    return `Máximo ${spec.def === 1 && spec.one ? `1 ${spec.one}` : `${fmtAmount.format(spec.def)} ${spec.unit}`} al día`;
+  }
   if (type.kind === 'quit') return 'Días sin recaer';
   if (type.goal > 1) return `${type.goal} veces al día`;
   if (!type.measures) return type.schedule ? `${plural(type.schedule.times, 'vez', 'veces')} por semana` : 'Sí o no';
@@ -724,9 +733,33 @@ function normalizeSchedule(s) {
   return { type: 'daily' };
 }
 
+// Con límite («como mucho 2 cafés»): un hábito de dejar algo con un máximo al día (`limit`) y cantidad. Cumplir es
+// no pasarse: los días en que apuntas más del máximo son recaídas y todo lo demás (rachas, XP, retos y logros)
+// va con las reglas de los de dejar algo, sin ninguna nueva.
+const isLimit = (h) => h.kind === 'quit' && Number(h.limit) > 0;
+// Los que se miden en tiempo (minutos, horas) se apuntan con el deslizador; los demás, de uno en uno.
+const limitBySlider = (h) => isLimit(h) && (MEASURES[h.measure] || {}).mode === 'target';
+
+// Apuntar la cantidad de un día en uno con límite: si pasa del máximo, ese día es una recaída; si no (también al
+// borrarla), deja de serlo. Así, corregir la cantidad devuelve el día.
+function setLimitDay(habit, day, value) {
+  if (value > 0) habit.done[day] = Math.min(100000, round2(value));
+  else delete habit.done[day];
+  if (habit.done[day] > habit.limit) habit.slips[day] = 1;
+  else delete habit.slips[day];
+}
+
+// Pone las recaídas de acuerdo con lo apuntado (al cargar, al importar y al cambiar el máximo). Los días sin
+// cantidad, como las recaídas de cuando aún no tenía límite, se quedan como estaban.
+function syncLimitSlips(habit) {
+  if (!isLimit(habit)) return;
+  Object.keys(habit.done).forEach((day) => setLimitDay(habit, day, habit.done[day]));
+}
+
 // Temporizador: { id, day, start, paused, pausedAt } (milisegundos). Cuenta con el reloj desde `start`,
 // así sigue bien aunque se cierre la app. `day` es el día en que empezó, que es al que se suma.
-const isTimeHabit = (h) => Boolean(h) && h.kind !== 'quit' && h.mode === 'target' && h.measure === 'min' && !h.archived;
+// Lo tienen los de tiempo en minutos y los de límite en minutos («como mucho 60 min de redes»).
+const isTimeHabit = (h) => Boolean(h) && !h.archived && h.measure === 'min' && (h.kind === 'quit' ? isLimit(h) : h.mode === 'target');
 function normalizeTimer(t, habits) {
   if (!t || typeof t !== 'object') return null;
   const habit = habits.find((h) => h.id === t.id);
@@ -787,7 +820,8 @@ function normalize(data) {
       // Los hábitos de versiones anteriores reciben un color según su posición.
       color: COLORS.some((c) => c.id === h.color) ? h.color
         : OLD_COLORS[h.color] || COLORS[i % COLORS.length].id,
-      // Tipo: 'build' (empezar a hacer algo) o 'quit' (dejar algo). Los de dejar son diarios y sin cantidad.
+      // Tipo: 'build' (empezar a hacer algo) o 'quit' (dejar algo). Los de dejar son diarios y sin cantidad
+      // (salvo los de límite, que apuntan cuánto).
       kind: h.kind === 'quit' ? 'quit' : 'build',
       // Tipo elegido al crearlo (adapta su edición). Los de versiones anteriores son 'custom'.
       type: HABIT_TYPES.some((t) => t.id === h.type) ? h.type : 'custom',
@@ -796,15 +830,20 @@ function normalize(data) {
       measure: typeof h.measure === 'string' && MEASURES[h.measure] ? h.measure : '',
       schedule: h.kind === 'quit' ? { type: 'daily' } : normalizeSchedule(h.schedule),
       goal: h.kind === 'quit' ? 1 : isTargetData(h) ? clampTarget(h.goal) : clampGoal(h.goal),
+      // Máximo al día de los de límite (solo en los de dejar algo); en los demás, null.
+      limit: isLimit(h) ? clampTarget(h.limit) : null,
       unit: typeof h.unit === 'string' ? h.unit.trim().slice(0, 20) : '',
       pauses: normalizePauses(h.pauses),
       archived: isDateKey(h.archived) ? h.archived : null,
       created: isDateKey(h.created) ? h.created : todayKey(),
-      done: normalizeDone(h.done, isTargetData(h)),
+      // En los de dejar algo solo apuntan cantidades los de límite: con decimales (como las horas), también si
+      // luego se les quita el límite, por si vuelven a tenerlo.
+      done: normalizeDone(h.done, isTargetData(h) || h.kind === 'quit'),
       slips: dayFlags(h.slips),
       shields: dayFlags(h.shields), // días salvados con un protector
       notes: habitNotes(h.notes),   // notas de cada día (no cuentan para nada)
     }));
+  clean.habits.forEach(syncLimitSlips);
   const bank = data.bank || {};
   const count = (v) => Math.max(0, Number(v) || 0);
   clean.bank = {
@@ -906,6 +945,7 @@ const newHabit = (fields) => ({
   measure: '',
   schedule: { type: 'daily' },
   goal: 1,
+  limit: null,
   unit: '',
   pauses: [],
   archived: null,
@@ -1004,9 +1044,9 @@ const qty = (habit, v) => `${fmtAmount.format(v)}${habit.unit ? ` ${habit.unit}`
 const hasSlip = (habit, key) => habit.kind === 'quit' && Boolean(habit.slips[key]) && isActive(habit, key);
 // Día salvado por un protector: tocaba, no se hizo y hay un protector apuntado. Si luego se marca, deja de contar.
 const isShielded = (habit, key) => Boolean(habit.shields[key]) && habit.kind !== 'quit' && isDue(habit, key) && !isDone(habit, key);
-// "Dejar de fumar" → "fumar", "Sin azúcar" → "azúcar", "Menos redes" → "redes"
+// "Dejar de fumar" → "fumar", "Sin azúcar" → "azúcar", "Menos redes" → "redes", "Limitar el café" → "café"
 const quitWhat = (habit) => {
-  const rest = habit.name.replace(/^(dejar\s+(de|el|la|los|las)\s+|dejar\s+|sin\s+|menos\s+|no\s+)/i, '').trim() || habit.name;
+  const rest = habit.name.replace(/^(dejar\s+(de|el|la|los|las)\s+|dejar\s+|limitar\s+(el|la|los|las)\s+|limitar\s+|sin\s+|menos\s+|no\s+)/i, '').trim() || habit.name;
   return rest.charAt(0).toLowerCase() + rest.slice(1);
 };
 
@@ -1387,7 +1427,7 @@ const CHALLENGES = [
     text: (h) => `Haz un día extra de «${h.name}» (en un día de descanso)`, target: () => 1,
     value: (w, h) => countDays(w.past, (d) => isDone(h, d) && dayStatus(h, d) === 'rest') },
   { id: 'clean', icon: 'unlock', reward: 50, habit: (h) => h.kind === 'quit',
-    text: (h) => `Semana entera sin recaídas en «${h.name}»`, target: () => 7,
+    text: (h) => `Semana entera sin ${isLimit(h) ? 'pasarte' : 'recaídas'} en «${h.name}»`, target: () => 7,
     value: (w, h) => countDays(w.past, (d) => isDone(h, d)),
     failed: (w, h) => w.past.some((d) => hasSlip(h, d)) },
   { id: 'variety', icon: 'grid', reward: 40, needs: (hs) => hs.filter((h) => h.kind === 'build').length >= 2,
@@ -1639,6 +1679,27 @@ function quitMeta(habit) {
   return `<span class="flame">${days}</span> sin ${escapeHTML(quitWhat(habit))}`;
 }
 
+// Los de límite: «2 cafés» (y «1 café», si la medida tiene singular), «60 min» o, sin unidad, «3 veces».
+function limitQty(habit, v) {
+  if (!habit.unit) return plural(v, 'vez', 'veces');
+  const one = (MEASURES[habit.measure] || {}).one;
+  return v === 1 && one ? `1 ${one}` : qty(habit, v);
+}
+const limitLabel = (habit) => `Máximo ${limitQty(habit, habit.limit)} al día`;
+// «1 de 2 cafés», «45 de 60 min». Texto plano.
+const limitText = (habit, key) => `${fmtAmount.format(habit.done[key] || 0)} de ${limitQty(habit, habit.limit)}`;
+// Cómo va un día: por debajo del máximo, justo en él o pasado (una recaída).
+const limitState = (habit, key) => (hasSlip(habit, key) ? 'over' : (habit.done[key] || 0) >= habit.limit ? 'at' : 'under');
+
+// Debajo del nombre: lo que llevas y cómo va, dicho con palabras (el color de la barra solo lo acompaña).
+function limitMeta(habit, day) {
+  const state = limitState(habit, day);
+  const amount = `<b class="amount">${escapeHTML(limitText(habit, day))}</b>`;
+  if (state === 'over') return habit.done[day] ? `${amount} · te pasaste` : `Recaída${day === ui.today ? ' hoy' : ''} · sin cantidad`;
+  if (state === 'at') return `${amount} · <span class="limit-state">en el límite</span>`;
+  return `${amount} · <span class="flame">${plural(streakInfo(habit).current, 'día', 'días')}</span> sin pasarte`;
+}
+
 // Contadores: "3/8 vasos" (o "1/2 veces", sin unidad). De tiempo, distancia…: "20/30 min" y, al cumplirla,
 // lo hecho ("30 min"). Texto plano.
 const countUnit = (habit) => habit.unit || 'veces';
@@ -1690,8 +1751,23 @@ function habitRow(habit) {
   let meta;
   let mark = ICONS.check;
   let label = '';
+  let bar = '';
 
-  if (habit.kind === 'quit') {
+  if (isLimit(habit)) {
+    // Con límite: como los de dejar algo (hecho mientras no te pases), con lo que llevas y una barra que avisa
+    // al llegar al máximo. El estado va también en el texto y en el nombre del botón.
+    const state = limitState(habit, day);
+    classes.push('limit');
+    if (state === 'over') classes.push('slipped');
+    if (state === 'at') classes.push('at-limit');
+    style += `;--limit:${Math.min(1, (habit.done[day] || 0) / habit.limit).toFixed(3)}`;
+    meta = limitMeta(habit, day);
+    bar = '<span class="limit-bar" aria-hidden="true"><span></span></span>';
+    const how = limitBySlider(habit) ? 'Toca para apuntar el tiempo' : 'Toca para sumar 1; mantén pulsado para restar 1';
+    const now = state === 'over' ? (habit.done[day] ? 'te has pasado del máximo' : 'recaída apuntada')
+      : state === 'at' ? 'en el límite' : `${plural(streakInfo(habit).current, 'día', 'días')} sin pasarte`;
+    label = `${safeName}: ${escapeHTML(limitText(habit, day))}, ${now}. ${how}`;
+  } else if (habit.kind === 'quit') {
     if (hasSlip(habit, day)) classes.push('slipped');
     meta = quitMeta(habit);
     label = hasSlip(habit, day) ? `${safeName}: recaída apuntada. Toca para deshacer`
@@ -1726,7 +1802,7 @@ function habitRow(habit) {
 
   return `<li><button type="button" class="${classes.join(' ')}" data-id="${habit.id}" aria-pressed="${done}" style="${style}"${label ? ` aria-label="${label}"` : ''}>
     ${emoji}
-    <span class="info">${name}<span class="meta">${meta}</span></span>
+    <span class="info">${name}<span class="meta">${meta}</span>${bar}</span>
     ${aux.space}<span class="check">${mark}</span>
   </button>${aux.html}</li>`;
 }
@@ -1804,11 +1880,12 @@ function changeHabit(habit, button, mutate, day = ui.day) {
   const step = (habit.done[day] || 0) - amountBefore;
   if (after.xp !== before.xp) floatXp(anchor, after.xp - before.xp);
   // Pasos de cantidad que aún no llegan a la meta: "+1" o, en los de tiempo, distancia…, "+20 min"
-  else if (step) floatXp(anchor, step, isTarget(habit) ? `${step > 0 ? '+' : '−'}${qty(habit, Math.abs(step))}` : step > 0 ? '+1' : '−1');
+  else if (step) floatXp(anchor, step, isTarget(habit) || limitBySlider(habit) ? `${step > 0 ? '+' : '−'}${qty(habit, Math.abs(step))}` : step > 0 ? '+1' : '−1');
   if (nowDone !== wasDone || step) haptic();
 
   const hadFocus = button && document.activeElement === button;
-  ui.pop = (nowDone && !wasDone) || step > 0 ? habit.id : null;
+  // (Sumar en uno con límite y pasarte no se celebra.)
+  ui.pop = (nowDone && !wasDone) || (step > 0 && !hasSlip(habit, day)) ? habit.id : null;
   renderToday();
   ui.pop = null;
   // Con teclado, el foco sigue en el mismo hábito tras volver a pintar la lista.
@@ -1859,13 +1936,17 @@ function undoHabitDayChange(id, day, before, after) {
   toast('Marcado deshecho');
 }
 
-// Tocar un hábito: marcar/desmarcar, sumar 1 (cantidad) o apuntar una recaída (dejar algo).
+// Tocar un hábito: marcar/desmarcar, sumar 1 (cantidad o límite) o apuntar una recaída (dejar algo).
 function toggleHabit(id, button) {
   const habit = findHabit(id);
   if (!habit) return;
   const day = ui.day;
   if (isPaused(habit, day)) {
     askResume(habit);
+    return;
+  }
+  if (isLimit(habit)) {
+    addToLimit(habit);
     return;
   }
   if (habit.kind === 'quit') {
@@ -1895,9 +1976,41 @@ function toggleHabit(id, button) {
   });
 }
 
+// Los de límite: un toque suma 1 (en los de tiempo, abre el deslizador). Si con ese toque te pasas del máximo,
+// pregunta antes, como al apuntar una recaída.
+async function addToLimit(habit) {
+  const day = ui.day;
+  if (dayStatus(habit, day) === 'off') {
+    toast('Ese día este hábito aún no existía');
+    return;
+  }
+  if (limitBySlider(habit)) {
+    openLog(habit);
+    return;
+  }
+  const amount = habit.done[day] || 0;
+  if (amount <= habit.limit && amount + 1 > habit.limit) {
+    const ok = await askConfirm({
+      icon: 'heart',
+      title: day === ui.today ? '¿Te pasas del máximo hoy?' : '¿Te pasaste ese día?',
+      body: `<p>Con este serían ${fmtAmount.format(amount + 1)}, y tu máximo es ${escapeHTML(limitQty(habit, habit.limit))}: ese día contará como una recaída. No pasa nada: apúntalo y sigue. Si te has equivocado, mantén pulsado el hábito para restar 1.</p>`,
+      confirmText: 'Sí, apuntarlo',
+    });
+    // Si mientras tanto cambió lo apuntado (otro toque), no se suma dos veces.
+    if (!ok || (habit.done[day] || 0) !== amount) return;
+  }
+  setHabitAmount(habit, day, amount + 1);
+}
+
 // Mantener pulsado (o la tecla −) resta 1 en los contadores; en los de tiempo, distancia… abre el deslizador.
 function stepDown(habit, button) {
   const day = ui.day;
+  if (isLimit(habit)) {
+    if (isPaused(habit, day) || dayStatus(habit, day) === 'off') return;
+    if (limitBySlider(habit)) openLog(habit);
+    else if (habit.done[day]) setHabitAmount(habit, day, habit.done[day] - 1);
+    return;
+  }
   if (isTarget(habit)) {
     if (!isPaused(habit, day)) openLog(habit);
     return;
@@ -1916,39 +2029,51 @@ const logDialog = $('#log');
 const logRange = $('#log-range');
 let logFor = null;
 
+// En los de límite empieza en lo que llevas (o en 0) y enseña el máximo en vez de la meta.
 function openLog(habit) {
   const day = ui.day;
+  const limit = isLimit(habit);
   const spec = measureSpec(typeOf(habit.type), MEASURES[habit.measure] ? habit.measure : 'min');
-  const max = Math.max(spec.max, Math.ceil((habit.goal * 2) / spec.step) * spec.step);
+  const top = limit ? habit.limit : habit.goal;
+  const max = Math.max(spec.max, Math.ceil((top * 2) / spec.step) * spec.step);
   logFor = { id: habit.id, day };
   $('#log-day').textContent = day === ui.today ? 'Hoy' : capitalize(fmtLong.format(parseKey(day)));
   $('#log-title').textContent = habit.name;
   logRange.min = 0;
   logRange.max = max;
   logRange.step = spec.step;
-  logRange.value = habit.done[day] || habit.goal;
+  logRange.value = habit.done[day] || (limit ? 0 : habit.goal);
   $('#log-min').textContent = qty(habit, 0);
   $('#log-max').textContent = qty(habit, max);
-  $('#log-goal').textContent = `Meta: ${qty(habit, habit.goal)}`;
   $('#log-clear').hidden = !habit.done[day];
   syncLog();
   logDialog.showModal();
   haptic();
 }
 
+// El valor elegido y, en los de límite, si con él llegas al máximo o te pasas (con palabras, no solo color).
 function syncLog() {
   const habit = findHabit(logFor.id);
-  const text = qty(habit, Number(logRange.value));
+  const value = Number(logRange.value);
+  const text = qty(habit, value);
+  const limit = isLimit(habit);
+  const state = !limit ? '' : value > habit.limit ? 'over' : value === habit.limit ? 'at' : '';
+  const note = { over: 'con esto te pasas', at: 'en el límite' }[state];
   $('#log-value').textContent = text;
-  $('#log-value').classList.toggle('met', Number(logRange.value) >= habit.goal);
-  logRange.setAttribute('aria-valuetext', text);
+  $('#log-value').classList.toggle('met', !limit && value >= habit.goal);
+  $('#log-value').classList.toggle('over', state === 'over');
+  $('#log-goal').textContent = limit ? `Máximo: ${limitQty(habit, habit.limit)}${note ? ` · ${note}` : ''}` : `Meta: ${qty(habit, habit.goal)}`;
+  $('#log-goal').classList.toggle('over', state === 'over');
+  $('#log-goal').classList.toggle('at', state === 'at');
+  logRange.setAttribute('aria-valuetext', note ? `${text}, ${note}` : text);
 }
 logRange.addEventListener('input', syncLog);
 
-// Apuntar la cantidad de un día: la usan el deslizador (a mano) y el temporizador.
+// Apuntar la cantidad de un día: la usan el deslizador (a mano), el temporizador y los toques de los de límite.
 function setHabitAmount(habit, day, value) {
   return changeHabit(habit, $(`.habit[data-id="${habit.id}"]`), () => {
-    if (value > 0) habit.done[day] = Math.min(100000, round2(value));
+    if (isLimit(habit)) setLimitDay(habit, day, value);
+    else if (value > 0) habit.done[day] = Math.min(100000, round2(value));
     else delete habit.done[day];
   }, day);
 }
@@ -2048,7 +2173,9 @@ async function stopTimer() {
   const result = setHabitAmount(habit, t.day, (habit.done[t.day] || 0) + minutes);
   render();
   const when = t.day === ui.today ? '' : ` (el ${shortDate(t.day)}, cuando empezó)`;
-  if (!result.newlyDone && !result.message) toast(`+${fmtNumber.format(minutes)} min a «${habit.name}»${when}`);
+  // En los de límite, si con esto te pasas, ese día cuenta como una recaída: se dice claramente.
+  if (isLimit(habit) && hasSlip(habit, t.day)) toast(`+${fmtNumber.format(minutes)} min a «${habit.name}»${when}: te has pasado del máximo (${limitText(habit, t.day)})`);
+  else if (!result.newlyDone && !result.message) toast(`+${fmtNumber.format(minutes)} min a «${habit.name}»${when}`);
 }
 
 function cancelTimer() {
@@ -2367,16 +2494,19 @@ function shareCard(kind, key) {
     if (!n) return null;
     const unit = s.unit === 'week' ? ['semana', 'semanas'] : ['día', 'días'];
     const quit = habit.kind === 'quit';
+    // Con límite: «5 días sin pasarme de 2 cafés», con el nombre del hábito debajo.
+    const what = isLimit(habit) ? `sin pasarme de ${limitQty(habit, habit.limit)}` : `sin ${quitWhat(habit)}`;
     return {
       kind,
       emoji: habit.emoji,
       kicker: s.current ? (quit ? 'Llevo' : 'Racha actual') : 'Mi mejor racha',
       big: fmtNumber.format(n),
       unit: n === 1 ? unit[0] : unit[1],
-      title: quit ? `sin ${quitWhat(habit)}` : habit.name,
-      line: !quit && s.current && s.best > s.current ? `Mi mejor racha: ${plural(s.best, ...unit)}` : '',
+      title: quit ? what : habit.name,
+      line: isLimit(habit) ? habit.name : !quit && s.current && s.best > s.current ? `Mi mejor racha: ${plural(s.best, ...unit)}` : '',
       file: `bonsai-racha-${slugify(habit.name) || 'habito'}.png`,
-      label: quit ? `${plural(n, ...unit)} sin ${quitWhat(habit)}` : `Racha de ${plural(n, ...unit)} en «${habit.name}»`,
+      label: isLimit(habit) ? `${plural(n, ...unit)} ${what} en «${habit.name}»`
+        : quit ? `${plural(n, ...unit)} ${what}` : `Racha de ${plural(n, ...unit)} en «${habit.name}»`,
     };
   }
   const a = ACHIEVEMENTS[Number(key)];
@@ -2727,7 +2857,7 @@ function weekdayObservation(rates) {
 }
 
 function habitTrendText({ habit, now, before }, weeks) {
-  const base = habit.kind === 'quit' ? `${pctText(now)} de los días sin ${escapeHTML(quitWhat(habit))}` : `${pctText(now)} de lo que tocaba`;
+  const base = habit.kind === 'quit' ? `${pctText(now)} de los días sin ${isLimit(habit) ? 'pasarte' : escapeHTML(quitWhat(habit))}` : `${pctText(now)} de lo que tocaba`;
   if (before === null) return `${base} · aún no hay datos suficientes de las ${weeks} semanas anteriores`;
   const diff = Math.round(now * 100) - Math.round(before * 100);
   const how = diff >= TREND_SIMILAR ? 'más que en' : diff <= -TREND_SIMILAR ? 'menos que en' : 'parecido a';
@@ -2837,16 +2967,19 @@ function renderHistory() {
   const cards = habits.map((h) => {
     const s = streakInfo(h);
     const unit = s.unit === 'week' ? 'semanas' : 'días';
+    const limit = isLimit(h);
     const sub = [
-      h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule),
+      limit ? escapeHTML(limitLabel(h)) : h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule),
       hasAmount(h) ? `Meta: ${escapeHTML(isTarget(h) ? qty(h, h.goal) : `${h.goal} ${countUnit(h)}`)}` : '',
       isPaused(h, ui.today) ? 'En pausa' : '',
     ].filter(Boolean).join(' · ');
+    const slips = Object.keys(h.slips).length;
     const third = h.kind === 'quit'
-      ? `<b>${Object.keys(h.slips).length}</b><span>Recaídas</span>`
+      ? `<b>${slips}</b><span>${limit ? 'Veces que te pasaste' : 'Recaídas'}</span>`
       : `<b>${s.checkins}</b><span>Días hechos</span>`;
     // Tocar el hábito (su nombre o sus cifras) abre su ficha; las cifras son el botón, para el teclado.
-    const thirdText = h.kind === 'quit' ? plural(Object.keys(h.slips).length, 'recaída', 'recaídas') : plural(s.checkins, 'día hecho', 'días hechos');
+    const thirdText = limit ? plural(slips, 'vez que te pasaste', 'veces que te pasaste')
+      : h.kind === 'quit' ? plural(slips, 'recaída', 'recaídas') : plural(s.checkins, 'día hecho', 'días hechos');
     return `<article class="card" style="--c:${colorHex(h.color)}">
       <div class="card-head" data-open-detail="${h.id}">
         <span class="emoji" aria-hidden="true">${escapeHTML(h.emoji)}</span>
@@ -2943,6 +3076,12 @@ function dayCaption(habitId, key) {
   if (!habit) return label;
   const status = dayStatus(habit, key);
   const amount = hasAmount(habit) ? amountText(habit, key) : '';
+  // Con límite: si te pasaste o no y, si lo apuntaste, cuánto («Sin pasarte · 1 de 2 cafés»).
+  if (isLimit(habit) && (hasSlip(habit, key) || isDone(habit, key))) {
+    const recorded = habit.done[key] ? ` · ${limitText(habit, key)}` : '';
+    if (!hasSlip(habit, key)) return `${label} · Sin pasarte${recorded}`;
+    return `${label} · ${recorded ? `Te pasaste${recorded}` : 'Recaída'}`;
+  }
   if (hasSlip(habit, key)) return `${label} · Recaída`;
   if (isShielded(habit, key)) return `${label} · Protegido`;
   if (isDone(habit, key)) {
@@ -3058,7 +3197,7 @@ function renderHabitDetail() {
   const s = streakInfo(habit);
   const quit = habit.kind === 'quit';
   $('#habit-detail-title').textContent = habit.name;
-  const sub = [quit ? `Dejar · ${quitWhat(habit)}` : scheduleLabel(habit.schedule),
+  const sub = [isLimit(habit) ? limitLabel(habit) : quit ? `Dejar · ${quitWhat(habit)}` : scheduleLabel(habit.schedule),
     hasAmount(habit) ? `Meta: ${isTarget(habit) ? qty(habit, habit.goal) : `${habit.goal} ${countUnit(habit)}`}` : '',
     `desde el ${fmtRangeDate(habitStart(habit))}`].filter(Boolean).join(' · ');
   const head = `<div class="detail-head" style="--c:${colorHex(habit.color)}">
@@ -3068,7 +3207,7 @@ function renderHabitDetail() {
   $('#habit-detail-body').innerHTML = head + [
     detailRateCard(habit),
     quit ? detailQuitCard(habit, s) : detailWeekdayCard(habit),
-    hasAmount(habit) ? detailAmountCard(habit) : '',
+    hasAmount(habit) || isLimit(habit) ? detailAmountCard(habit) : '',
     detailStreaksCard(s, habit.id),
     detailNotesCard(habit),
   ].join('');
@@ -3083,7 +3222,8 @@ function detailRateCard(habit) {
     const detail = r.due ? `${r.done} de ${what}` : 'Sin datos aún';
     return `<div class="stat"><b>${r.rate === null ? '—' : pctText(r.rate)}</b><span>${label}</span><span>${detail}</span></div>`;
   }).join('');
-  const how = habit.kind === 'quit' ? 'Días sin recaer entre los que estuvo activo (sin pausas).'
+  const how = isLimit(habit) ? 'Días sin pasarte del máximo entre los que estuvo activo (sin pausas). Un día sin nada apuntado también cuenta.'
+    : habit.kind === 'quit' ? 'Días sin recaer entre los que estuvo activo (sin pausas).'
     : weekly ? `Semanas en las que llegaste a ${plural(habit.schedule.times, 'vez', 'veces')}. La semana en curso cuenta cuando la cumples.`
       : 'Días hechos entre los que tocaba, sin descansos ni pausas. Hoy cuenta cuando ya está hecho.';
   return `<article class="card">
@@ -3106,28 +3246,36 @@ function detailWeekdayCard(habit) {
     </article>`;
 }
 
+// Los de límite enseñan las mismas cifras, dichas a su manera: días sin pasarte y veces que te pasaste (con cuánto).
 function detailQuitCard(habit, s) {
+  const limit = isLimit(habit);
   const slips = Object.keys(habit.slips).sort().reverse();
   const shown = slips.slice(0, 10);
+  const dayItem = (d) => `${capitalize(fmtLong.format(parseKey(d)))}${limit && habit.done[d] ? ` · ${limitQty(habit, habit.done[d])}` : ''}`;
+  const more = slips.length - shown.length;
   const list = slips.length
-    ? `<ul class="detail-list">${shown.map((d) => `<li>${escapeHTML(capitalize(fmtLong.format(parseKey(d))))}</li>`).join('')}</ul>${
-      slips.length > shown.length ? `<p class="card-text small">Y ${plural(slips.length - shown.length, 'recaída más', 'recaídas más')}.</p>` : ''}`
-    : '<p class="card-text small">Ninguna recaída apuntada.</p>';
+    ? `<ul class="detail-list">${shown.map((d) => `<li>${escapeHTML(dayItem(d))}</li>`).join('')}</ul>${
+      more ? `<p class="card-text small">Y ${limit ? plural(more, 'día más', 'días más') : plural(more, 'recaída más', 'recaídas más')}.</p>` : ''}`
+    : `<p class="card-text small">${limit ? 'Ningún día por encima del máximo.' : 'Ninguna recaída apuntada.'}</p>`;
   return `<article class="card">
-      <div class="card-head"><h2>Sin ${escapeHTML(quitWhat(habit))}</h2></div>
+      <div class="card-head"><h2>${limit ? 'Sin pasarte del máximo' : `Sin ${escapeHTML(quitWhat(habit))}`}</h2></div>
       <div class="stats">
         <div class="stat"><b>${s.current}</b><span>Días seguidos ahora</span></div>
-        <div class="stat"><b>${s.checkins}</b><span>Días sin recaer en total</span></div>
-        <div class="stat"><b>${slips.length}</b><span>Recaídas</span></div>
+        <div class="stat"><b>${s.checkins}</b><span>${limit ? 'Días sin pasarte en total' : 'Días sin recaer en total'}</span></div>
+        <div class="stat"><b>${slips.length}</b><span>${limit ? 'Veces que te pasaste' : 'Recaídas'}</span></div>
       </div>
-      <h3 class="detail-sub">Recaídas</h3>
+      <h3 class="detail-sub">${limit ? 'Días que te pasaste' : 'Recaídas'}</h3>
       ${list}
     </article>`;
 }
 
+// En los de límite, la línea es el máximo y las barras que lo pasan van en el color de las recaídas (y lo dice el
+// texto: resumen, día elegido y tabla).
 function detailAmountCard(habit) {
+  const limit = isLimit(habit);
+  const line = limit ? habit.limit : habit.goal;
   const series = amountSeries(habit);
-  const max = Math.max(habit.goal, ...series.map((d) => d.value));
+  const max = Math.max(line, ...series.map((d) => d.value));
   const W = 300;
   const H = 110;
   const gap = 2;
@@ -3135,28 +3283,31 @@ function detailAmountCard(habit) {
   const y = (v) => H - (v / (max * 1.1)) * H;
   const bars = series.map((d, i) => {
     const x = i * (bw + gap);
-    const cls = d.value >= habit.goal ? 'met' : d.value ? 'part' : 'zero';
+    const cls = limit ? (d.value > line ? 'over' : d.value ? 'in' : 'zero') : d.value >= habit.goal ? 'met' : d.value ? 'part' : 'zero';
     const h = d.value ? Math.max(2, H - y(d.value)) : 2;
     const sel = ui.detailSel === d.key ? ' sel' : '';
     return `<rect class="${cls}${sel}" data-k="${d.key}" x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="${Math.min(2, bw / 2).toFixed(2)}"/>`;
   }).join('');
-  const goalY = y(habit.goal).toFixed(2);
+  const goalY = y(line).toFixed(2);
   const withValue = series.filter((d) => d.value > 0);
   const met = series.filter((d) => d.value >= habit.goal).length;
+  const over = series.filter((d) => d.value > line).length;
   const avg = withValue.length ? withValue.reduce((a, d) => a + d.value, 0) / withValue.length : 0;
   const unit = isTarget(habit) ? habit.unit : countUnit(habit);
-  const fmt = (v) => `${fmtAmount.format(round2(v))}${unit ? ` ${unit}` : ''}`;
+  const fmt = limit ? (v) => limitQty(habit, round2(v)) : (v) => `${fmtAmount.format(round2(v))}${unit ? ` ${unit}` : ''}`;
+  const reached = limit ? `y te pasaste del máximo ${plural(over, 'día', 'días')}` : `y llegaste a la meta ${plural(met, 'día', 'días')}`;
   const summary = withValue.length
-    ? `En los últimos 30 días apuntaste algo ${plural(withValue.length, 'día', 'días')}, con una media de ${fmt(avg)} esos días, y llegaste a la meta ${plural(met, 'día', 'días')}.`
+    ? `En los últimos 30 días apuntaste algo ${plural(withValue.length, 'día', 'días')}, con una media de ${fmt(avg)} esos días, ${reached}.`
     : 'En los últimos 30 días no hay nada apuntado.';
+  const dayNote = (v) => (limit ? (v > line ? ' · te pasaste' : v === line ? ' · en el límite' : '') : v >= habit.goal ? ' · meta cumplida' : '');
   const sel = series.find((d) => d.key === ui.detailSel);
   const selText = sel ? `${capitalize(fmtCaption.format(parseKey(sel.key)).replace(/\./g, ''))} · ${
-    sel.status === 'paused' ? 'En pausa' : sel.status === 'off' ? 'Aún no existía' : sel.value ? `${fmt(sel.value)}${sel.value >= habit.goal ? ' · meta cumplida' : ''}` : 'Nada apuntado'}` : 'Toca una barra para ver ese día';
+    sel.status === 'paused' ? 'En pausa' : sel.status === 'off' ? 'Aún no existía' : sel.value ? `${fmt(sel.value)}${dayNote(sel.value)}` : 'Nada apuntado'}` : 'Toca una barra para ver ese día';
   const rows = [...series].reverse().filter((d) => d.status !== 'off')
     .map((d) => `<tr><th scope="row">${escapeHTML(capitalize(fmtCaption.format(parseKey(d.key)).replace(/\./g, '')))}</th><td>${
-      d.status === 'paused' ? 'En pausa' : d.value ? escapeHTML(fmt(d.value)) : '—'}</td></tr>`).join('');
+      d.status === 'paused' ? 'En pausa' : d.value ? escapeHTML(`${fmt(d.value)}${limit ? dayNote(d.value) : ''}`) : '—'}</td></tr>`).join('');
   return `<article class="card detail-amount" style="--c:${colorHex(habit.color)}">
-      <div class="card-head"><h2>Cantidades</h2><span class="legend-goal">Meta: ${escapeHTML(fmt(habit.goal))}</span></div>
+      <div class="card-head"><h2>Cantidades</h2><span class="legend-goal">${limit ? 'Máximo' : 'Meta'}: ${escapeHTML(fmt(line))}</span></div>
       <svg class="amount-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" tabindex="0" role="img"
         aria-label="Cantidades de los últimos 30 días. ${escapeHTML(summary)} Usa las flechas para recorrer los días.">
         ${bars}<line class="goal" x1="0" x2="${W}" y1="${goalY}" y2="${goalY}"/>
@@ -3900,9 +4051,10 @@ function healthCSV() {
   return csvFile(header, rows);
 }
 
-// Historial de hábitos: una fila por hábito y día con algo apuntado (una marca, una recaída o una nota),
-// por fechas y en el orden de tus hábitos (también los archivados). Nada de Salud ni del diario.
-const habitKindLabel = (h) => (h.kind === 'quit' ? 'Dejar algo'
+// Historial de hábitos: una fila por hábito y día con algo apuntado (una marca, una cantidad, una recaída o una
+// nota), por fechas y en el orden de tus hábitos (también los archivados). Nada de Salud ni del diario.
+// En los de límite, la cantidad de cada día y, si te pasaste, «Recaída: Sí».
+const habitKindLabel = (h) => (isLimit(h) ? 'Con límite' : h.kind === 'quit' ? 'Dejar algo'
   : isTarget(h) ? (MEASURES[h.measure] || { label: 'Cantidad' }).label
     : h.goal > 1 ? 'Contador' : 'Sí o no');
 function habitsCSV() {
@@ -3911,7 +4063,7 @@ function habitsCSV() {
   state.habits.forEach((h, order) => {
     const days = new Set([...Object.keys(h.done), ...Object.keys(h.slips), ...Object.keys(h.notes)]);
     days.forEach((day) => {
-      const amount = hasAmount(h) && h.done[day] !== undefined;
+      const amount = (hasAmount(h) || isLimit(h)) && h.done[day] !== undefined;
       rows.push({ day, order, cells: [
         day,
         csvText(h.name),
@@ -5697,17 +5849,18 @@ const INFO = {
       faqItem('¿Cuándo se rompe una racha?', 'Cuando pasa sin hacerlo un día que tocaba. Los días de descanso y los de pausa no cuentan. En los de «X veces por semana» (de 1 a 7), la racha son semanas cumplidas, y la semana en curso no la rompe hasta que termina.'),
       faqItem('¿Qué son los protectores?', `Ganas 1 cada vez que un hábito llega a ${SHIELD_EVERY}, ${SHIELD_EVERY * 2}, ${SHIELD_EVERY * 3}… días seguidos (como mucho guardas ${SHIELD_MAX}). Si ayer se te olvidó un hábito diario con una racha de ${SHIELD_MIN_STREAK} días o más, al abrir la app se gasta uno solo y la racha se mantiene. Ese día no da XP y, si luego lo marcas, el protector vuelve.`),
       faqItem('¿Cómo funcionan los retos?', 'Cada lunes salen 3 retos elegidos según tus hábitos, los mismos toda la semana. Dan de 30 a 60 XP. Los ves en Hoy y, con detalle, en Progreso.'),
-      faqItem('¿Cómo apunto una cantidad?', 'En los de tiempo, distancia o páginas, un toque marca la meta y, si mantienes pulsado, apuntas lo que hiciste de verdad. En los contadores (vasos, piezas…) y en los que haces varias veces al día, cada toque suma 1 y mantener pulsado resta 1. Con teclado, la tecla − hace lo mismo que mantener pulsado.'),
-      faqItem('¿Cómo funciona el temporizador?', 'Los hábitos de minutos tienen un botón ▶ en Hoy. Cuenta desde que lo empiezas, aunque cierres la app o se bloquee el móvil, y se puede pausar, reanudar o cancelar. Al parar, suma los minutos (redondeados) al día en que empezó, aunque haya pasado la medianoche, igual que si los apuntaras a mano. Solo hay uno a la vez y, mientras cuenta, la pantalla se mantiene encendida si el navegador lo permite.'),
+      faqItem('¿Cómo apunto una cantidad?', 'En los de tiempo, distancia o páginas, un toque marca la meta y, si mantienes pulsado, apuntas lo que hiciste de verdad. En los contadores (vasos, piezas…) y en los que haces varias veces al día, cada toque suma 1 y mantener pulsado resta 1. En los de límite, cada toque suma 1 y mantener pulsado resta 1; si se miden en tiempo, un toque abre el deslizador. Con teclado, la tecla − hace lo mismo que mantener pulsado.'),
+      faqItem('¿Qué es un hábito con límite?', 'Uno de dejar algo con un máximo al día, como «como mucho 2 cafés» o «1 h de redes». Se elige al crear o editar un hábito de dejar algo, en «Cómo lo mides», y en el catálogo tienes «Limitar el café» y «Limitar las redes». Apuntas lo que llevas y una barra te avisa, también con texto, al llegar al máximo. Un día sin apuntar nada, o sin pasarte, cuenta como hecho; si te pasas, ese día es una recaída, y si te equivocaste, corrige la cantidad y vuelve a contar. Las rachas, la XP, los retos y los logros son los mismos que en cualquier hábito de dejar algo. Si cambias el máximo, los días que ya tenían algo apuntado se recalculan con el nuevo.'),
+      faqItem('¿Cómo funciona el temporizador?', 'Los hábitos de minutos tienen un botón ▶ en Hoy (también los de límite en minutos, como «Limitar las redes»). Cuenta desde que lo empiezas, aunque cierres la app o se bloquee el móvil, y se puede pausar, reanudar o cancelar. Al parar, suma los minutos (redondeados) al día en que empezó, aunque haya pasado la medianoche, igual que si los apuntaras a mano; en uno de límite, si con eso te pasas del máximo, ese día cuenta como una recaída. Solo hay uno a la vez y, mientras cuenta, la pantalla se mantiene encendida si el navegador lo permite.'),
       faqItem('¿Puedo apuntar cómo me fue?', 'Sí: toca el bocadillo junto a la casilla del hábito en Hoy, o toca un día en su mapa del Historial y «Añadir nota». Es una nota corta (hasta 140 caracteres), distinta de la del diario, y no cambia la racha ni la XP. Las verás en la ficha del hábito.'),
-      faqItem('¿Qué es la ficha de un hábito?', 'Se abre tocando un hábito en el Historial. Enseña qué parte cumpliste de lo que tocaba en los últimos 30 y 90 días (sin descansos ni pausas; en los semanales, por semanas), tu mejor día de la semana, las cantidades de los últimos 30 días, tus rachas anteriores con sus fechas y tus notas. En los de dejar algo, los días sin hacerlo y las recaídas. Sale de las mismas cuentas que las rachas.'),
+      faqItem('¿Qué es la ficha de un hábito?', 'Se abre tocando un hábito en el Historial. Enseña qué parte cumpliste de lo que tocaba en los últimos 30 y 90 días (sin descansos ni pausas; en los semanales, por semanas), tu mejor día de la semana, las cantidades de los últimos 30 días, tus rachas anteriores con sus fechas y tus notas. En los de dejar algo, los días sin hacerlo y las recaídas; en los de límite, los días sin pasarte, las veces que te pasaste y sus cantidades con la línea del máximo. Sale de las mismas cuentas que las rachas.'),
       faqItem('¿Puedo marcar un día que se me olvidó?', 'Sí. En Hoy, usa las flechas ‹ › para ir a días anteriores. O en el Historial: toca el día y luego «Ver día».'),
       faqItem('¿Pausar, archivar o eliminar?', 'Pausar (vacaciones, una lesión…) lo aparta sin romper la racha. Archivar lo quita de Hoy y del Historial, pero conservas su XP y puedes restaurarlo desde Ajustes. Eliminar lo borra, con unos segundos para deshacerlo, y tu XP total no cambia.'),
       faqItem('¿Qué hace el modo vacaciones?', 'Desde Ajustes, pausa a la vez todos tus hábitos activos, con fecha de vuelta si quieres. Usa la pausa de siempre, así que las rachas no se rompen. Al volver (ese día, o al tocar «He vuelto») se reanudan solos los que pausó; los que ya estaban en pausa siguen igual.'),
       faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti. Los packs para empezar, al tocar +, crean varios hábitos y su rutina de una vez, sin duplicar los que ya tienes.'),
       faqItem('¿Qué guarda Salud?', 'Las medidas que elijas: peso, cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no interpreta tus medidas ni da consejos médicos. Se abre desde su tarjeta en Hoy, que puedes ocultar aquí, en Ajustes.'),
       faqItem('¿Qué es Zen?', 'Un rincón para la calma, desde la tarjeta de Hoy: respiración guiada, meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1, además de gratitud y emociones. No da XP ni rachas; si quieres, al terminar una práctica marca el hábito que elijas (en los de minutos, como Meditar, suma lo practicado). Cuenta cada práctica de un minuto o más.'),
-      faqItem('¿Puedo sacar mis datos o compartir mis rachas?', 'En Ajustes, «Historial de hábitos en CSV» crea una hoja de cálculo con cada día que tiene una marca, una recaída o una nota. Desde la ficha de un hábito puedes compartir tu racha como imagen, y desde Progreso, tus logros. Las imágenes nunca llevan datos de Salud ni del diario.'),
+      faqItem('¿Puedo sacar mis datos o compartir mis rachas?', 'En Ajustes, «Historial de hábitos en CSV» crea una hoja de cálculo con cada día que tiene una marca, una cantidad, una recaída o una nota (en los de límite, los días que te pasaste van como recaída). Desde la ficha de un hábito puedes compartir tu racha como imagen, y desde Progreso, tus logros. Las imágenes nunca llevan datos de Salud ni del diario.'),
       faqItem('¿Hay accesos directos?', 'En Android, con Bonsái instalado desde Chrome, mantén pulsado su icono: aparecen Zen, Registrar salud y Nuevo hábito. En iPhone, Safari no los ofrece.'),
       faqItem('¿Dónde se guardan mis datos? ¿Se sincronizan?', 'Solo en este dispositivo: no hay cuenta ni servidor, así que no se sincronizan solos. Para pasarlos a otro móvil, exporta una copia y luego impórtala allí.'),
       faqItem('¿Qué pasa si borro la app?', 'En el iPhone, borrar el icono borra también sus datos; en Android puede pasar al borrar los datos de Chrome. Por eso conviene exportar una copia de vez en cuando (Bonsái te lo puede recordar).'),
@@ -5717,6 +5870,7 @@ const INFO = {
     title: 'Novedades',
     body: `<h3 class="news-title">Versión ${APP_VERSION}</h3>
       <ul class="news-list">
+        <li>Hábitos con límite, como «como mucho 2 cafés» o «1 h de redes»: apuntas lo que llevas, una barra te avisa al llegar al máximo y el día solo cuenta como recaída si te pasas. Al crear o editar un hábito de dejar algo, en «Cómo lo mides», o con «Limitar el café» y «Limitar las redes».</li>
         <li>Una nota en cada hábito y día («cómo fue», «por qué no pude»), desde Hoy o tocando un día en el Historial.</li>
         <li>La ficha de cada hábito, tocándolo en el Historial: cumplimiento de 30 y 90 días, mejor día de la semana, cantidades, rachas anteriores con sus fechas y notas.</li>
         <li>Temporizador en los hábitos de minutos: sigue contando aunque cierres la app y, al parar, suma los minutos.</li>
@@ -6089,8 +6243,10 @@ function renderReview() {
   // Cada hábito, día a día, en el orden de siempre (sin clasificar el mejor ni el peor).
   const days = weekKeys(ws);
   const habitItems = sum.rows.map(({ habit: h, done, due }) => {
-    const clean = `${plural(done, 'día', 'días')} sin ${escapeHTML(quitWhat(h))}`;
-    const what = h.kind === 'quit' ? (done === due ? clean : `${plural(due - done, 'recaída', 'recaídas')} · ${clean}`)
+    const limit = isLimit(h);
+    const clean = `${plural(done, 'día', 'días')} sin ${limit ? 'pasarte' : escapeHTML(quitWhat(h))}`;
+    const slips = limit ? `te pasaste ${plural(due - done, 'día', 'días')}` : plural(due - done, 'recaída', 'recaídas');
+    const what = h.kind === 'quit' ? (done === due ? clean : `${slips} · ${clean}`)
       : h.schedule.type === 'weekly' ? `${done} de ${plural(due, 'vez', 'veces')}`
       : `${done} de ${plural(due, 'día', 'días')} que tocaban`;
     return `<li style="--c:${colorHex(h.color)}">
@@ -6140,7 +6296,7 @@ function reviewPlan() {
       status = pauseText(pause);
       actions = button(h, 'resume', 'Reanudar');
     } else {
-      status = h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule);
+      status = isLimit(h) ? escapeHTML(limitLabel(h)) : h.kind === 'quit' ? `Dejar · ${escapeHTML(quitWhat(h))}` : scheduleLabel(h.schedule);
       actions = (firstFreeDay(h) <= sunday ? button(h, 'pause', 'Pausar esta semana') : '') + button(h, 'archive', 'Archivar');
     }
     return `<li style="--c:${colorHex(h.color)}">
@@ -6554,28 +6710,73 @@ $('#color-row').addEventListener('click', (e) => {
 const goalInput = $('#goal-value');
 const unitInput = $('#habit-unit');
 
-// Empezar a hacer algo o dejarlo. Los de dejar son diarios y sin cantidad, así que se ocultan esas secciones.
+// ¿Lo que se edita es de dejar algo con un máximo al día (con límite)?
+const sheetLimited = () => ui.sheetKind === 'quit' && ui.sheetLimit;
+// Formas de medirlo que propone su tipo: las de la meta o, en los de dejar algo, las del máximo.
+const sheetMeasures = () => {
+  const type = typeOf(ui.sheetType);
+  return (ui.sheetKind === 'quit' ? type.limits : type.measures) || [];
+};
+// Su meta o, en los de dejar algo, su máximo (null si no tiene), para empezar el deslizador en él.
+const sheetValueOf = (habit) => (habit.kind === 'quit' ? habit.limit : habit.goal);
+
+// Empezar a hacer algo o dejarlo. Los de dejar son diarios, así que no llevan frecuencia.
 function setSheetKind(kind) {
   ui.sheetKind = kind;
-  const quit = kind === 'quit';
   document.querySelectorAll('#kind-type [data-kind]').forEach((btn) => {
     btn.setAttribute('aria-checked', String(btn.dataset.kind === kind));
   });
-  const measured = Boolean(typeOf(ui.sheetType).measures);
-  $('#freq-block').hidden = quit;
-  // Los que se miden usan su deslizador; el formulario libre y los de sí o no, el contador (veces al día).
-  $('#goal-block').hidden = quit || measured;
-  $('#measure-block').hidden = quit || !measured;
-  $('#kind-hint').hidden = !quit;
-  $('#kind-hint').textContent = 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca el hábito para apuntarlo.';
-  nameInput.placeholder = quit ? 'Ej. Dejar de fumar' : 'Ej. Beber 2 litros de agua';
+  nameInput.placeholder = kind === 'quit' ? 'Ej. Dejar de fumar' : 'Ej. Beber 2 litros de agua';
+  syncSheetBlocks();
 }
+
+// Los de dejar algo: del todo (días sin hacerlo) o con un máximo al día. Se elige al crearlo y al editarlo.
+function setSheetLimit(on) {
+  ui.sheetLimit = on;
+  document.querySelectorAll('#limit-type [data-limit]').forEach((btn) => {
+    btn.setAttribute('aria-checked', String((btn.dataset.limit === 'on') === on));
+  });
+  syncSheetBlocks();
+}
+
+// Qué se ve: la frecuencia (no en los de dejar algo) y, para la meta o el máximo, el deslizador de su medida
+// (tipos que se miden) o el contador (formulario libre, los de sí o no y los de dejar algo sin medida propia).
+// Los de dejar algo sin máximo no llevan ninguno de los dos.
+function syncSheetBlocks() {
+  const quit = ui.sheetKind === 'quit';
+  const limited = sheetLimited();
+  const measured = sheetMeasures().length > 0;
+  $('#freq-block').hidden = quit;
+  $('#limit-block').hidden = !quit;
+  $('#goal-block').hidden = (quit && !limited) || measured;
+  $('#measure-block').hidden = (quit && !limited) || !measured;
+  $('#measure-title').textContent = limited ? 'Máximo de cada día' : 'Meta de cada día';
+  // Con límite, «Cómo lo mides» es la elección de arriba; los botones de la medida eligen la unidad.
+  $('#measure-type').setAttribute('aria-label', limited ? 'Unidad del máximo' : 'Cómo lo mides');
+  let hint = limited
+    ? 'Apunta lo que llevas cada día. Mientras no te pases del máximo, el día cuenta como hecho (y da XP), igual que un día sin recaer; si te pasas, cuenta como una recaída.'
+    : 'Cada día sin recaer cuenta como hecho (y da XP). Si un día recaes, toca el hábito para apuntarlo.';
+  const habit = ui.editingId && findHabit(ui.editingId);
+  if (habit && quit && limited !== isLimit(habit)) {
+    hint += limited ? ' Las recaídas que ya tenías se conservan.' : ' Los días en que te pasaste seguirán contando como recaídas.';
+  }
+  $('#limit-hint').textContent = hint;
+  if (ui.sheetMeasure) syncMeasure();
+  syncGoal();
+}
+
+$('#limit-type').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-limit]');
+  if (!btn) return;
+  setSheetLimit(btn.dataset.limit === 'on');
+  haptic();
+});
 
 const measureRange = $('#measure-range');
 
 // Botones para elegir cómo se mide (si el tipo tiene varias formas) y el deslizador con su valor.
-function setSheetMeasure(habit, type) {
-  const list = type.measures || [];
+function setSheetMeasure(habit) {
+  const list = sheetMeasures();
   const picker = $('#measure-type');
   picker.hidden = list.length < 2;
   picker.className = `segmented${list.length === 2 ? ' two' : ''}`;
@@ -6583,7 +6784,7 @@ function setSheetMeasure(habit, type) {
   ui.sheetMeasure = null;
   if (!list.length) return;
   const own = habit && list.some((m) => m.id === habit.measure) ? habit.measure : null;
-  selectMeasure(own || list[0].id, own ? habit.goal : null);
+  selectMeasure(own || list[0].id, own ? sheetValueOf(habit) : null);
 }
 
 function selectMeasure(id, value = null) {
@@ -6596,23 +6797,36 @@ function selectMeasure(id, value = null) {
   measureRange.max = Math.max(spec.max, value || 0);
   measureRange.step = spec.step;
   measureRange.value = value ?? spec.def;
-  $('#measure-min').textContent = `${fmtAmount.format(spec.min)} ${spec.unit}`;
-  $('#measure-max').textContent = `${fmtAmount.format(Number(measureRange.max))} ${spec.unit}`;
+  $('#measure-min').textContent = specQty(spec, spec.min);
+  $('#measure-max').textContent = specQty(spec, Number(measureRange.max));
   syncMeasure();
 }
+
+// «30 min», «2 cafés» y, si la medida tiene singular, «1 café».
+const specQty = (spec, v) => (v === 1 && spec.one ? `1 ${spec.one}` : `${fmtAmount.format(v)} ${spec.unit}`);
 
 function syncMeasure() {
   const type = typeOf(ui.sheetType);
   const spec = measureSpec(type, ui.sheetMeasure);
   const value = Number(measureRange.value);
-  const text = `${fmtAmount.format(value)} ${spec.unit}`;
+  const limited = sheetLimited();
+  const text = specQty(spec, value);
   $('#measure-value').textContent = text;
   measureRange.setAttribute('aria-valuetext', text);
-  let hint = spec.mode === 'count'
-    ? 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.'
-    : type.hint || 'Un toque marca que lo has hecho. Si un día haces otra cantidad, mantén pulsado el hábito para apuntarla.';
+  let hint;
+  if (limited) {
+    hint = spec.mode === 'count'
+      ? 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Si con un toque te pasas del máximo, te lo pregunta antes.'
+      : `Toca el hábito para apuntar el tiempo${spec.id === 'min' ? ', o usa el temporizador: al pararlo, suma los minutos' : ''}.`;
+  } else {
+    hint = spec.mode === 'count'
+      ? 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.'
+      : type.hint || 'Un toque marca que lo has hecho. Si un día haces otra cantidad, mantén pulsado el hábito para apuntarla.';
+  }
   const habit = ui.editingId && findHabit(ui.editingId);
-  if (habit && (habit.measure !== ui.sheetMeasure || habit.goal !== value)) {
+  if (habit && limited) {
+    if (isLimit(habit) && (habit.measure !== ui.sheetMeasure || habit.limit !== value)) hint += ' Los días pasados se recalcularán con el nuevo máximo.';
+  } else if (habit && (habit.measure !== ui.sheetMeasure || habit.goal !== value)) {
     hint += spec.mode === 'target'
       ? ' Los días en los que marcaste la meta seguirán contando como cumplidos.'
       : ' Los días pasados se recalcularán con la nueva meta.';
@@ -6624,10 +6838,20 @@ $('#measure-type').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-measure]');
   if (!btn || btn.dataset.measure === ui.sheetMeasure) return;
   const habit = ui.editingId && findHabit(ui.editingId);
-  selectMeasure(btn.dataset.measure, habit && habit.measure === btn.dataset.measure ? habit.goal : null);
+  selectMeasure(btn.dataset.measure, habit && habit.measure === btn.dataset.measure ? sheetValueOf(habit) : null);
   haptic();
 });
 measureRange.addEventListener('input', syncMeasure);
+
+// Al pasar un límite de minutos a horas (o al revés), lo apuntado se convierte para que siga siendo lo mismo.
+// (Las demás medidas de los de límite no se pueden cambiar entre sí.)
+const MINUTES_IN = { min: 1, hours: 60 };
+function keepLimitAmounts(habit, measure) {
+  const from = MINUTES_IN[habit.measure];
+  const to = MINUTES_IN[measure];
+  if (!from || !to || from === to) return;
+  Object.entries(habit.done).forEach(([day, v]) => { habit.done[day] = round2((v * from) / to); });
+}
 
 // Al cambiar la meta de un hábito de tiempo, distancia…: los días marcados con un toque (justo la meta)
 // siguen contando como cumplidos. Si cambia la forma de medir (minutos → pasos), todo se pasa en proporción.
@@ -6647,19 +6871,34 @@ function setSheetGoal(goal, unit) {
 }
 
 // En el formulario libre, una meta con unidad opcional («8 vasos»); en los tipos de sí o no, cuántas veces al día.
+// Con límite, el máximo de cada día, también con unidad opcional («2 cafés», «5 cigarrillos»).
 function syncGoal() {
   const goal = clampGoal(goalInput.value);
   const custom = ui.sheetType === 'custom';
-  $('#goal-title').textContent = custom ? 'Meta de cada día' : 'Veces al día';
-  $('#unit-field').hidden = goal <= 1 || !custom;
-  $('#goal-label').textContent = goal <= 1 ? 'vez al día' : custom && unitInput.value.trim() ? 'al día' : 'veces al día';
+  const limited = sheetLimited();
+  const unit = unitInput.value.trim();
+  $('#goal-title').textContent = limited ? 'Máximo de cada día' : custom ? 'Meta de cada día' : 'Veces al día';
+  $('#unit-field').hidden = !limited && (goal <= 1 || !custom);
+  $('#goal-label').textContent = limited
+    ? unit ? 'al día' : goal <= 1 ? 'vez al día' : 'veces al día'
+    : goal <= 1 ? 'vez al día' : custom && unit ? 'al día' : 'veces al día';
+  goalInput.setAttribute('aria-label', `${limited ? 'Máximo' : 'Meta'} de cada día (de 1 a 99)`);
+  $('#goal-stepper [data-step="-1"]').setAttribute('aria-label', limited ? 'Bajar el máximo' : 'Bajar la meta');
+  $('#goal-stepper [data-step="1"]').setAttribute('aria-label', limited ? 'Subir el máximo' : 'Subir la meta');
+  unitInput.placeholder = limited ? 'cafés, cigarrillos, copas…' : 'vasos, páginas, minutos…';
   $('#goal-stepper [data-step="-1"]').disabled = goal <= 1;
   $('#goal-stepper [data-step="1"]').disabled = goal >= 99;
-  let hint = goal <= 1
-    ? 'Un toque y listo. Si lo haces varias veces al día, súbelo y cada toque sumará 1.'
-    : 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.';
+  let hint;
+  if (limited) hint = 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Si con un toque te pasas del máximo, te lo pregunta antes.';
+  else {
+    hint = goal <= 1
+      ? 'Un toque y listo. Si lo haces varias veces al día, súbelo y cada toque sumará 1.'
+      : 'Cada toque suma 1 y, si mantienes pulsado, resta 1. Cuenta como hecho (y da XP) al llegar a la meta.';
+  }
   const habit = ui.editingId && findHabit(ui.editingId);
-  if (habit && goal !== habit.goal) hint += ' Los días pasados se recalcularán con la nueva meta.';
+  if (habit && limited) {
+    if (isLimit(habit) && goal !== habit.limit) hint += ' Los días pasados se recalcularán con el nuevo máximo.';
+  } else if (habit && goal !== habit.goal) hint += ' Los días pasados se recalcularán con la nueva meta.';
   $('#goal-hint').textContent = hint;
 }
 
@@ -6736,9 +6975,11 @@ const PACKS = [
 ];
 const findPack = (id) => PACKS.find((p) => p.id === id);
 
-// Un hábito nuevo de un tipo, con lo que propone su edición (su medida y meta, sus veces al día, su frecuencia).
+// Un hábito nuevo de un tipo, con lo que propone su edición (su medida y meta, sus veces al día, su frecuencia
+// o, en los de límite, su máximo).
 function habitFromType(type, habits = state.habits) {
   const measure = type.measures ? measureSpec(type, type.measures[0].id) : null;
+  const limit = type.limits ? measureSpec(type, type.limits[0].id) : null;
   return newHabit({
     name: type.name,
     emoji: type.emoji,
@@ -6749,6 +6990,7 @@ function habitFromType(type, habits = state.habits) {
     ...(measure && type.kind !== 'quit'
       ? { goal: measure.def, unit: measure.unit, mode: measure.mode, measure: measure.id }
       : { goal: type.kind === 'quit' ? 1 : type.goal || 1, unit: '', mode: 'count', measure: '' }),
+    ...(limit ? { limit: limit.def, unit: limit.unit, measure: limit.id } : {}),
   });
 }
 
@@ -6896,11 +7138,15 @@ function startEditor(habit, typeId) {
   emojiInput.value = habit ? habit.emoji : custom ? ui.defaultEmoji : type.emoji;
   $('#delete-block').hidden = !habit;
   if (habit) syncPauseBox(habit);
-  // Empezar o dejar solo se elige en el formulario libre, y al crearlo.
+  // Empezar o dejar solo se elige en el formulario libre, y al crearlo. Con límite o sin él, al crearlo y al editarlo.
   $('#kind-block').hidden = Boolean(habit) || !custom;
-  setSheetKind(habit ? habit.kind : type.kind || 'build');
-  setSheetGoal(habit && !type.measures ? habit.goal : type.goal || 1, habit && custom ? habit.unit : '');
-  setSheetMeasure(habit, type);
+  ui.sheetKind = habit ? habit.kind : type.kind || 'build';
+  ui.sheetLimit = habit ? isLimit(habit) : Boolean(type.limits);
+  const stepper = habit && !type.measures && !type.limits ? (isLimit(habit) ? habit.limit : habit.goal) : type.goal || 1;
+  setSheetGoal(stepper, habit && (custom || isLimit(habit)) ? habit.unit : '');
+  setSheetMeasure(habit);
+  setSheetKind(ui.sheetKind);
+  setSheetLimit(ui.sheetLimit);
   setSheetColor(habit ? habit.color : nextColor(state.habits));
   setSheetSchedule(habit ? habit.schedule : type.schedule || { type: 'daily' });
   $('#routine-block').hidden = !state.routines.length;
@@ -6973,15 +7219,26 @@ form.addEventListener('submit', (e) => {
   const kind = habit ? habit.kind : ui.sheetKind;
   const quit = kind === 'quit';
   // La meta: la del contador (formulario libre y sí/no: veces al día), la del deslizador del tipo, o 1 (dejar algo).
-  let measure = { goal: 1, unit: '', mode: 'count', measure: '' };
+  // Los de dejar algo con límite guardan además su máximo (del deslizador de su tipo o del contador) y su unidad.
+  const none = { goal: 1, unit: '', mode: 'count', measure: '', limit: null };
+  let measure = none;
   if (!quit && !type.measures) {
     const goal = clampGoal(goalInput.value);
-    measure = { goal, unit: goal > 1 && type.id === 'custom' ? unitInput.value.trim().slice(0, 20) : '', mode: 'count', measure: '' };
+    measure = { ...none, goal, unit: goal > 1 && type.id === 'custom' ? unitInput.value.trim().slice(0, 20) : '' };
   } else if (!quit && ui.sheetMeasure) {
     const spec = measureSpec(type, ui.sheetMeasure);
-    measure = { goal: round2(measureRange.value), unit: spec.unit, mode: spec.mode, measure: spec.id };
+    measure = { ...none, goal: round2(measureRange.value), unit: spec.unit, mode: spec.mode, measure: spec.id };
+  } else if (quit && ui.sheetLimit && ui.sheetMeasure) {
+    const spec = measureSpec(type, ui.sheetMeasure);
+    measure = { ...none, limit: round2(measureRange.value), unit: spec.unit, measure: spec.id };
+  } else if (quit && ui.sheetLimit) {
+    measure = { ...none, limit: clampGoal(goalInput.value), unit: unitInput.value.trim().slice(0, 20) };
+  } else if (habit) {
+    // Sin límite: se queda con su medida, por si vuelve a tenerlo (lo que apuntó sigue guardado).
+    measure = { ...none, unit: habit.unit, measure: habit.measure };
   }
   if (habit && isTarget(habit) && measure.mode === 'target') keepMetDays(habit, measure.goal, measure.measure);
+  if (habit && measure.limit) keepLimitAmounts(habit, measure.measure);
   const fields = {
     name,
     emoji,
@@ -6994,6 +7251,7 @@ form.addEventListener('submit', (e) => {
   const saved = habit || newHabit({ ...fields, kind });
   if (habit) Object.assign(habit, fields);
   else state.habits.push(saved);
+  syncLimitSlips(saved); // con límite, los días apuntados se recalculan con el máximo nuevo (como una meta nueva)
   if (state.routines.length) setHabitRoutine(saved.id, $('#habit-routine').value);
   save();
   closeSheet();
@@ -7482,7 +7740,7 @@ habitArea.addEventListener('pointerdown', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn || ui.editing) return;
   const habit = findHabit(btn.dataset.id);
-  if (!habit || !hasAmount(habit)) return;
+  if (!habit || !(hasAmount(habit) || isLimit(habit))) return;
   const { clientX: x, clientY: y } = e;
   const cancel = () => {
     clearTimeout(pressTimer);
@@ -7509,7 +7767,7 @@ habitArea.addEventListener('pointerdown', (e) => {
 
 // Sin menú contextual al mantener pulsado (Android) y con teclado: "−" o Retroceso restan 1 (o abren el deslizador).
 habitArea.addEventListener('contextmenu', (e) => {
-  if (e.target.closest('.habit.qty')) e.preventDefault();
+  if (e.target.closest('.habit.qty, .habit.limit')) e.preventDefault();
 });
 // En modo edición, Alt + flecha arriba o abajo mueve el hábito: la alternativa a arrastrarlo.
 habitArea.addEventListener('keydown', (e) => {
@@ -7530,7 +7788,7 @@ habitArea.addEventListener('keydown', (e) => {
   const btn = e.target.closest('.habit');
   if (!btn || ui.editing || !['-', 'Backspace', 'Delete'].includes(e.key)) return;
   const habit = findHabit(btn.dataset.id);
-  if (!habit || !hasAmount(habit)) return;
+  if (!habit || !(hasAmount(habit) || isLimit(habit))) return;
   e.preventDefault();
   stepDown(habit, btn);
 });

@@ -492,20 +492,29 @@
             <button type="button" role="radio" data-kind="quit">Quiero dejar de…</button>
           </div>
         </div>
-        <p class="hint left" id="kind-hint" hidden></p>
 
         <label class="field spaced">
           <span>Nombre</span>
           <input id="habit-name" type="text" maxlength="40" placeholder="Ej. Beber 2 litros de agua" enterkeyhint="done" required>
         </label>
 
-        <!-- Meta con deslizador (caminar 30 min, correr 5 km, dormir 8 h…) -->
+        <!-- Dejar algo: del todo (días sin hacerlo) o con un máximo al día (como mucho 2 cafés, 1 h de redes…) -->
+        <div id="limit-block" hidden>
+          <p class="section-label spaced">Cómo lo mides</p>
+          <div class="segmented two" id="limit-type" role="radiogroup" aria-label="Cómo lo mides">
+            <button type="button" role="radio" data-limit="off">Días sin hacerlo</button>
+            <button type="button" role="radio" data-limit="on">Con un máximo al día</button>
+          </div>
+          <p class="hint left" id="limit-hint"></p>
+        </div>
+
+        <!-- Meta con deslizador (caminar 30 min, correr 5 km, dormir 8 h…) o, con límite, el máximo -->
         <div id="measure-block" hidden>
-          <p class="section-label spaced">Meta de cada día</p>
+          <p class="section-label spaced" id="measure-title">Meta de cada día</p>
           <div class="segmented two" id="measure-type" role="radiogroup" aria-label="Cómo lo mides"></div>
           <div class="slider-card">
             <output class="slider-value" id="measure-value" for="measure-range"></output>
-            <input type="range" id="measure-range" aria-label="Meta de cada día">
+            <input type="range" id="measure-range" aria-labelledby="measure-title">
             <div class="slider-scale" aria-hidden="true"><span id="measure-min"></span><span id="measure-max"></span></div>
           </div>
           <p class="hint left" id="measure-hint"></p>

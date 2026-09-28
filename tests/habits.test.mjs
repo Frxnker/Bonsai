@@ -21,12 +21,14 @@ test('el catálogo: ids únicos, grupos con tipos, nombres, medidas y frecuencia
     assert.ok(groups.includes(t.group), `${t.id}: grupo`);
     if (t.id === 'custom') continue;
     assert.ok(t.name.length > 0 && t.name.length <= 40 && t.emoji, `${t.id}: nombre y emoji`);
-    for (const m of t.measures || []) {
+    for (const m of [...(t.measures || []), ...(t.limits || [])]) {
       const spec = plain(app.run(`measureSpec(typeOf('${t.id}'), '${m.id}')`));
       assert.ok(spec.unit && spec.def >= spec.min && spec.def <= spec.max, `${t.id}: medida ${m.id}`);
     }
     if (t.goal !== undefined) assert.ok(!t.measures && t.kind !== 'quit' && t.goal >= 2 && t.goal <= 99, `${t.id}: veces al día`);
     if (t.schedule) assert.deepEqual(plain(app.run(`normalizeSchedule(${JSON.stringify(t.schedule)})`)), t.schedule, `${t.id}: frecuencia`);
+    // Con límite: solo en los de dejar algo, y sin medidas de meta.
+    if (t.limits) assert.ok(t.kind === 'quit' && !t.measures && !t.schedule && t.limits.length, `${t.id}: límite`);
     if (t.kind === 'quit') {
       // «12 días sin …»: el texto se saca del nombre, así que tiene que quitarle «Dejar de», «Sin», «Menos» o «No».
       assert.notEqual(app.run(`quitWhat({ name: ${JSON.stringify(t.name)} })`), t.name.toLowerCase(), `${t.id}: ${t.name}`);
@@ -53,7 +55,7 @@ test('el buscador no distingue tildes ni mayúsculas y usa otras palabras', () =
   assert.ok(found('Comer').includes('eat'), '«comer» encuentra «Hacer las comidas»');
   assert.ok(found('comer').includes('fruit'));
   assert.deepEqual(found('dientes').sort(), ['floss', 'teeth']);
-  assert.deepEqual(found('CAFE'), ['coffee']);
+  assert.deepEqual(found('CAFE'), ['coffee', 'coffeelimit']);
   assert.deepEqual(found('hacer comidas'), ['eat'], 'todas las palabras tienen que estar');
   assert.ok(found('casa').includes('laundry'), 'también por el nombre del grupo');
   assert.deepEqual(found('zzz'), []);

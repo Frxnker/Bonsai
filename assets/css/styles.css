@@ -27,6 +27,7 @@
   --alert: #A5423C;           /* recaídas, borrar */
   --alert-soft: #F6E7E5;
   --on-alert: #FFFFFF;
+  --warn: #8C6200;            /* aviso: en el límite (texto y barra, contraste AA sobre la tarjeta) */
   --track: #E8E6E0;           /* fondo de anillos y barras */
   --heat-0: #ECEAE4;          /* casilla vacía de los mapas */
   /* El bonsái de Progreso: maceta de barro, tronco, hojas en tonos salvia y flores sakura */
@@ -78,6 +79,7 @@
     --alert: #D98A82;
     --alert-soft: rgba(217, 138, 130, 0.14);
     --on-alert: #1E1210;
+    --warn: #E0B25A;
     --track: #2C332F;
     --heat-0: #262C29;
     --bz-pot: #C4876B; --bz-pot-dark: #A0654C; --bz-soil: #8A7462; --bz-seed: #B08F6D;
@@ -111,6 +113,7 @@
   --alert: #D98A82;
   --alert-soft: rgba(217, 138, 130, 0.14);
   --on-alert: #1E1210;
+  --warn: #E0B25A;
   --track: #2C332F;
   --heat-0: #262C29;
   --bz-pot: #C4876B; --bz-pot-dark: #A0654C; --bz-soil: #8A7462; --bz-seed: #B08F6D;
@@ -941,6 +944,32 @@ h1 {
 .habit.slipped .check { border-color: var(--alert); }
 .habit.shielded .meta { color: var(--sage-ink); }
 
+/* Con límite: una barra fina bajo el texto con lo que llevas. Sus colores dicen cómo vas, sea cual sea el del
+   hábito: salvia mientras no llegas, ocre en el máximo y el de las recaídas si te pasas. El texto de la fila dice
+   lo mismo («en el límite», «te pasaste») y, para que no se corte con el texto grande, puede ocupar dos líneas. */
+.habit.limit .meta { white-space: normal; }
+.limit-bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--track);
+}
+.limit-bar > span {
+  display: block;
+  width: calc(var(--limit, 0) * 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sage);
+}
+.habit.at-limit .limit-bar > span { background: var(--warn); }
+.habit.slipped .limit-bar > span { background: var(--alert); }
+.habit.at-limit .limit-state { color: var(--warn); font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) {
+  .limit-bar > span { transition: width 0.2s ease-out, background-color 0.2s ease-out; }
+}
+
 /* Botones junto a la casilla (la nota del día): van fuera del botón del hábito, que es el que marca.
    El hueco (.aux-space) reserva su sitio en la fila y los botones se colocan encima. */
 .habit.with-aux { grid-template-columns: 36px 1fr auto auto; }
@@ -1182,6 +1211,7 @@ h1 {
   text-align: center;
 }
 .slider-value.met { color: var(--sage-ink); }
+.slider-value.over { color: var(--alert); }
 input[type="range"] {
   display: block;
   width: 100%;
@@ -1532,6 +1562,7 @@ input[type="range"] {
 .amount-chart rect { fill: var(--c, var(--sage)); stroke: none; cursor: pointer; }
 .amount-chart rect.part { fill: color-mix(in srgb, var(--c, var(--sage)) 45%, var(--card)); }
 .amount-chart rect.zero { fill: var(--track); }
+.amount-chart rect.over { fill: var(--alert); } /* con límite: los días que te pasaste */
 .amount-chart rect.sel { stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .amount-chart .goal { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
 .chart-scale { display: flex; justify-content: space-between; margin-top: 6px; color: var(--ink-2); font-size: calc(11px * var(--text)); }
@@ -2583,6 +2614,8 @@ input[type="range"] {
 .log-card .slider-value { margin-top: 16px; font-size: calc(34px * var(--text)); }
 .log-card input[type="range"] { margin-top: 10px; }
 .log-goal { margin: 10px 0 18px; color: var(--ink-2); font-size: calc(14px * var(--text)); font-variant-numeric: tabular-nums; }
+.log-goal.at { color: var(--warn); font-weight: 600; }
+.log-goal.over { color: var(--alert); font-weight: 600; }
 .log-card .text-btn { justify-content: center; }
 
 /* Confirmación */
