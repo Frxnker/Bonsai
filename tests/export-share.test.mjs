@@ -41,7 +41,8 @@ test('el historial en CSV: una fila por hábito y día con algo apuntado, en el 
 
 test('el CSV de Salud sigue saliendo igual con las funciones compartidas', () => {
   const app = loadApp({ stored: data() });
-  assert.equal(app.run('healthCSV()'), `${String.fromCharCode(0xfeff)}Fecha;Medida;Valor;Diastólica;Pulso;Unidad;Nota\r\n2026-09-26;Peso;70;;;kg;NOTA-DE-SALUD\r\n`);
+  // (Desde la 0.11 beta lleva la hora, opcional, detrás de la fecha.)
+  assert.equal(app.run('healthCSV()'), `${String.fromCharCode(0xfeff)}Fecha;Hora;Medida;Valor;Diastólica;Pulso;Unidad;Nota\r\n2026-09-26;;Peso;70;;;kg;NOTA-DE-SALUD\r\n`);
 });
 
 test('los accesos directos del manifiesto abren Zen, Registrar salud y Nuevo hábito', () => {

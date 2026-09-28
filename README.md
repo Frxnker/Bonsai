@@ -2,7 +2,7 @@
 
 Tracker de hábitos para el móvil (iPhone o Android) que se instala como una app (PWA). Hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin cuenta: **tus datos se quedan en tu móvil** y **funciona sin conexión**.
 
-Versión actual: **0.10 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
+Versión actual: **0.11 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
 
 La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro de la app, en **Ajustes → Ayuda**.
 
@@ -17,7 +17,11 @@ La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro 
 - **Progreso:** XP, niveles, rachas, protectores de racha, 3 retos cada semana y logros, con un **bonsái que crece** con tu nivel. Todo se calcula a partir de tu historial, así que siempre cuadra. Las rachas y los logros se pueden compartir como imagen (sin datos de Salud ni del diario).
 - **Diario:** ánimo y nota de cada día, un resumen cada lunes, una revisión semanal y tendencias que solo describen lo que has registrado.
 - **Rutinas** («Mañana», «Noche»…) para ver tus hábitos agrupados.
-- **Salud:** tus medidas (peso, tensión, sueño, pasos…) con gráficas y estadísticas. Es privado y va aparte: no da XP, y la app no interpreta tus medidas ni da consejos médicos.
+- **Salud:** tus medidas (peso, tensión, sueño, pasos, glucosa, oxígeno en sangre, estado de ánimo, energía, dolor… y hasta 5 **medidas personalizadas** con tu nombre, unidad, decimales y gráfica), con fecha, hora opcional, gráficas y estadísticas. Es privado y va aparte: no da XP ni cuenta para rachas, retos o logros, y la app no interpreta tus medidas ni da consejos médicos.
+  - **Resumen** de cada medida: media, mínimo, máximo, registros y cambio de los últimos 7, 30 y 90 días, en tu unidad.
+  - **Objetivo** opcional en cada medida (subir o bajar hasta un valor, o un rango): una línea en la gráfica y cuánto te falta, sin juicios.
+  - **Relación con tus hábitos:** la medida los días que hiciste cada hábito frente a los que no (una coincidencia en tus datos, no una causa).
+  - **Informe para el médico:** las medidas y el periodo que elijas, para imprimir o guardar en PDF. Solo Salud.
 - **Zen**, sin XP ni rachas:
   - **«Necesito calma»**: un toque (en Hoy o en Zen) y un minuto de respiración lenta; si aún no estás mejor, el 5-4-3-2-1.
   - Respiración guiada (caja, 4-7-8, tranquila y suspiro fisiológico), meditación con campana, el 5-4-3-2-1, **escaneo corporal** y **relajación muscular progresiva**, guiados paso a paso.
@@ -32,10 +36,11 @@ La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro 
 - Todo se guarda en el propio dispositivo (`localStorage`, clave `racha:v1`). No hay servidor, cuenta ni seguimiento.
 - **No hay sincronización:** cada dispositivo tiene sus datos. Para pasarlos a otro, exporta una copia e impórtala allí. El diseño pendiente de una sincronización real está en [`docs/sincronizacion.md`](docs/sincronizacion.md).
 - **Copia de seguridad**, en **Ajustes → Copia de seguridad**:
-  - **Exportar copia** guarda un archivo con tus hábitos (con sus notas), tu historial, el diario, las rutinas, Zen (prácticas, gratitud, emociones, intenciones del día y tu mezcla de sonidos; lo de «vaciar la cabeza» nunca se guarda), el modo vacaciones, el temporizador en marcha, tus ajustes y, si quieres, Salud. En el iPhone, elige «Guardar en Archivos»; en Android, guárdala en Drive o en tus archivos. Lleva datos personales: guárdala en un sitio privado.
+  - **Exportar copia** guarda un archivo con tus hábitos (con sus notas), tu historial, el diario, las rutinas, Zen (prácticas, gratitud, emociones, intenciones del día y tu mezcla de sonidos; lo de «vaciar la cabeza» nunca se guarda), el modo vacaciones, el temporizador en marcha, tus ajustes y, si quieres, Salud (registros, objetivos y medidas personalizadas). En el iPhone, elige «Guardar en Archivos»; en Android, guárdala en Drive o en tus archivos. Lleva datos personales: guárdala en un sitio privado.
   - **Importar copia** comprueba el archivo, te enseña qué trae y qué va a reemplazar, y guarda antes tus datos actuales para que puedas deshacerlo.
   - La app puede recordarte que hagas una copia cada cierto tiempo.
 - **Historial de hábitos en CSV**, también en Copia de seguridad: para abrirlo en una hoja de cálculo (no se puede importar y no lleva Salud ni el diario). En los de límite lleva la cantidad de cada día y marca como recaída los días en que te pasaste.
+- **Salud en CSV** (en Salud, «Exportar a CSV»): todos tus registros de Salud, tal como se apuntaron.
 - **Salud de Apple y Health Connect:** el iPhone y Android solo dejan leerlos a las apps nativas, así que Bonsái no puede importar pasos, sueño ni peso automáticamente. Se apuntan a mano.
 
 ## Tres cosas importantes
@@ -81,4 +86,4 @@ Pruebas, con [Node.js](https://nodejs.org) 20 o posterior y sin instalar nada:
 node --test "tests/*.test.mjs"
 ```
 
-Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos (también los de límite), las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud, Zen, las rutinas, los ajustes y las copias de seguridad, y cada parte de Zen (`tests/zen-*.test.mjs`). `tests/rules-fixture.mjs` genera datos variados y una «huella» de todas las cuentas de XP, rachas, protectores, retos y logros: `tests/limit.test.mjs` comprueba que sale la misma que con versiones anteriores.
+Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos (también los de límite), las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud (con su resumen, los objetivos, la relación con los hábitos, el informe y las medidas nuevas: `tests/health-*.test.mjs`), Zen, las rutinas, los ajustes y las copias de seguridad, y cada parte de Zen (`tests/zen-*.test.mjs`). `tests/rules-fixture.mjs` genera datos variados y una «huella» de todas las cuentas de XP, rachas, protectores, retos y logros (sin Zen ni Salud, que no cuentan para ellas): `tests/limit.test.mjs` comprueba que sale la misma que con versiones anteriores.

@@ -434,6 +434,19 @@
     </section>
   </main>
 
+  <!-- Salud: informe para el médico. Ocupa la pantalla en lugar de la app y es lo único que se imprime -->
+  <section class="report" id="report" aria-labelledby="report-title" hidden>
+    <div class="report-bar">
+      <button type="button" class="text-btn" id="report-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        Volver a Salud
+      </button>
+      <button type="button" class="primary-btn" id="report-print">Imprimir o guardar en PDF</button>
+      <p class="hint left report-hint">En el menú de imprimir, elige «Guardar como PDF» para tener un archivo.</p>
+    </div>
+    <article class="report-doc" id="report-doc"></article>
+  </section>
+
   <!-- Temporizador de un hábito de minutos: se ve en todas las pantallas mientras está en marcha -->
   <div class="timer-bar" id="timer-bar" role="region" aria-label="Temporizador" hidden>
     <span class="emoji" id="timer-emoji" aria-hidden="true"></span>
@@ -674,6 +687,11 @@
         <input id="health-date" type="date" aria-describedby="health-date-error">
       </label>
       <p class="field-error" id="health-date-error" hidden></p>
+      <label class="field health-time">
+        <span>Hora (opcional)</span>
+        <input id="health-time" type="time" aria-describedby="health-time-error">
+      </label>
+      <p class="field-error" id="health-time-error" hidden></p>
       <label class="field">
         <span>Nota (opcional)</span>
         <input id="health-note" type="text" maxlength="200" enterkeyhint="done" placeholder="Por ejemplo, en ayunas">
@@ -735,10 +753,108 @@
       <h2 id="health-metrics-title">Tus medidas</h2>
       <p class="hint left health-metrics-hint">Elige las que quieres ver en Salud. Ocultar una no borra sus registros.</p>
       <div id="health-metric-list"></div>
+      <button type="button" class="secondary-btn wide health-custom-new" id="health-custom-new" aria-describedby="health-custom-hint">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+        Crear una medida
+      </button>
+      <p class="hint left" id="health-custom-hint"></p>
       <div class="confirm-actions">
         <button type="button" class="primary-btn" id="health-metrics-done">Listo</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- Salud: objetivo personal de una medida (subir o bajar hasta un valor, o un rango) -->
+  <dialog class="modal" id="health-goal" aria-labelledby="health-goal-title">
+    <form class="modal-card form-card scroll" id="health-goal-form" novalidate>
+      <h2 id="health-goal-title">Objetivo</h2>
+      <div class="segmented health-goal-types" id="health-goal-types" role="radiogroup" aria-label="Tipo de objetivo" aria-describedby="health-goal-hint"></div>
+      <p class="hint left" id="health-goal-hint"></p>
+      <div class="health-fields health-goal-fields" id="health-goal-fields"></div>
+      <p class="hint left">Lo fijas tú. Bonsái solo te enseña la distancia a tu objetivo y cuántas veces estuviste dentro, sin juzgarlo.</p>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Guardar</button>
+        <button type="button" class="secondary-btn danger-text" id="health-goal-delete">Quitar objetivo</button>
+        <button type="button" class="text-btn" id="health-goal-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Salud: crear o editar una medida personalizada (nombre, unidad, decimales, gráfica y rango) -->
+  <dialog class="modal" id="health-custom" aria-labelledby="health-custom-title">
+    <form class="modal-card form-card scroll" id="health-custom-form" novalidate>
+      <h2 id="health-custom-title">Nueva medida</h2>
+      <label class="field">
+        <span>Nombre</span>
+        <input id="hc-label" type="text" maxlength="24" autocomplete="off" enterkeyhint="next" placeholder="Por ejemplo, Vasos de agua" aria-describedby="hc-label-error">
+      </label>
+      <p class="field-error" id="hc-label-error" hidden></p>
+      <label class="field">
+        <span>Unidad</span>
+        <input id="hc-symbol" type="text" maxlength="12" autocomplete="off" enterkeyhint="next" placeholder="Por ejemplo, vasos" aria-describedby="hc-symbol-error">
+      </label>
+      <p class="field-error" id="hc-symbol-error" hidden></p>
+      <fieldset class="health-field hc-group">
+        <legend id="hc-decimals-label">Decimales</legend>
+        <div class="segmented hc-options" id="hc-decimals" role="radiogroup" aria-labelledby="hc-decimals-label"></div>
+      </fieldset>
+      <fieldset class="health-field hc-group">
+        <legend id="hc-chart-label">Gráfica</legend>
+        <div class="segmented two hc-options" id="hc-chart" role="radiogroup" aria-labelledby="hc-chart-label" aria-describedby="hc-chart-hint"></div>
+        <p class="hint left" id="hc-chart-hint"></p>
+      </fieldset>
+      <div class="pair-row two hc-range">
+        <label class="field"><span>Mínimo (opcional)</span><input id="hc-min" type="text" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="hc-range-error hc-range-hint"></label>
+        <label class="field"><span>Máximo (opcional)</span><input id="hc-max" type="text" inputmode="numeric" autocomplete="off" placeholder="99.999" aria-describedby="hc-range-error hc-range-hint"></label>
+      </div>
+      <p class="field-error" id="hc-range-error" hidden></p>
+      <p class="hint left" id="hc-range-hint">Los valores que se podrán apuntar, sin negativos.</p>
+      <p class="field-error" id="hc-form-error" role="alert" hidden></p>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Guardar</button>
+        <button type="button" class="secondary-btn danger-text" id="health-custom-delete">Borrar esta medida</button>
+        <button type="button" class="text-btn" id="health-custom-cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Salud: elegir qué lleva el informe para el médico -->
+  <dialog class="modal" id="health-report-dialog" aria-labelledby="health-report-title">
+    <form class="modal-card form-card scroll" id="health-report-form" novalidate>
+      <h2 id="health-report-title">Informe para el médico</h2>
+      <p class="hint left report-intro">Una página para imprimir o guardar en PDF con tus registros, su resumen y sus gráficas. Solo lleva Salud: nada de tus hábitos, tu diario ni Zen, salvo lo que marques abajo.</p>
+      <fieldset class="check-list">
+        <legend>Medidas</legend>
+        <div class="report-metrics" id="health-report-metrics"></div>
+      </fieldset>
+      <p class="field-error" id="health-report-metrics-error" hidden></p>
+      <label class="field spaced">
+        <span>Periodo</span>
+        <select id="health-report-period"></select>
+      </label>
+      <div class="pair-row two report-dates" id="health-report-dates" hidden>
+        <label class="field"><span>Desde</span><input id="health-report-from" type="date" aria-describedby="health-report-dates-error"></label>
+        <label class="field"><span>Hasta</span><input id="health-report-to" type="date" aria-describedby="health-report-dates-error"></label>
+      </div>
+      <p class="field-error" id="health-report-dates-error" hidden></p>
+      <fieldset class="check-list" id="health-report-extras">
+        <legend>Incluir también</legend>
+        <div class="report-metrics">
+          <label class="check-row plain" id="health-report-goals-row">
+            <span class="check-text"><b>Tus objetivos</b><span>Su valor y cuántas veces estuviste dentro</span></span>
+            <input type="checkbox" id="health-report-goals">
+          </label>
+          <label class="check-row plain" id="health-report-relations-row">
+            <span class="check-text"><b>Relación con tus hábitos</b><span>Lleva el nombre de los hábitos que se comparan</span></span>
+            <input type="checkbox" id="health-report-relations">
+          </label>
+        </div>
+      </fieldset>
+      <div class="confirm-actions">
+        <button type="submit" class="primary-btn">Ver informe</button>
+        <button type="button" class="text-btn" id="health-report-cancel">Cancelar</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- Ayuda: bienvenida, preguntas frecuentes y novedades -->

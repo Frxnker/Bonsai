@@ -159,12 +159,12 @@ test('el CSV lleva todos los registros, con coma decimal y las notas protegidas'
     ], { metrics: ['weight'] }),
   });
   const csv = app.run('healthCSV()');
-  assert.ok(csv.startsWith('﻿Fecha;Medida;Valor;Diastólica;Pulso;Unidad;Nota\r\n'));
+  assert.ok(csv.startsWith('﻿Fecha;Hora;Medida;Valor;Diastólica;Pulso;Unidad;Nota\r\n'));
   const lines = csv.trim().split('\r\n').slice(1);
   assert.equal(lines.length, 3, 'también las medidas ocultas');
-  assert.equal(lines[0], '2026-09-01;Tensión arterial;120;80;64;mmHg;');
-  assert.equal(lines[1], '2026-09-02;Peso;72,45;;;kg;"Tras entrenar; bien"');
-  assert.equal(lines[2], `2026-09-03;Temperatura;98,6;;;°F;"'=HYPERLINK(""x"")"`);
+  assert.equal(lines[0], '2026-09-01;;Tensión arterial;120;80;64;mmHg;');
+  assert.equal(lines[1], '2026-09-02;;Peso;72,45;;;kg;"Tras entrenar; bien"');
+  assert.equal(lines[2], `2026-09-03;;Temperatura;98,6;;;°F;"'=HYPERLINK(""x"")"`);
 });
 
 test('las notas rápidas se añaden y se quitan de la nota', () => {

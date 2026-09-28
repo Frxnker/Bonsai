@@ -330,13 +330,17 @@ test('el catálogo trae dos con límite (en «Dejar algo») y los packs siguen i
 
 test('las reglas de los hábitos de siempre no cambian: mismas cuentas que antes de los de límite', async () => {
   // Huellas calculadas con la versión anterior y los mismos datos: primero con la 0.9 beta sin los de límite
-  // (commit c61edca) y, desde que la huella deja fuera Zen, con la que ya los tenía (commit fed27b3). Cuadran las dos.
+  // (commit c61edca) y, desde que la huella deja fuera Zen, con la que ya los tenía (commit fed27b3). Desde que
+  // también deja fuera Salud (objetivos y medidas nuevas), con la 0.10 beta (commit 79e28a9): cuadran todas.
   const golden = [
-    [1, '2026-09-27T10:00:00', '91d5ce420887d27a8b2f43b8de2e6a9c0c5a53ef7a3f67b709df714903571e4b'],
-    [2, '2026-09-28T08:00:00', 'd6e8f30e9ec9803c394d3b8617463d2582765d607d7cafeaf90cd33108f02a8d'],
-    [3, '2026-03-29T23:30:00', '3f1e8c841cfb1684c28b28c806e091a7e4dca1171ade7d1263e998e49d6d31fb'],
-    [4, '2026-09-27T10:00:00', '980fa1ac029278924153a1a919df32fced662515e3e72f31c5272ce15767636e'],
-    [5, '2026-01-01T09:00:00', 'abf5c2e8f9daa275f32397fb3a1e9cafb274a31707aa27516584f2698f27d3b1'],
+    [1, '2026-09-27T10:00:00', 'a8ae286a86d0052440342c9f4c56cc56f308a9ba5785e18365cbb19b8a4f44d9'],
+    [2, '2026-09-28T08:00:00', '298fd71fd22cba1f56be30a8d0b7d56c0a3df887699dc67c8b480a9cdf5ca655'],
+    [3, '2026-03-29T23:30:00', '756a4490ebe8e132cf1561adff7146aa5a0c00bbf485dca8046170f3efa1a345'],
+    [4, '2026-09-27T10:00:00', '6e96a75ad564326abe101faafae63f3750b2350b1378db4d8522cf214594d42a'],
+    [5, '2026-01-01T09:00:00', 'a8e50faca2c23698b80ed3f5c6686979fc7209c97ab1d32604f20e56b4f7ab76'],
+    [6, '2026-09-27T10:00:00', 'b1d6bad7dd00406e18b86295729549edf058453846b297fe0b342d4d0871131c'],
+    [7, '2026-06-15T21:00:00', 'e1958fb351faaf605a6ca597004067e9ac16145d8b6e6e9ae8edba9c52dfae10'],
+    [8, '2026-12-31T23:59:00', '0c50a23250984dd029a31defb1f41fd5efd4486ef479359b2d394c0181a9e80e'],
   ];
   for (const [seed, now, expected] of golden) {
     const app = loadApp({ stored: dataset(seed, now.slice(0, 10)), now });

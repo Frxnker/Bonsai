@@ -7,9 +7,14 @@ const weight = (fields) => ({ id: 'w1', metric: 'weight', date: '2026-09-20', va
 const withHealth = (health) => ({ habits: [], health });
 
 const EMPTY_HEALTH = {
-  units: { weight: 'kg', waist: 'cm', restingHr: 'bpm', bloodPressure: 'mmHg', sleep: 'h', bodyFat: 'pct', temperature: 'c', steps: 'steps' },
+  units: {
+    weight: 'kg', waist: 'cm', restingHr: 'bpm', bloodPressure: 'mmHg', sleep: 'h', bodyFat: 'pct', temperature: 'c', steps: 'steps',
+    glucose: 'mgdl', oxygen: 'pct', mood: 'scale', energy: 'scale', pain: 'scale',
+  },
   metrics: ['weight'],
   reminder: { days: [0, 1, 2, 3, 4, 5, 6], time: '08:00' },
+  custom: [],
+  goals: {},
   entries: [],
 };
 
