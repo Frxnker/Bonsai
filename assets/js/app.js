@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.9 beta';
+const APP_VERSION = '0.10 beta';
 const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
 const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
@@ -94,13 +94,24 @@ const DEFAULT_PREFS = {
 };
 // Zen: prácticas de calma, gratitud y emociones. Sin XP ni rachas: si se elige, al terminar se marca un hábito.
 // Cada respiración es una lista de fases [tipo, segundos] que se repite.
-const ZEN_TYPES = { breath: 'Respiración', meditation: 'Meditación', sounds: 'Sonidos', grounding: '5-4-3-2-1' };
+const ZEN_TYPES = {
+  breath: 'Respiración', meditation: 'Meditación', sounds: 'Sonidos', grounding: '5-4-3-2-1',
+  scan: 'Escaneo corporal', pmr: 'Relajación muscular', sleep: 'Modo dormir',
+};
 const ZEN_BREATHS = {
   box: { label: 'Caja', rhythm: '4 · 4 · 4 · 4', about: 'Inhala, mantén, exhala y mantén, 4 segundos cada vez.', phases: [['in', 4], ['hold', 4], ['out', 4], ['hold', 4]] },
   relax: { label: '4-7-8', rhythm: '4 · 7 · 8', about: 'Inhala 4 segundos, mantén 7 y exhala despacio durante 8.', phases: [['in', 4], ['hold', 7], ['out', 8]] },
   calm: { label: 'Tranquila', rhythm: '5 · 5', about: 'Inhala 5 segundos y exhala otros 5, sin pausas.', phases: [['in', 5], ['out', 5]] },
+  // Suspiro fisiológico: la segunda inhalación («inhala otra vez») es corta, para acabar de llenar.
+  sigh: { label: 'Suspiro', rhythm: '3 · 1 · 6', about: 'Dos inhalaciones seguidas por la nariz (la segunda, corta, para acabar de llenar) y una exhalación larga y lenta por la boca.', phases: [['in', 3], ['again', 1], ['out', 6]] },
 };
-const ZEN_SOUNDS = { rain: 'Lluvia', waves: 'Olas', brown: 'Ruido marrón', soft: 'Ruido suave' };
+const ZEN_SOUNDS = { rain: 'Lluvia', waves: 'Olas', wind: 'Viento', fire: 'Fuego', brown: 'Ruido marrón', soft: 'Ruido suave' };
+const MIX_DEFAULT_VOLUME = 0.5; // al añadir un sonido a la mezcla
+// Modo dormir: 4 ciclos de la respiración 4-7-8 con la mezcla de sonidos, que después baja poco a poco hasta
+// apagarse a los minutos elegidos (contados desde que empieza).
+const SLEEP_BREATH = 'relax';
+const SLEEP_CYCLES = 4;
+const ZEN_SLEEP_MINUTES = [15, 30, 45, 60];
 const ZEN_GROUNDING = [[5, 'cosas que ves'], [4, 'cosas que puedes tocar'], [3, 'cosas que oyes'], [2, 'cosas que hueles'], [1, 'cosa que saboreas']];
 const ZEN_EMOTIONS = {
   Agradables: ['calma', 'alegría', 'gratitud', 'ilusión', 'orgullo', 'energía', 'esperanza', 'cariño'],
@@ -111,9 +122,50 @@ const ZEN_INTENSITY = ['Poco', 'Algo', 'Bastante', 'Mucho', 'Muchísimo'];
 const ZEN_WORDS_MAX = 3;
 const GRATITUDE_ITEMS = 3;
 const GRATITUDE_MAX = 140;
+const INTENTION_MAX = 100; // intención del día («hoy quiero ir con calma»)
+const INTENTION_RESULT_IDS = ['yes', 'partly', 'no'];
 const ZEN_MEDITATION_MINUTES = [3, 5, 10, 15, 20, 30];
 const ZEN_BREATH_MINUTES = [1, 3, 5, 10];
 const ZEN_SOUND_MINUTES = [0, 15, 30, 60]; // 0 = sin límite
+// Prácticas guiadas con texto paso a paso: el escaneo corporal (de los pies a la cabeza) y la relajación muscular
+// progresiva (tensar unos segundos y soltar, grupo por grupo). El tiempo se reparte a partes iguales entre los pasos.
+// En la relajación, cada paso tiene `tense` segundos de tensar y el resto de soltar. Textos propios, sin consejos médicos.
+const ZEN_GUIDE_MINUTES = { scan: [5, 10, 15, 20], pmr: [5, 10, 15] };
+const ZEN_GUIDES = {
+  scan: {
+    intro: 'Recorre el cuerpo de los pies a la cabeza, sin cambiar nada: solo fíjate en lo que notas. Puedes hacerlo tumbado o sentado.',
+    steps: [
+      ['Para empezar', 'Ponte cómodo y cierra los ojos si quieres. Deja que la respiración vaya a su ritmo.'],
+      ['Los pies', 'Lleva la atención a los pies: los dedos, las plantas, los talones. Nota el contacto, la temperatura, lo que haya.'],
+      ['Tobillos y pantorrillas', 'Sube a los tobillos y las pantorrillas. Si notas algo, déjalo estar y sigue mirando.'],
+      ['Rodillas y muslos', 'Pasa por las rodillas y los muslos. Nota su peso.'],
+      ['Las caderas', 'Nota las caderas y cómo te sostiene lo que tienes debajo.'],
+      ['La tripa', 'Fíjate en cómo sube y baja la tripa con cada respiración.'],
+      ['El pecho', 'Nota el pecho al respirar, sin forzar nada.'],
+      ['La espalda', 'Recorre la espalda de abajo arriba, vértebra a vértebra.'],
+      ['Manos y brazos', 'Lleva la atención a las manos, los dedos, las muñecas y los brazos.'],
+      ['Hombros y cuello', 'Deja caer los hombros. Nota el cuello, sin moverlo.'],
+      ['La cara', 'Suelta la mandíbula. Nota los ojos, las mejillas, la frente.'],
+      ['La cabeza', 'Lleva la atención a lo alto de la cabeza.'],
+      ['Todo el cuerpo', 'Nota el cuerpo entero, de los pies a la cabeza, respirando. Quédate aquí hasta el final.'],
+    ],
+  },
+  pmr: {
+    intro: 'Grupo por grupo: tensa unos segundos, sin llegar a doler, y suelta despacio. Si algo te molesta o tienes una lesión, sáltate ese grupo y respira.',
+    tense: 5,
+    steps: [
+      ['Las manos', 'Cierra los puños con fuerza.', 'Abre las manos y nota cómo se aflojan.'],
+      ['Los brazos', 'Dobla los codos y aprieta los brazos contra el cuerpo.', 'Deja caer los brazos. Nota la diferencia.'],
+      ['Los hombros', 'Sube los hombros hacia las orejas.', 'Déjalos caer, despacio.'],
+      ['La cara', 'Arruga la frente, cierra los ojos con fuerza y aprieta los labios.', 'Suelta la cara entera: la frente, los ojos, la boca.'],
+      ['El cuello', 'Lleva con suavidad la barbilla hacia el pecho.', 'Vuelve despacio y afloja el cuello.'],
+      ['Pecho y espalda', 'Coge aire y junta los omóplatos.', 'Suelta el aire y la espalda.'],
+      ['La tripa', 'Mete la tripa y aprieta.', 'Suéltala y respira con calma.'],
+      ['Las piernas', 'Estira las piernas y aprieta los muslos.', 'Afloja las piernas por completo.'],
+      ['Los pies', 'Estira los dedos de los pies hacia abajo.', 'Suéltalos y nota todo el cuerpo más pesado.'],
+    ],
+  },
+};
 const ZEN_INTERVALS = [[0, 'Sin avisos'], [1, 'Cada minuto'], [5, 'Cada 5 minutos']];
 const DEFAULT_ZEN_SETTINGS = {
   habitId: null,     // hábito que se marca al terminar una práctica
@@ -126,6 +178,10 @@ const DEFAULT_ZEN_SETTINGS = {
   sound: 'rain',
   soundMinutes: 0,
   volume: 0.5,
+  scanMinutes: 10,   // escaneo corporal
+  pmrMinutes: 10,    // relajación muscular
+  mix: { rain: 0.5 }, // los sonidos que suenan a la vez, con su volumen (sound y volume: el primero, para versiones anteriores)
+  sleepMinutes: 30,  // modo dormir: cuándo se apaga el sonido
 };
 // Frases breves y propias, una por día. Sin consejos médicos ni promesas.
 const ZEN_REFLECTIONS = [
@@ -448,6 +504,8 @@ const ICONS = {
   timer: svg('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.5 1.5M9.5 3h5"/>'),
   wave: svg('<path d="M2.5 9.5c2.4 0 2.4-2.5 4.8-2.5s2.4 2.5 4.7 2.5 2.4-2.5 4.8-2.5 2.3 2.5 4.7 2.5"/><path d="M2.5 16c2.4 0 2.4-2.5 4.8-2.5s2.4 2.5 4.7 2.5 2.4-2.5 4.8-2.5 2.3 2.5 4.7 2.5"/>'),
   eye: svg('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'),
+  body: svg('<circle cx="12" cy="5" r="2.5"/><path d="M12 8.5v6.5M7 11.5h10M12 15l-3.5 6M12 15l3.5 6"/>'),
+  hand: svg('<path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5A5.5 5.5 0 0 1 5 14.5V12a1.5 1.5 0 0 1 3 0"/>'),
 };
 const moodIcon = (mood) => svg(`<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="${MOOD_MOUTHS[mood - 1]}"/>`);
 
@@ -544,9 +602,17 @@ const emptyState = () => ({
 });
 
 // Zen: sesiones [{ id, type, date, seconds, created }], gratitud { 'AAAA-MM-DD': [hasta 3 textos] },
-// emociones [{ id, date, words, intensity 1–5, note, created }] y sus ajustes.
+// emociones [{ id, date, words, intensity 1–5, note, created }], intenciones { 'AAAA-MM-DD': { text, result } }
+// (result: 'yes', 'partly', 'no' o null) y sus ajustes.
 function emptyZen() {
-  return { sessions: [], gratitude: {}, emotions: [], settings: { ...DEFAULT_ZEN_SETTINGS } };
+  return { sessions: [], gratitude: {}, emotions: [], intentions: {}, settings: { ...DEFAULT_ZEN_SETTINGS, mix: { ...DEFAULT_ZEN_SETTINGS.mix } } };
+}
+
+// La mezcla: { sonido: volumen de 0 a 1 }, solo con sonidos conocidos. Puede quedar vacía si se quitan todos.
+function normalizeMix(mix) {
+  if (!mix || typeof mix !== 'object' || Array.isArray(mix)) return null;
+  return Object.fromEntries(Object.entries(mix)
+    .filter(([id, v]) => Object.hasOwn(ZEN_SOUNDS, id) && typeof v === 'number' && v >= 0 && v <= 1));
 }
 
 const cleanId = (id) => (typeof id === 'string' || typeof id === 'number' ? String(id).slice(0, 64) : '') || uid();
@@ -577,6 +643,11 @@ function normalizeZen(data) {
     }))
     .filter((e) => e.words.length)
     .sort(byHealthDate);
+  // Las copias de antes de la intención del día no la traen: se quedan sin ninguna.
+  Object.entries(data.intentions && typeof data.intentions === 'object' ? data.intentions : {}).forEach(([date, it]) => {
+    const text = cleanText(it && it.text, INTENTION_MAX).replace(/\s+/g, ' ');
+    if (isRealDate(date) && text) zen.intentions[date] = { text, result: INTENTION_RESULT_IDS.includes(it.result) ? it.result : null };
+  });
   const s = data.settings || {};
   const pick = (key, ok) => { if (ok(s[key])) zen.settings[key] = s[key]; };
   pick('habitId', (v) => typeof v === 'string' && v.length > 0);
@@ -589,6 +660,11 @@ function normalizeZen(data) {
   pick('sound', (v) => typeof v === 'string' && Object.hasOwn(ZEN_SOUNDS, v));
   pick('soundMinutes', (v) => ZEN_SOUND_MINUTES.includes(v));
   pick('volume', (v) => typeof v === 'number' && v >= 0 && v <= 1);
+  pick('scanMinutes', (v) => ZEN_GUIDE_MINUTES.scan.includes(v));
+  pick('pmrMinutes', (v) => ZEN_GUIDE_MINUTES.pmr.includes(v));
+  pick('sleepMinutes', (v) => ZEN_SLEEP_MINUTES.includes(v));
+  // Las copias de antes del mezclador tienen un solo sonido con su volumen: esa es su mezcla.
+  zen.settings.mix = normalizeMix(s.mix) || { [zen.settings.sound]: zen.settings.volume };
   return zen;
 }
 
@@ -1532,6 +1608,7 @@ function renderToday() {
   renderLevelCard(stats);
   renderChallengeStrip(hasHabits);
   renderVacation();
+  renderIntention(hasHabits);
   renderJournal(hasHabits);
   renderHealthCard(hasHabits);
   renderZenCard(hasHabits);
@@ -3744,9 +3821,12 @@ function healthDetailCard(metric, root) {
   const { last, prev, diff, diff2 } = healthLatest(metric);
   const head = `<div class="card-head"><h2>${m.label}</h2>
     <button type="button" class="text-btn" data-health-add="${metric}">${ICONS.plus}Registrar</button></div>`;
+  // En el sueño, un enlace al modo dormir de Zen (solo lo abre: no mezcla datos).
+  const sleepLink = metric === 'sleep' ? `<button type="button" class="link-btn health-sleep-link" data-open-sleep>${ICONS.moon}Modo dormir de Zen</button>` : '';
   if (!last) {
     return `<article class="card health-detail">${head}
       <p class="card-text">Aún no hay registros. Cuando apuntes ${m.label.toLowerCase()}, aquí verás su evolución, la media y cómo cambia.</p>
+      ${sleepLink}
     </article>`;
   }
   const when = !prev ? '' : prev.date === ui.today ? 'de hoy'
@@ -3790,7 +3870,7 @@ function healthDetailCard(metric, root) {
       <p class="health-caption" id="health-caption" aria-live="polite">Toca la gráfica para ver cada registro</p>
       ${healthStatsHTML(metric, inPeriod, series)}`;
   }
-  return `<article class="card health-detail">${head}${summary}${picker}${avgToggle}${chartBody}</article>`;
+  return `<article class="card health-detail">${head}${summary}${picker}${avgToggle}${chartBody}${sleepLink}</article>`;
 }
 
 // Media, mínimo, máximo y cambio del periodo, y la media de los mismos días justo antes.
@@ -4319,8 +4399,21 @@ $('#health-cancel').addEventListener('click', () => healthDialog.close());
 // Prácticas de calma, gratitud y emociones. Nada de esto da XP ni cuenta para rachas: si se elige un hábito,
 // al terminar una práctica se marca como si lo tocaras en Hoy (y entonces cuenta como cualquier hábito).
 
-const ZEN_PHASE_TEXT = { in: 'Inhala', hold: 'Mantén', out: 'Exhala' };
-const ZEN_SCREENS = { home: 'Zen', breath: 'Respirar', meditation: 'Meditar', sounds: 'Sonidos', grounding: '5-4-3-2-1', gratitude: 'Gratitud', emotions: 'Emociones' };
+const ZEN_PHASE_TEXT = { in: 'Inhala', again: 'Inhala otra vez', hold: 'Mantén', out: 'Exhala' };
+const ZEN_SCREENS = {
+  home: 'Zen', calm: 'Necesito calma', breath: 'Respirar', meditation: 'Meditar', sounds: 'Sonidos', grounding: '5-4-3-2-1',
+  scan: 'Escaneo corporal', pmr: 'Relajación muscular', sleep: 'Modo dormir', gratitude: 'Gratitud', emotions: 'Emociones',
+  dump: 'Vaciar la cabeza', intention: 'Intención del día',
+};
+// Vaciar la cabeza: lo escrito solo vive en la memoria mientras se ve la pantalla. «Soltarlo» lo borra sin guardarlo.
+const DUMP_MAX = 2000;
+// Intención del día: una frase corta y, por la noche (desde las 18:00), cómo fue. Sin XP. Solo aparece en Hoy los
+// días en que la escribes.
+const INTENTION_EVENING = 18;
+const INTENTION_RESULTS = { yes: 'Sí', partly: 'A medias', no: 'No' };
+// «Necesito calma»: sin elegir nada, un minuto de la respiración lenta (5 · 5, seis respiraciones por minuto).
+const CALM_BREATH = 'calm';
+const CALM_MINUTES = 1;
 const ZEN_ALL_WORDS = Object.values(ZEN_EMOTIONS).flat();
 const GRATITUDE_HINTS = ['Algo que te ha hecho sonreír', 'Alguien a quien agradecer algo', 'Un momento bueno de hoy'];
 const daysSinceEpoch = (key) => {
@@ -4354,6 +4447,16 @@ function breathPhase(pattern, elapsed) {
   return { index: 0, kind, seconds, remaining: seconds, left: seconds, round: round + 1 };
 }
 
+// Cómo queda el círculo en cada fase: lleno al inhalar (casi lleno si después viene «inhala otra vez»), vacío al
+// exhalar y, en «mantén», como estaba.
+function breathShape(phases, index) {
+  let i = index;
+  while (phases[i][0] === 'hold') i = (i + phases.length - 1) % phases.length;
+  const [kind] = phases[i];
+  if (kind === 'out') return '';
+  return kind === 'in' && phases[(i + 1) % phases.length][0] === 'again' ? 'almost' : 'full';
+}
+
 // Minutos y sesiones de la semana y del mes, y lo escrito este mes (sin rachas: solo lo que hay).
 function zenStats(today = ui.today) {
   const from = { week: weekStartOf(today), month: monthStartOf(today) };
@@ -4371,16 +4474,91 @@ function zenStats(today = ui.today) {
       .filter((t) => t.sessions),
     gratitudeDays: Object.keys(state.zen.gratitude).filter((d) => d >= from.month && d <= today).length,
     emotions: state.zen.emotions.filter((e) => e.date >= from.month && e.date <= today).length,
+    intentions: Object.keys(state.zen.intentions).filter((d) => d >= from.month && d <= today).length,
   };
 }
 
-// Las palabras más anotadas este mes, con cuántas veces. Solo describe.
-function emotionSummary(today = ui.today, limit = 3) {
+// ---------- Tus emociones en el tiempo ----------
+// Por semanas (de lunes a domingo) o por meses: las palabras que más apuntas, la intensidad media y cómo cambia
+// respecto al periodo anterior. Con menos de EMOTION_MIN registros en un periodo, se dice en vez de resumir.
+// Solo describe lo apuntado: nada de diagnósticos ni consejos.
+const EMOTION_MIN = 3;
+const EMOTION_SIMILAR = 0.5; // diferencia de intensidad media por debajo de la cual se dice «parecida»
+const EMOTION_PERIODS = 6;   // periodos en la gráfica
+const fmtMonthLong = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+
+// Los últimos `count` periodos, del más antiguo al actual (el actual, hasta hoy).
+function emotionPeriods(kind, today = ui.today, count = EMOTION_PERIODS) {
+  const list = [];
+  for (let i = count - 1; i >= 0; i--) {
+    let from;
+    let to;
+    if (kind === 'week') {
+      from = shiftKey(weekStartOf(today), -7 * i);
+      to = shiftKey(from, 6);
+    } else {
+      const d = parseKey(monthStartOf(today));
+      d.setMonth(d.getMonth() - i);
+      from = dateKey(d);
+      d.setMonth(d.getMonth() + 1);
+      to = shiftKey(dateKey(d), -1);
+    }
+    list.push({ from, to: to > today ? today : to });
+  }
+  return list;
+}
+
+function emotionStats({ from, to }) {
+  const list = state.zen.emotions.filter((e) => e.date >= from && e.date <= to);
   const counts = new Map();
-  state.zen.emotions
-    .filter((e) => e.date >= monthStartOf(today) && e.date <= today)
-    .forEach((e) => e.words.forEach((w) => counts.set(w, (counts.get(w) || 0) + 1)));
-  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, limit);
+  list.forEach((e) => e.words.forEach((w) => counts.set(w, (counts.get(w) || 0) + 1)));
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 3);
+  const avg = list.length ? list.reduce((n, e) => n + e.intensity, 0) / list.length : null;
+  return { count: list.length, top, avg, enough: list.length >= EMOTION_MIN };
+}
+
+// El resumen de esta semana (o este mes) comparado con el anterior, en frases cortas y sin juicios.
+function emotionTrend(kind, today = ui.today) {
+  const periods = emotionPeriods(kind, today);
+  const now = emotionStats(periods.at(-1));
+  const before = emotionStats(periods.at(-2));
+  const [thisOne, lastOne, itWas, fromLast] = kind === 'week'
+    ? ['Esta semana', 'la semana pasada', 'La semana pasada', 'De la semana pasada']
+    : ['Este mes', 'el mes pasado', 'El mes pasado', 'Del mes pasado'];
+  const avgText = (v) => `${v.toFixed(1).replace('.', ',')} de 5`;
+  const words = (top) => fmtList.format(top.map(([w, n]) => `${w} (${n})`));
+  const lines = [];
+  if (!now.enough) {
+    lines.push(`${thisOne} ${now.count ? `solo hay ${plural(now.count, 'registro', 'registros')}` : 'aún no hay registros'}: con ${EMOTION_MIN} o más verás aquí un resumen.`);
+  } else {
+    lines.push(`${thisOne}: ${plural(now.count, 'registro', 'registros')}. Lo que más has apuntado: ${words(now.top)}. Intensidad media: ${avgText(now.avg)}.`);
+    if (!before.enough) lines.push(`${fromLast} hay pocos registros para comparar.`);
+    else {
+      const diff = now.avg - before.avg;
+      const how = diff >= EMOTION_SIMILAR ? 'más alta que' : diff <= -EMOTION_SIMILAR ? 'más baja que' : 'parecida a la de';
+      lines.push(`${itWas}: ${plural(before.count, 'registro', 'registros')}, sobre todo ${words(before.top)}. La intensidad media de ahora es ${how} ${lastOne} (${avgText(before.avg)}).`);
+    }
+  }
+  return { now, before, lines, periods };
+}
+
+// Intensidad media de cada periodo, en columnas (con su texto para el lector de pantalla). Los periodos con pocos
+// registros no tienen columna: dicen «pocos registros».
+function emotionChart(kind, periods) {
+  const items = periods.map((p, i) => {
+    const s = emotionStats(p);
+    const label = kind === 'week' ? shortDate(p.from) : fmtMonth.format(parseKey(p.from)).replace('.', '');
+    const name = kind === 'week' ? `semana del ${shortDate(p.from)}` : fmtMonthLong.format(parseKey(p.from));
+    return {
+      value: s.enough ? s.avg / 5 : null,
+      text: s.enough ? s.avg.toFixed(1).replace('.', ',') : '—',
+      empty: 'pocos registros',
+      label,
+      name,
+      em: i === periods.length - 1,
+    };
+  });
+  return miniBars(items, `Intensidad media de 1 a 5 por ${kind === 'week' ? 'semana' : 'mes'}`);
 }
 
 // ---------- Guardar ----------
@@ -4428,6 +4606,25 @@ function setGratitude(date, index, text) {
   else delete state.zen.gratitude[date];
   save();
 }
+
+// Intención del día: escribirla (vacía, se borra) y marcar cómo fue (otra vez el mismo, se quita). Sin XP.
+function setIntention(date, text) {
+  const clean = cleanText(text, INTENTION_MAX).replace(/\s+/g, ' ');
+  const before = state.zen.intentions[date];
+  if (clean) state.zen.intentions[date] = { text: clean, result: before ? before.result : null };
+  else delete state.zen.intentions[date];
+  save();
+}
+
+function rateIntention(date, result) {
+  const it = state.zen.intentions[date];
+  if (!it) return;
+  it.result = it.result === result || !INTENTION_RESULT_IDS.includes(result) ? null : result;
+  save();
+}
+
+// ¿Se puede ya marcar cómo fue? Los días pasados, siempre; hoy, desde la tarde-noche.
+const canRateIntention = (date) => date < ui.today || new Date().getHours() >= INTENTION_EVENING;
 
 function addEmotion({ words, intensity, note = '' }) {
   const chosen = [...new Set(words)].filter((w) => ZEN_ALL_WORDS.includes(w)).slice(0, ZEN_WORDS_MAX);
@@ -4603,34 +4800,130 @@ function noiseBuffer(ctx, color) {
   return buffer;
 }
 
-// Cada sonido es ruido filtrado; las olas suben y bajan despacio. Entra y sale con un fundido.
-function startSound(kind, volume) {
-  const ctx = audioContext();
-  if (!ctx) return null;
+// Chasquidos del fuego: un búfer casi en silencio con estallidos cortos al azar (unos cuatro por segundo, a veces
+// seguidos y de vez en cuando uno más fuerte), cada uno de ruido que se apaga en milisegundos.
+function crackleBuffer(ctx, seconds) {
+  const rate = ctx.sampleRate;
+  const length = Math.floor(rate * seconds);
+  const buffer = ctx.createBuffer(1, Math.max(1, length), rate);
+  const data = buffer.getChannelData(0);
+  let t = 0;
+  for (;;) {
+    t += Math.random() < 0.2 ? 0.01 + Math.random() * 0.04 : -Math.log(1 - Math.random()) / 4;
+    const start = Math.floor(t * rate);
+    if (!(start < length)) break;
+    const big = Math.random() < 0.12;
+    const size = Math.floor(rate * (big ? 0.015 + Math.random() * 0.03 : 0.002 + Math.random() * 0.006));
+    const amp = big ? 0.6 + Math.random() * 0.4 : 0.15 + Math.random() * 0.45;
+    for (let i = 0; i < size && start + i < length; i++) data[start + i] += (Math.random() * 2 - 1) * amp * Math.exp((-5 * i) / size);
+  }
+  return buffer;
+}
+
+// Cada sonido es una «receta» de nodos de Web Audio que suena hacia `out` y devuelve lo que hay que arrancar y
+// parar. Los de siempre son ruido filtrado (las olas suben y bajan despacio). El viento es ruido por un filtro que
+// se mueve a ráfagas, con un silbido suave; el fuego, un rumor grave que parpadea y chasquidos sueltos.
+const loopedNoise = (ctx, color) => {
   const source = ctx.createBufferSource();
-  source.buffer = noiseBuffer(ctx, kind === 'rain' || kind === 'soft' ? 'pink' : 'brown');
+  source.buffer = noiseBuffer(ctx, color);
   source.loop = true;
+  return source;
+};
+const makeFilter = (ctx, type, frequency, q) => {
   const filter = ctx.createBiquadFilter();
-  const [type, frequency] = { rain: ['highpass', 500], soft: ['lowpass', 2500], waves: ['lowpass', 1000], brown: ['lowpass', 600] }[kind];
   filter.type = type;
   filter.frequency.value = frequency;
-  const swell = ctx.createGain();
-  let lfo = null;
-  if (kind === 'waves') {
-    swell.gain.value = 0.6;
-    lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.09;
-    const depth = ctx.createGain();
-    depth.gain.value = 0.4;
-    lfo.connect(depth).connect(swell.gain);
-    lfo.start();
+  if (q) filter.Q.value = q;
+  return filter;
+};
+const makeGain = (ctx, value) => {
+  const gain = ctx.createGain();
+  gain.gain.value = value;
+  return gain;
+};
+// Un oscilador lento que mueve un parámetro (volumen, frecuencia…) arriba y abajo de su valor.
+function lfo(ctx, frequency, depth, param) {
+  const osc = ctx.createOscillator();
+  osc.frequency.value = frequency;
+  osc.connect(makeGain(ctx, depth)).connect(param);
+  return osc;
+}
+function filteredNoise(ctx, out, color, type, frequency) {
+  const source = loopedNoise(ctx, color);
+  source.connect(makeFilter(ctx, type, frequency)).connect(makeGain(ctx, 1)).connect(out);
+  return [source];
+}
+const SOUND_RECIPES = {
+  rain: (ctx, out) => filteredNoise(ctx, out, 'pink', 'highpass', 500),
+  soft: (ctx, out) => filteredNoise(ctx, out, 'pink', 'lowpass', 2500),
+  brown: (ctx, out) => filteredNoise(ctx, out, 'brown', 'lowpass', 600),
+  waves(ctx, out) {
+    const source = loopedNoise(ctx, 'brown');
+    const swell = makeGain(ctx, 0.6);
+    source.connect(makeFilter(ctx, 'lowpass', 1000)).connect(swell).connect(out);
+    return [source, lfo(ctx, 0.09, 0.4, swell.gain)];
+  },
+  wind(ctx, out) {
+    // Cuerpo: una banda ancha que sube y baja de tono con ráfagas (osciladores lentos de ritmos que no coinciden).
+    const body = loopedNoise(ctx, 'pink');
+    const band = makeFilter(ctx, 'bandpass', 520, 0.8);
+    const gust = makeGain(ctx, 1.3);
+    body.connect(band).connect(gust).connect(out);
+    // Silbido: una banda estrecha y más aguda que sigue a las ráfagas, muy baja.
+    const air = loopedNoise(ctx, 'pink');
+    const whistle = makeFilter(ctx, 'bandpass', 1150, 9);
+    const whistleGain = makeGain(ctx, 0.9);
+    air.connect(whistle).connect(whistleGain).connect(out);
+    return [body, air,
+      lfo(ctx, 0.061, 300, band.frequency), lfo(ctx, 0.143, 130, band.frequency),
+      lfo(ctx, 0.047, 0.7, gust.gain), lfo(ctx, 0.113, 0.35, gust.gain),
+      lfo(ctx, 0.061, 380, whistle.frequency), lfo(ctx, 0.089, 0.6, whistleGain.gain)];
+  },
+  fire(ctx, out) {
+    // Rumor: ruido grave que parpadea un poco, como las llamas.
+    const roar = loopedNoise(ctx, 'brown');
+    const flicker = makeGain(ctx, 0.9);
+    roar.connect(makeFilter(ctx, 'lowpass', 380)).connect(flicker).connect(out);
+    // Chasquidos: dos bucles de distinta duración a la vez, para que el dibujo no se repita a menudo.
+    const crackle = makeFilter(ctx, 'highpass', 900);
+    const crackleGain = makeGain(ctx, 0.55);
+    crackle.connect(crackleGain).connect(out);
+    const pops = [7, 11].map((seconds) => {
+      const source = ctx.createBufferSource();
+      source.buffer = crackleBuffer(ctx, seconds);
+      source.loop = true;
+      source.connect(crackle);
+      return source;
+    });
+    return [roar, ...pops, lfo(ctx, 0.37, 0.18, flicker.gain), lfo(ctx, 0.83, 0.1, flicker.gain)];
+  },
+};
+
+// Todo lo que suena de Zen pasa por un compresor suave antes de salir: así, con varios sonidos a la vez, no satura.
+const mixOutputs = new WeakMap();
+function mixOutput(ctx) {
+  if (!mixOutputs.has(ctx)) {
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 4;
+    limiter.connect(ctx.destination);
+    mixOutputs.set(ctx, limiter);
   }
+  return mixOutputs.get(ctx);
+}
+
+// Un sonido con su volumen: entra y sale con un fundido. `out` permite encadenarlo (el modo dormir lo apaga poco a poco).
+function startSound(kind, volume, out = null) {
+  const ctx = audioContext();
+  if (!ctx || !SOUND_RECIPES[kind]) return null;
   const master = ctx.createGain();
   const level = (v) => Math.max(0.0001, v * 0.8);
   master.gain.setValueAtTime(0.0001, ctx.currentTime);
   master.gain.exponentialRampToValueAtTime(level(volume), ctx.currentTime + 1.5);
-  source.connect(filter).connect(swell).connect(master).connect(ctx.destination);
-  source.start();
+  master.connect(out || mixOutput(ctx));
+  const nodes = SOUND_RECIPES[kind](ctx, master);
+  nodes.forEach((node) => node.start());
   return {
     setVolume: (v) => master.gain.setTargetAtTime(level(v), ctx.currentTime, 0.1),
     stop() {
@@ -4638,8 +4931,33 @@ function startSound(kind, volume) {
       master.gain.cancelScheduledValues(t);
       master.gain.setValueAtTime(Math.max(0.0001, master.gain.value), t);
       master.gain.exponentialRampToValueAtTime(0.0001, t + 1);
-      source.stop(t + 1.1);
-      if (lfo) lfo.stop(t + 1.1);
+      nodes.forEach((node) => node.stop(t + 1.1));
+    },
+  };
+}
+
+// La mezcla: varios sonidos a la vez, cada uno con su volumen, que se pueden añadir, quitar y ajustar mientras suenan.
+function startMix(mix, out = null) {
+  const players = new Map();
+  const add = (id, volume) => {
+    if (players.has(id)) return;
+    const player = startSound(id, volume, out);
+    if (player) players.set(id, player);
+  };
+  Object.entries(mix).forEach(([id, volume]) => add(id, volume));
+  if (!players.size) return null;
+  return {
+    add,
+    remove(id) {
+      if (!players.has(id)) return;
+      players.get(id).stop();
+      players.delete(id);
+    },
+    setVolume: (id, v) => players.get(id)?.setVolume(v),
+    ids: () => [...players.keys()],
+    stop() {
+      players.forEach((p) => p.stop());
+      players.clear();
     },
   };
 }
@@ -4651,24 +4969,23 @@ const setText = (selector, text) => {
   if (el) el.textContent = text;
 };
 
-function startBreath() {
-  const { breath, breathMinutes } = state.zen.settings;
-  const phases = ZEN_BREATHS[breath].phases;
+// El círculo, el texto de la fase y su aviso (al lector y con vibración) de una respiración. Lo usan Respirar,
+// «Necesito calma» y el modo dormir. `reset()` vuelve a anunciar la fase (al seguir tras una pausa).
+function breathTicker(pattern) {
+  const phases = ZEN_BREATHS[pattern].phases;
   let shown = -1;
-  beginZen({
-    type: 'breath',
-    total: breathTotal(breath, breathMinutes),
-    onTick(elapsed) {
-      const p = breathPhase(breath, elapsed);
+  return {
+    tick(elapsed) {
+      const p = breathPhase(pattern, elapsed);
       const step = p.round * phases.length + p.index;
       const circle = zenBody.querySelector('#breath-circle');
       if (circle && circle.dataset.step !== String(step)) {
         circle.dataset.step = step;
         circle.style.transitionDuration = `${p.remaining.toFixed(2)}s`;
-        // En «mantén» se queda como estaba (lleno tras inhalar, vacío tras exhalar).
-        const full = p.kind === 'hold' ? phases[(p.index + phases.length - 1) % phases.length][0] === 'in' : p.kind === 'in';
+        const shape = breathShape(phases, p.index);
         void circle.offsetWidth; // recién pintado, el navegador aún no tiene su tamaño de partida y no lo animaría
-        circle.classList.toggle('full', full);
+        circle.classList.toggle('full', shape === 'full');
+        circle.classList.toggle('almost', shape === 'almost');
       }
       if (step !== shown) {
         shown = step;
@@ -4676,9 +4993,22 @@ function startBreath() {
         if (state.zen.settings.rhythm) buzz();
       }
       setText('#zen-phase', `${ZEN_PHASE_TEXT[p.kind]} · ${p.left}`);
+    },
+    reset() { shown = -1; },
+  };
+}
+
+// Sin argumentos, la respiración y la duración elegidas en Respirar; «Necesito calma» pasa las suyas.
+function startBreath(pattern = state.zen.settings.breath, minutes = state.zen.settings.breathMinutes) {
+  const breath = breathTicker(pattern);
+  beginZen({
+    type: 'breath',
+    total: breathTotal(pattern, minutes),
+    onTick(elapsed) {
+      breath.tick(elapsed);
       setText('#zen-time', fmtClock(zenRun.total - elapsed));
     },
-    onResume() { shown = -1; },
+    onResume() { breath.reset(); },
   });
 }
 
@@ -4711,9 +5041,39 @@ function startMeditation() {
   });
 }
 
+// Guarda la mezcla (y, para versiones anteriores, su primer sonido como «el sonido»).
+function saveMix(mix) {
+  const [first] = Object.keys(mix);
+  state.zen.settings = normalizeZen({ settings: { ...state.zen.settings, mix, ...(first ? { sound: first, volume: mix[first] } : {}) } }).settings;
+  save();
+}
+
+// Añadir o quitar un sonido de la mezcla; si está sonando, se oye (o deja de oírse) al momento.
+function toggleMixSound(id) {
+  const mix = { ...state.zen.settings.mix };
+  if (Object.hasOwn(mix, id)) delete mix[id];
+  else mix[id] = MIX_DEFAULT_VOLUME;
+  saveMix(mix);
+  const player = zenRunning('sounds') && zenRun.player;
+  if (player) {
+    if (Object.hasOwn(mix, id)) player.add(id, mix[id]);
+    else player.remove(id);
+  }
+}
+
+function setMixVolume(id, volume, { keep = true } = {}) {
+  if (zenRun && zenRun.player && zenRun.player.setVolume) zenRun.player.setVolume(id, volume);
+  if (keep && Object.hasOwn(state.zen.settings.mix, id)) saveMix({ ...state.zen.settings.mix, [id]: volume });
+}
+
 function startSounds() {
-  const { sound, soundMinutes, volume } = state.zen.settings;
-  const player = startSound(sound, volume);
+  const { soundMinutes, mix } = state.zen.settings;
+  if (!Object.keys(mix).length) {
+    ui.zenNotice = 'Elige al menos un sonido para la mezcla.';
+    renderZen();
+    return;
+  }
+  const player = startMix(mix);
   if (!player) {
     ui.zenNotice = 'Este navegador no puede generar sonidos.';
     renderZen();
@@ -4731,7 +5091,7 @@ function startSounds() {
       zenRun.player = null;
     },
     onResume() {
-      zenRun.player = startSound(state.zen.settings.sound, state.zen.settings.volume);
+      zenRun.player = startMix(state.zen.settings.mix);
     },
     onStop() {
       if (zenRun.player) zenRun.player.stop();
@@ -4741,6 +5101,117 @@ function startSounds() {
 
 function startGrounding() {
   beginZen({ type: 'grounding', step: 0, found: 0, onTick() {} });
+}
+
+// ---------- Modo dormir ----------
+// La respiración 4-7-8 y, a la vez, la mezcla de sonidos. Tras respirar, la pantalla se queda en «Buenas noches» y el
+// sonido baja poco a poco (en el reloj del audio, así sigue aunque la app vaya lenta) hasta apagarse a los minutos
+// elegidos. Todo es un botón: un toque sale. `ui.sleep`: { done, lines } mientras se ve la pantalla oscura.
+
+function startSleep() {
+  const { mix, sleepMinutes } = state.zen.settings;
+  const any = Object.keys(mix).length > 0;
+  const ctx = any ? audioContext() : null;
+  const fade = ctx ? ctx.createGain() : null;
+  if (fade) fade.connect(mixOutput(ctx));
+  const player = fade ? startMix(mix, fade) : null;
+  if (!player) {
+    ui.zenNotice = any ? 'Este navegador no puede generar sonidos.' : 'Elige al menos un sonido en Sonidos.';
+    renderZen();
+    return;
+  }
+  const breathMs = SLEEP_CYCLES * breathCycle(SLEEP_BREATH) * 1000;
+  const total = sleepMinutes * 60000;
+  const t0 = ctx.currentTime;
+  fade.gain.setValueAtTime(1, t0 + breathMs / 1000);
+  fade.gain.exponentialRampToValueAtTime(0.0001, t0 + total / 1000);
+  const breath = breathTicker(SLEEP_BREATH);
+  let night = false;
+  ui.sleep = { done: false, lines: [] };
+  beginZen({
+    type: 'sleep',
+    total,
+    breathMs,
+    player,
+    onTick(elapsed) {
+      if (elapsed < breathMs) breath.tick(elapsed);
+      else if (!night) {
+        night = true;
+        renderZen();
+        $('#zen-live').textContent = 'Buenas noches. El sonido se irá apagando poco a poco.';
+        zenBody.querySelector('[data-sleep-exit]')?.focus();
+      }
+    },
+    onStop() {
+      player.stop();
+      setTimeout(() => fade.disconnect(), 1500);
+    },
+  });
+  $('#zen-live').textContent = `Modo dormir. Respira con el círculo; el sonido se apagará poco a poco en ${sleepMinutes} minutos. Toca la pantalla para salir.`;
+  zenBody.querySelector('[data-sleep-exit]')?.focus();
+}
+
+// Un toque: fuera de la pantalla oscura, de vuelta al modo dormir (lo que llevaba se guarda si llega al minuto).
+function leaveSleep() {
+  ui.sleep = null;
+  showZenScreen('sleep');
+}
+
+// Prácticas guiadas: en qué paso se está pasados `elapsed` ms y, en la relajación, si toca tensar o soltar.
+function guidedStep(kind, minutes, elapsed) {
+  const guide = ZEN_GUIDES[kind];
+  const count = guide.steps.length;
+  const stepMs = (minutes * 60000) / count;
+  const index = Math.min(count - 1, Math.max(0, Math.floor(elapsed / stepMs)));
+  const into = elapsed - index * stepMs;
+  const phase = !guide.tense ? null : into < guide.tense * 1000 ? 'tense' : 'release';
+  const left = phase === 'tense' ? Math.ceil((guide.tense * 1000 - into) / 1000) : 0;
+  return { index, count, phase, left };
+}
+
+// Lo que se ve y se anuncia en cada momento: el paso, «Tensa · 3» o «Suelta» y la indicación.
+function guidedText(kind, g) {
+  const [title, first, second] = ZEN_GUIDES[kind].steps[g.index];
+  const phase = g.phase === 'tense' ? `Tensa · ${g.left}` : g.phase === 'release' ? 'Suelta' : '';
+  const text = g.phase === 'release' ? second : first;
+  const count = `Paso ${g.index + 1} de ${g.count}`;
+  const verb = { tense: 'Tensa. ', release: 'Suelta. ' }[g.phase] || '';
+  return { title, phase, text, count, speak: `${title}. ${verb}${text}` };
+}
+
+// Una campana suave (o, sin campana, una vibración) al cambiar de paso; más baja al pasar de tensar a soltar.
+function startGuided(kind) {
+  const minutes = state.zen.settings[`${kind}Minutes`];
+  const total = minutes * 60000;
+  const cue = (volume) => (state.zen.settings.bell ? playBell(volume) : buzz());
+  let shown = '';
+  if (state.zen.settings.bell) playBell(0.2);
+  beginZen({
+    type: kind,
+    total,
+    onTick(elapsed) {
+      const g = guidedStep(kind, minutes, elapsed);
+      const t = guidedText(kind, g);
+      const id = `${g.index}:${g.phase}`;
+      if (id !== shown) {
+        const [lastIndex] = shown.split(':');
+        if (shown && String(g.index) !== lastIndex) cue(0.12);
+        else if (shown && g.phase === 'release') cue(0.05);
+        shown = id;
+        setText('#guide-count', t.count);
+        setText('#guide-title', t.title);
+        setText('#guide-text', t.text);
+        $('#zen-live').textContent = t.speak;
+        zenBody.querySelector('#guide-bar')?.style.setProperty('--p', ((g.index + 1) / g.count).toFixed(3));
+      }
+      setText('#guide-phase', t.phase);
+      setText('#zen-time', fmtClock(total - elapsed));
+    },
+    onResume() { shown = ''; },
+    onComplete() {
+      if (state.zen.settings.bell) playBell();
+    },
+  });
 }
 
 // Una cosa más encontrada en el paso actual; al completar los cinco pasos, termina.
@@ -4760,6 +5231,50 @@ function groundingFound() {
   const [next, what] = ZEN_GROUNDING[zenRun.step];
   $('#zen-live').textContent = `${zenRun.found} de ${next} ${what}`;
   zenBody.querySelector('[data-zen-found]')?.focus();
+}
+
+// ---------- Necesito calma ----------
+// Un toque, sin elegir nada: un minuto de respiración lenta. Al terminar pregunta si estás mejor: «Sí» cierra y
+// «Todavía no» sigue con el 5-4-3-2-1. Son la respiración y el 5-4-3-2-1 de siempre, así que se guardan y
+// marcan el hábito elegido igual que si se hicieran desde sus pantallas. `ui.calm`: { from: 'today' | 'zen', step }.
+
+function startCalm(from) {
+  ui.calm = { from, step: 'breath', lines: [] };
+  if (zenDialog.open) showZenScreen('calm');
+  else openZen('calm');
+  startBreath(CALM_BREATH, CALM_MINUTES);
+  $('#zen-live').textContent = 'Un minuto de respiración lenta. Sigue el círculo o estas palabras.';
+  $('#zen-title').focus();
+}
+
+// Terminada cada parte: tras respirar, la pregunta; tras el 5-4-3-2-1, el final. Lo guardado se cuenta con calma.
+function calmStepDone(result) {
+  const saved = result.saved ? [`${result.type === 'grounding' ? 'El 5-4-3-2-1' : 'Un minuto de respiración'} se ha guardado en tu práctica.`] : [];
+  const h = result.habit;
+  if (h && h.changed) saved.push(`«${h.habit.name}», ${h.done ? 'marcado para hoy' : `apuntado: ${amountText(h.habit, ui.today)}`}.`);
+  ui.calm.step = ui.calm.step === 'breath' ? 'ask' : 'done';
+  ui.calm.lines = saved;
+  renderZen();
+  $('#zen-live').textContent = ui.calm.step === 'ask' ? '¿Estás un poco mejor?' : 'Has completado el 5-4-3-2-1.';
+  zenBody.querySelector('.calm-actions button')?.focus();
+  if (h && h.levelUp) showLevelUp(h.levelUp, h.unlocked);
+}
+
+// «Todavía no»: el 5-4-3-2-1, sin salir de esta pantalla.
+function calmGrounding() {
+  ui.calm.step = 'grounding';
+  startGrounding();
+  $('#zen-live').textContent = `Vamos a fijarnos en lo que tienes alrededor. ${ZEN_GROUNDING[0][0]} ${ZEN_GROUNDING[0][1]}.`;
+  zenBody.querySelector('[data-zen-found]')?.focus();
+}
+
+// Salir en cualquier momento: vuelve a donde estabas (Hoy o Zen). Lo que estuviera en marcha se guarda si llega
+// al minuto, como al salir de cualquier práctica.
+function leaveCalm() {
+  const from = ui.calm ? ui.calm.from : 'zen';
+  ui.calm = null;
+  if (from === 'today') zenDialog.close();
+  else showZenScreen('home');
 }
 
 // ---------- Pantallas ----------
@@ -4785,15 +5300,15 @@ function zenHomeHTML() {
   const { settings } = state.zen;
   const grateful = (state.zen.gratitude[today] || []).filter(Boolean).length;
   const felt = state.zen.emotions.filter((e) => e.date === today).length;
-  const notice = ui.zenNotice ? `<p class="zen-notice" role="status">${escapeHTML(ui.zenNotice)}</p>` : '';
-  ui.zenNotice = '';
   const habits = visibleHabits().filter((h) => h.kind !== 'quit');
   const month = [
     ...s.byType.map((t) => `${ZEN_TYPES[t.type].toLowerCase()}, ${plural(t.minutes, 'minuto', 'minutos')}`),
     s.gratitudeDays ? `gratitud, ${plural(s.gratitudeDays, 'día', 'días')}` : '',
     s.emotions ? `${plural(s.emotions, 'emoción anotada', 'emociones anotadas')}` : '',
+    s.intentions ? `${plural(s.intentions, 'intención', 'intenciones')} del día` : '',
   ].filter(Boolean);
-  return `${notice}
+  return `<button type="button" class="calm-btn big" data-calm="zen" aria-describedby="calm-zen-hint">${ICONS.wind}Necesito calma</button>
+    <p class="hint calm-hint" id="calm-zen-hint">Un minuto de respiración lenta, sin elegir nada.</p>
     <article class="card zen-quote">
       <p class="kicker">Reflexión del día</p>
       <p class="zen-quote-text">${zenReflection()}</p>
@@ -4802,13 +5317,18 @@ function zenHomeHTML() {
     <div class="zen-grid">
       ${zenTile('breath', ICONS.wind, 'Respirar', `${ZEN_BREATHS[settings.breath].label} · ${settings.breathMinutes} min`)}
       ${zenTile('meditation', ICONS.timer, 'Meditar', `${settings.minutes} min`)}
-      ${zenTile('sounds', ICONS.wave, 'Sonidos', ZEN_SOUNDS[settings.sound])}
+      ${zenTile('sounds', ICONS.wave, 'Sonidos', Object.keys(settings.mix).length ? escapeHTML(mixNames()) : 'Elige tu mezcla')}
       ${zenTile('grounding', ICONS.eye, '5-4-3-2-1', 'Volver al presente')}
+      ${zenTile('scan', ICONS.body, 'Escaneo corporal', `De los pies a la cabeza · ${settings.scanMinutes} min`)}
+      ${zenTile('pmr', ICONS.hand, 'Relajación muscular', `Tensar y soltar · ${settings.pmrMinutes} min`)}
+      ${zenTile('sleep', ICONS.moon, 'Modo dormir', `Respirar y sonidos que se apagan · ${settings.sleepMinutes} min`)}
     </div>
     <h3 class="section-label zen-label">Escribir</h3>
     <div class="zen-grid">
       ${zenTile('gratitude', ICONS.heart, 'Gratitud', grateful ? `Hoy: ${grateful} de ${GRATITUDE_ITEMS}` : 'Tres cosas buenas de hoy')}
       ${zenTile('emotions', moodIcon(4), 'Emociones', felt ? `Hoy: ${plural(felt, 'registro', 'registros')}` : '¿Cómo te sientes?')}
+      ${zenTile('dump', ICONS.note, 'Vaciar la cabeza', 'Escribir lo que te ronda y soltarlo')}
+      ${zenTile('intention', ICONS.sun, 'Intención del día', state.zen.intentions[today] ? escapeHTML(`«${state.zen.intentions[today].text}»`) : 'Una frase para hoy')}
     </div>
     <h3 class="section-label zen-label">Tu práctica</h3>
     <article class="card">
@@ -4831,14 +5351,14 @@ function zenHomeHTML() {
       <p class="hint left" id="zen-habit-hint">Se marca para hoy, como si lo tocaras en Hoy. En los hábitos de minutos, como Meditar, se suman los minutos practicados.</p>
       <div class="divider"></div>
       ${zenSwitch('rhythm', 'Vibración de ritmo', 'Una vibración suave en cada cambio de la respiración, para seguirla con los ojos cerrados.')}
-      ${zenSwitch('bell', 'Campana', 'Al empezar y al terminar la meditación.')}
+      ${zenSwitch('bell', 'Campana', 'En la meditación y al cambiar de paso en el escaneo corporal y la relajación muscular.')}
     </article>`;
 }
 
 function zenBreathHTML() {
   const { breath, breathMinutes } = state.zen.settings;
   const running = zenRunning('breath');
-  return `<div class="segmented" role="radiogroup" aria-label="Tipo de respiración">${Object.entries(ZEN_BREATHS).map(([id, b]) => (
+  return `<div class="segmented breaths" role="radiogroup" aria-label="Tipo de respiración">${Object.entries(ZEN_BREATHS).map(([id, b]) => (
     `<button type="button" role="radio" data-zen-choice="breath:${id}" aria-checked="${id === breath}"${running ? ' disabled' : ''}>${b.label}</button>`
   )).join('')}</div>
     <p class="hint left">${ZEN_BREATHS[breath].about}</p>
@@ -4868,22 +5388,119 @@ function zenMeditationHTML() {
     <p class="hint">Siéntate cómodo, cierra los ojos si quieres y vuelve a la respiración cada vez que te distraigas.</p>`;
 }
 
+// La mezcla que suena (o la de la última vez), para enseñarla en pocas palabras: «Lluvia y viento».
+const mixNames = (mix = state.zen.settings.mix) => fmtList.format(Object.keys(ZEN_SOUNDS).filter((id) => Object.hasOwn(mix, id)).map((id, i) => (i ? ZEN_SOUNDS[id].toLowerCase() : ZEN_SOUNDS[id])));
+
+// Mezclador: cada sonido se activa o no (botón) y tiene su volumen. Se puede cambiar mientras suena.
+function mixerHTML() {
+  const { mix } = state.zen.settings;
+  return `<ul class="mixer" aria-label="Sonidos de la mezcla">${Object.entries(ZEN_SOUNDS).map(([id, label]) => {
+    const on = Object.hasOwn(mix, id);
+    return `<li class="mix-row${on ? ' on' : ''}">
+      <button type="button" class="mix-toggle" data-mix-toggle="${id}" aria-pressed="${on}">
+        <span class="mix-check" aria-hidden="true">${on ? ICONS.check : ''}</span>${label}
+      </button>
+      <input type="range" min="0" max="1" step="0.05" value="${on ? mix[id] : MIX_DEFAULT_VOLUME}" data-mix-volume="${id}"
+        aria-label="Volumen de ${label.toLowerCase()}"${on ? '' : ' disabled'}>
+    </li>`;
+  }).join('')}</ul>`;
+}
+
 function zenSoundsHTML() {
-  const { sound, soundMinutes, volume } = state.zen.settings;
+  const { soundMinutes, mix } = state.zen.settings;
   const running = zenRunning('sounds');
+  const count = Object.keys(mix).length;
   const time = running ? '' : soundMinutes ? `Se apaga a los ${soundMinutes} min` : 'Sin límite';
-  return `<div class="zen-grid" role="radiogroup" aria-label="Sonido">${Object.entries(ZEN_SOUNDS).map(([id, label]) => (
-    `<button type="button" class="zen-sound" role="radio" data-zen-choice="sound:${id}" aria-checked="${id === sound}">${label}</button>`
-  )).join('')}</div>
-    <label class="zen-volume">
-      <span>Volumen</span>
-      <input type="range" min="0" max="1" step="0.05" value="${volume}" data-zen-volume>
-    </label>
+  return `<p class="card-text first">Elige uno o varios y ajusta el volumen de cada uno. Se recuerda tu mezcla.</p>
+    ${mixerHTML()}
+    <p class="hint left" id="mix-summary">${count ? `En tu mezcla: ${escapeHTML(mixNames())}.` : 'Aún no hay ningún sonido en la mezcla.'}</p>
     <p class="section-label spaced" id="zen-sound-timer">Apagar después de</p>
     ${zenChoices('soundMinutes', ZEN_SOUND_MINUTES, 'Apagar después de', (n) => (n ? `${n} min` : 'Sin límite'), running)}
     <p class="zen-time" id="zen-time">${time}</p>
     <div class="zen-controls" id="zen-controls"></div>
     <p class="hint">Los sonidos se generan en el móvil, sin descargas. Si bloqueas la pantalla o cambias de app, pueden pararse.</p>`;
+}
+
+// «Necesito calma»: el círculo y poco más; después, la pregunta con dos botones grandes. Siempre se puede salir.
+function zenCalmHTML() {
+  const calm = ui.calm || { step: 'breath', lines: [] };
+  if (calm.step === 'grounding' && zenRunning('grounding')) return zenGroundingHTML();
+  if (calm.step === 'ask' || calm.step === 'done') {
+    const ask = calm.step === 'ask';
+    return `<div class="calm-end">
+      <div class="empty-icon">${ICONS.leaf}</div>
+      <h2>${ask ? '¿Estás un poco mejor?' : 'Has completado el 5-4-3-2-1'}</h2>
+      <p>${ask ? 'No hace falta estar del todo bien. Responde cuando quieras.' : 'Quédate aquí el tiempo que necesites.'}</p>
+      <div class="calm-actions">
+        ${ask ? `<button type="button" class="primary-btn" data-calm-yes>Sí</button>
+        <button type="button" class="secondary-btn" data-calm-more>Todavía no</button>`
+    : `<button type="button" class="primary-btn" data-calm-yes>Cerrar</button>
+        <button type="button" class="secondary-btn" data-calm-again>Respirar otro minuto</button>`}
+      </div>
+      ${ask ? '<p class="calm-small">Si dices «Todavía no», seguimos con el 5-4-3-2-1: fijarte en lo que tienes alrededor.</p>' : ''}
+      ${calm.lines.map((line) => `<p class="calm-small">${escapeHTML(line)}</p>`).join('')}
+    </div>`;
+  }
+  const running = zenRunning('breath');
+  return `<p class="calm-lead">Un minuto para ti. Sigue el círculo con la respiración.</p>
+    <div class="breath-stage" aria-hidden="true"><span class="breath-circle" id="breath-circle"></span></div>
+    <p class="zen-phase" id="zen-phase">${running ? '' : 'Cuando quieras'}</p>
+    <p class="zen-time" id="zen-time">${fmtClock(running ? zenRun.total - zenElapsed() : breathTotal(CALM_BREATH, CALM_MINUTES))}</p>
+    <div class="zen-controls calm-actions" id="zen-controls"></div>
+    <p class="hint">Respira a tu ritmo. Si te notas incómodo o mareado, para y respira con normalidad.</p>`;
+}
+
+// Modo dormir: antes, los sonidos y cuándo se apagan; en marcha, una pantalla casi negra que es un solo botón.
+function zenSleepHTML() {
+  if (ui.sleep) {
+    const running = zenRunning('sleep');
+    const breathing = running && zenElapsed() < zenRun.breathMs;
+    const body = breathing
+      ? '<span class="breath-stage"><span class="breath-circle" id="breath-circle"></span></span><span class="zen-phase" id="zen-phase"></span>'
+      : `<span class="sleep-moon">${ICONS.moon}</span><span class="sleep-title">Buenas noches</span>
+        <span class="sleep-text">${running ? 'El sonido se irá apagando poco a poco.' : 'El sonido se ha apagado.'}</span>`;
+    return `<button type="button" class="sleep-exit" data-sleep-exit aria-label="Salir del modo dormir">
+      <span class="sleep-inner" aria-hidden="true">${body}<span class="sleep-hint">Toca la pantalla para salir</span></span>
+    </button>`;
+  }
+  const count = Object.keys(state.zen.settings.mix).length;
+  return `<p class="card-text first">Para empezar, cuatro respiraciones 4-7-8 con tus sonidos. Después la pantalla se queda casi a oscuras y el sonido baja poco a poco hasta apagarse. Un toque en la pantalla sale.</p>
+    <article class="card sleep-mix">
+      <p class="kicker">Sonidos</p>
+      <p class="sleep-mix-names" id="sleep-mix-names">${count ? escapeHTML(mixNames()) : 'Aún no has elegido ninguno.'}</p>
+      <button type="button" class="link-btn" data-zen-screen="sounds">Cambiar la mezcla</button>
+    </article>
+    <p class="section-label spaced">El sonido se apaga en</p>
+    ${zenChoices('sleepMinutes', ZEN_SLEEP_MINUTES, 'El sonido se apaga en', (n) => `${n} min`)}
+    <div class="zen-controls" id="zen-controls"></div>
+    <p class="hint">Mientras suena, la pantalla se queda encendida si el navegador lo permite. Si cambias de app o la bloqueas, el sonido puede pararse.</p>`;
+}
+
+// Escaneo corporal y relajación muscular: antes de empezar, la duración y los pasos; en marcha, el paso actual.
+function zenGuidedHTML(kind) {
+  const guide = ZEN_GUIDES[kind];
+  const key = `${kind}Minutes`;
+  const minutes = state.zen.settings[key];
+  if (!zenRunning(kind)) {
+    return `<p class="card-text first">${guide.intro}</p>
+      ${zenChoices(key, ZEN_GUIDE_MINUTES[kind], 'Duración', (n) => `${n} min`)}
+      <details class="guide-list">
+        <summary>Ver los ${guide.steps.length} pasos</summary>
+        <ol>${guide.steps.map(([title]) => `<li>${title}</li>`).join('')}</ol>
+      </details>
+      ${zenSwitch('bell', 'Campana', 'Suave, al cambiar de paso. Sin ella, una vibración.')}
+      <p class="zen-time" id="zen-time">${fmtClock(minutes * 60000)}</p>
+      <div class="zen-controls" id="zen-controls"></div>`;
+  }
+  const g = guidedStep(kind, minutes, zenElapsed());
+  const t = guidedText(kind, g);
+  return `<div class="guide-bar" id="guide-bar" style="--p:${((g.index + 1) / g.count).toFixed(3)}" aria-hidden="true"><span></span></div>
+    <p class="guide-count" id="guide-count">${t.count}</p>
+    <h3 class="guide-title" id="guide-title">${t.title}</h3>
+    ${guide.tense ? `<p class="zen-phase" id="guide-phase">${t.phase}</p>` : ''}
+    <p class="guide-text" id="guide-text">${t.text}</p>
+    <p class="zen-time" id="zen-time">${fmtClock(zenRun.total - zenElapsed())}</p>
+    <div class="zen-controls" id="zen-controls"></div>`;
 }
 
 function zenGroundingHTML() {
@@ -4901,6 +5518,76 @@ function zenGroundingHTML() {
     <p class="hint">Nómbralas para ti, sin prisa. Toca el botón con cada una.</p>
     <button type="button" class="primary-btn" data-zen-found>He encontrado una (${zenRun.found} de ${count})</button>
     <div class="zen-controls" id="zen-controls"></div>`;
+}
+
+// Vaciar la cabeza: escribir lo que te ronda y soltarlo. No se guarda en ningún sitio (ni en los datos ni en la copia).
+function zenDumpHTML() {
+  const text = ui.dumpDraft || '';
+  return `<p class="card-text first">Escribe lo que te ronda, tal cual sale: preocupaciones, pendientes, lo que sea. Nadie más lo va a leer.</p>
+    <div class="note-box dump-box" id="dump-box">
+      <textarea class="dump-input" id="dump-input" data-dump maxlength="${DUMP_MAX}" rows="9" placeholder="Lo que te ronda…"
+        aria-label="Lo que te ronda (máximo ${fmtNumber.format(DUMP_MAX)} caracteres)" aria-describedby="dump-count dump-hint">${escapeHTML(text)}</textarea>
+      <span class="note-count" id="dump-count">${text.length}/${fmtNumber.format(DUMP_MAX)}</span>
+    </div>
+    <div class="zen-controls">
+      <button type="button" class="primary-btn" data-dump-release${text.trim() ? '' : ' disabled'}>Soltarlo</button>
+    </div>
+    <p class="hint" id="dump-hint">«Soltarlo» lo borra sin guardarlo en ningún sitio: ni en este móvil ni en las copias.</p>
+    <p class="dump-done" id="dump-done" role="status">${ui.dumpReleased ? 'Soltado. No se ha guardado en ningún sitio.' : ''}</p>`;
+}
+
+// Botones «Sí / A medias / No» de una intención (pulsado el que se eligió; tocarlo otra vez lo quita).
+const intentionRating = (date, labelledby) => `<div class="intention-rate" role="group" aria-labelledby="${labelledby}">${
+  INTENTION_RESULT_IDS.map((id) => `<button type="button" class="tag" data-intention-rate="${date}:${id}" aria-pressed="${(state.zen.intentions[date] || {}).result === id}">${INTENTION_RESULTS[id]}</button>`).join('')}</div>`;
+
+// Intención del día: la de hoy (se guarda al escribir), cómo fue y las de otros días.
+function zenIntentionHTML() {
+  const today = ui.today;
+  const it = state.zen.intentions[today];
+  const past = Object.keys(state.zen.intentions).filter((d) => d < today).sort().reverse();
+  const shown = past.slice(0, ui.zenShown);
+  const month = past.filter((d) => d >= shiftKey(today, -30));
+  const counted = INTENTION_RESULT_IDS.map((id) => [id, month.filter((d) => state.zen.intentions[d].result === id).length]).filter(([, n]) => n);
+  const summary = month.length ? `En los últimos 30 días: ${plural(month.length, 'intención', 'intenciones')}${counted.length
+    ? ` (${counted.map(([id, n]) => `${INTENTION_RESULTS[id].toLowerCase()}, ${n}`).join('; ')})` : ''}.` : '';
+  const history = shown.map((d) => {
+    const x = state.zen.intentions[d];
+    return `<li><b id="int-${d}">${healthDateLabel(d)}</b><span class="intention-past">«${escapeHTML(x.text)}»</span>
+      ${x.result ? `<span class="intention-result">${INTENTION_RESULTS[x.result]}</span>` : intentionRating(d, `int-${d}`)}</li>`;
+  }).join('');
+  return `<p class="card-text first">Por la mañana, una frase corta para el día, como «hoy quiero ir con calma». La verás en Hoy y, por la noche, podrás marcar cómo fue. No da XP.</p>
+    <label class="field">
+      <span>Tu intención de hoy</span>
+      <input type="text" maxlength="${INTENTION_MAX}" data-intention value="${escapeHTML(it ? it.text : '')}" placeholder="Hoy quiero…" enterkeyhint="done" aria-describedby="intention-hint">
+    </label>
+    <p class="hint left" id="intention-hint">Hasta ${INTENTION_MAX} caracteres. Se guarda mientras escribes; si la borras, deja de verse en Hoy.</p>
+    <div id="int-today-box"${it ? '' : ' hidden'}><p class="section-label spaced" id="int-today">¿Cómo ha ido?</p>${intentionRating(today, 'int-today')}</div>
+    ${past.length ? `<h3 class="section-label zen-label">Días anteriores</h3>
+      ${summary ? `<p class="card-text">${summary}</p>` : ''}
+      <ul class="zen-history intentions">${history}</ul>
+      ${past.length > shown.length ? '<button type="button" class="link-btn center" data-zen-more>Mostrar más</button>' : ''}` : ''}`;
+}
+
+// Soltar: se desvanece (sin animación si se pide reducir movimiento) y desaparece de la memoria.
+function releaseDump() {
+  const box = zenBody.querySelector('#dump-box');
+  const finish = () => {
+    ui.dumpDraft = '';
+    ui.dumpReleased = true;
+    renderZen();
+    $('#zen-live').textContent = 'Soltado. No se ha guardado en ningún sitio.';
+    zenBody.querySelector('#dump-input')?.focus();
+  };
+  ui.dumpDraft = '';
+  if (!box || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    finish();
+    return;
+  }
+  box.classList.add('letting-go');
+  let done = false;
+  const once = () => { if (!done) { done = true; finish(); } };
+  box.addEventListener('animationend', once, { once: true });
+  setTimeout(once, 1600); // por si el navegador no avisa del final de la animación
 }
 
 function zenGratitudeHTML() {
@@ -4935,7 +5622,17 @@ function zenEmotionsHTML() {
       <span class="zen-emotion-text"><b>${e.words.map(capitalize).join(', ')}</b><span>${healthDateLabel(e.date)} · ${ZEN_INTENSITY[e.intensity - 1]}${e.note ? ` · ${escapeHTML(e.note)}` : ''}</span></span>
       <button type="button" class="icon-btn danger" data-zen-emotion-delete="${escapeHTML(e.id)}" aria-label="Borrar el registro de ${e.words.join(', ')}">${ICONS.trash}</button>
     </li>`).join('');
-  const top = emotionSummary();
+  const kind = ui.emotionPeriod || 'week';
+  const trend = emotionTrend(kind);
+  const overTime = state.zen.emotions.length ? `<h3 class="section-label zen-label" id="emotion-time-title">Tus emociones en el tiempo</h3>
+    <article class="card emotion-time" aria-labelledby="emotion-time-title">
+      <div class="segmented two" role="radiogroup" aria-label="Periodo">${[['week', 'Por semana'], ['month', 'Por mes']].map(([id, text]) => (
+        `<button type="button" role="radio" data-emotion-period="${id}" aria-checked="${id === kind}">${text}</button>`)).join('')}</div>
+      ${trend.lines.map((line) => `<p class="card-text">${escapeHTML(line)}</p>`).join('')}
+      <p class="review-sub">Intensidad media, de 1 a 5</p>
+      ${emotionChart(kind, trend.periods)}
+      <p class="hint left">Solo resume lo que has apuntado: no es un diagnóstico. Los periodos con menos de ${EMOTION_MIN} registros no se resumen.</p>
+    </article>` : '';
   return `<p class="card-text first">¿Cómo te sientes ahora? Elige hasta ${ZEN_WORDS_MAX} palabras; no hay respuestas buenas ni malas.</p>
     ${groups}
     <p class="section-label spaced" id="zen-intensity-label">Intensidad</p>
@@ -4949,13 +5646,27 @@ function zenEmotionsHTML() {
     <div class="zen-controls">
       <button type="button" class="primary-btn" data-zen-emotion-save${draft.words.length ? '' : ' disabled'}>Guardar</button>
     </div>
-    ${top.length ? `<p class="card-text zen-summary">Este mes, lo que más has anotado: ${fmtList.format(top.map(([w, n]) => `${w} (${n})`))}.</p>` : ''}
+    ${overTime}
     ${list ? `<h3 class="section-label zen-label">Tus registros</h3><ul class="zen-history emotions">${list}</ul>
       ${state.zen.emotions.length > recent.length ? '<button type="button" class="link-btn center" data-zen-more>Mostrar más</button>' : ''}` : ''}`;
 }
 
 // Lo que se ve al terminar una práctica: cuánto se ha guardado y, si había, el hábito marcado.
+// En «Necesito calma», al completar cada parte se sigue con la siguiente (si se sale antes, ya se ha ido).
 function showZenResult(result) {
+  if (ui.zenScreen === 'calm' && ui.calm) {
+    if (result.completed) calmStepDone(result);
+    return;
+  }
+  // El modo dormir no enciende la pantalla al terminar: se queda a oscuras, en «Buenas noches».
+  if (result.type === 'sleep') {
+    if (ui.sleep) {
+      ui.sleep.done = true;
+      renderZen();
+      $('#zen-live').textContent = 'El sonido se ha apagado. Buenas noches.';
+    }
+    return;
+  }
   const minutes = Math.max(1, Math.round(result.seconds / 60));
   const lines = [];
   if (!result.saved) lines.push('Ha durado menos de un minuto, así que no se ha guardado.');
@@ -4989,40 +5700,67 @@ function zenResultHTML() {
 
 const ZEN_RENDER = {
   home: zenHomeHTML,
+  calm: zenCalmHTML,
   breath: zenBreathHTML,
   meditation: zenMeditationHTML,
   sounds: zenSoundsHTML,
   grounding: zenGroundingHTML,
+  scan: () => zenGuidedHTML('scan'),
+  pmr: () => zenGuidedHTML('pmr'),
+  sleep: zenSleepHTML,
+  dump: zenDumpHTML,
+  intention: zenIntentionHTML,
   gratitude: zenGratitudeHTML,
   emotions: zenEmotionsHTML,
 };
 
 function renderZen() {
   const screen = ui.zenScreen;
+  // La pantalla oscura del modo dormir ocupa todo, sea cual sea el tema.
+  zenDialog.classList.toggle('sleep-mode', screen === 'sleep' && Boolean(ui.sleep));
   $('#zen-title').textContent = ZEN_SCREENS[screen];
   $('#zen-back').hidden = screen === 'home';
-  zenBody.innerHTML = ui.zenResult ? zenResultHTML() : ZEN_RENDER[screen]();
+  zenBody.innerHTML = ui.zenResult ? zenResultHTML() : zenNoticeHTML() + ZEN_RENDER[screen]();
   renderZenControls();
+}
+
+// Un aviso breve arriba de la pantalla que se enseña a continuación («Sesión guardada…»); se ve una sola vez.
+function zenNoticeHTML() {
+  const notice = ui.zenNotice && !ui.sleep ? `<p class="zen-notice" role="status">${escapeHTML(ui.zenNotice)}</p>` : '';
+  if (!ui.sleep) ui.zenNotice = '';
+  return notice;
 }
 
 // Empezar, o pausar/seguir y terminar, según lo que esté en marcha en esta pantalla.
 function renderZenControls() {
   const box = zenBody.querySelector('#zen-controls');
-  if (!box) return;
-  const type = { breath: 'breath', meditation: 'meditation', sounds: 'sounds', grounding: 'grounding' }[ui.zenScreen];
-  if (!zenRunning(type)) {
-    box.innerHTML = `<button type="button" class="primary-btn" data-zen-start>${type === 'sounds' ? 'Reproducir' : 'Empezar'}</button>`;
-    return;
+  if (box) box.innerHTML = zenControlsHTML();
+}
+
+function zenControlsHTML() {
+  // En «Necesito calma» no hay pausa ni nada que elegir: solo salir (o volver a empezar, si se paró).
+  if (ui.zenScreen === 'calm') {
+    const now = ui.calm && ui.calm.step === 'grounding' ? 'grounding' : 'breath';
+    return `${zenRunning(now) ? '' : '<button type="button" class="primary-btn" data-calm-start>Empezar</button>'}
+      <button type="button" class="secondary-btn" data-calm-leave>Salir</button>`;
   }
+  const type = { breath: 'breath', meditation: 'meditation', sounds: 'sounds', grounding: 'grounding', scan: 'scan', pmr: 'pmr', sleep: 'sleep' }[ui.zenScreen];
+  // Sin ningún sonido en la mezcla no hay nada que reproducir (ni con qué dormir).
+  const empty = (type === 'sounds' || type === 'sleep') && !Object.keys(state.zen.settings.mix).length;
+  if (type === 'sleep') return `<button type="button" class="primary-btn" data-zen-start${empty ? ' disabled aria-describedby="sleep-mix-names"' : ''}>Empezar</button>`;
+  if (!zenRunning(type)) return `<button type="button" class="primary-btn" data-zen-start${empty ? ' disabled aria-describedby="mix-summary"' : ''}>${type === 'sounds' ? 'Reproducir' : 'Empezar'}</button>`;
   const canPause = type !== 'grounding';
-  box.innerHTML = `${canPause ? `<button type="button" class="secondary-btn" data-zen-pause>${zenRun.pausedAt ? 'Seguir' : 'Pausa'}</button>` : ''}
+  return `${canPause ? `<button type="button" class="secondary-btn" data-zen-pause>${zenRun.pausedAt ? 'Seguir' : 'Pausa'}</button>` : ''}
     <button type="button" class="text-btn" data-zen-stop>Terminar</button>`;
 }
 
 function openZen(screen = 'home') {
+  if (screen !== 'calm') ui.calm = null;
+  ui.dumpReleased = false;
   ui.zenScreen = screen;
   ui.zenResult = null;
   ui.zenShown = 14;
+  if (screen === 'emotions' && !ui.zenDraft) ui.zenDraft = { words: [], intensity: 3, note: '' };
   renderZen();
   document.documentElement.classList.add('locked');
   if (!zenDialog.open) zenDialog.showModal();
@@ -5035,6 +5773,8 @@ function showZenScreen(screen) {
     const result = finishZen(false);
     if (result && result.saved) ui.zenNotice = `Sesión guardada: ${plural(Math.max(1, Math.round(result.seconds / 60)), 'minuto', 'minutos')}.`;
   }
+  if (screen !== 'calm') ui.calm = null;
+  ui.dumpReleased = false;
   ui.zenScreen = screen;
   ui.zenResult = null;
   ui.zenShown = 14;
@@ -5045,17 +5785,56 @@ function showZenScreen(screen) {
 }
 
 // Tarjeta de Hoy: la reflexión del día y la entrada a Zen (con la bienvenida no sale, para no distraer).
+// Hoy: la intención del día que se está viendo, solo si la escribiste; desde la tarde (o en días pasados), cómo fue.
+function renderIntention(hasHabits) {
+  const it = state.zen.intentions[ui.day];
+  const card = $('#intention-card');
+  card.hidden = !hasHabits || !it;
+  if (card.hidden) return;
+  $('#intention-card-title').textContent = ui.day === ui.today ? 'Tu intención de hoy' : 'Tu intención de ese día';
+  $('#intention-card-text').textContent = `«${it.text}»`;
+  $('#intention-card-rate').innerHTML = canRateIntention(ui.day)
+    ? `<p class="intention-ask" id="intention-ask">¿Cómo ha ido?</p>${intentionRating(ui.day, 'intention-ask')}` : '';
+}
+
+$('#intention-card').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-intention-rate]');
+  if (!btn) return;
+  const [date, id] = btn.dataset.intentionRate.split(':');
+  rateIntention(date, id);
+  renderIntention(true);
+  $(`#intention-card [data-intention-rate="${btn.dataset.intentionRate}"]`)?.focus();
+  haptic();
+});
+
 function renderZenCard(hasHabits) {
-  const card = $('#zen-card');
+  const card = $('#zen-card-box');
   card.hidden = !state.prefs.showZen || !hasHabits;
   if (!card.hidden) $('#zen-card-quote').textContent = zenReflection();
 }
 
 $('#zen-card').addEventListener('click', () => openZen());
+// «Necesito calma», en Hoy y en Zen: empieza al momento.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-calm]');
+  if (!btn) return;
+  startCalm(btn.dataset.calm);
+  haptic();
+});
+
+// Enlaces al modo dormir desde fuera de Zen (el pack «Dormir mejor» y el sueño de Salud): solo lo abren.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-open-sleep]')) return;
+  [$('#pack-dialog'), sheet, healthSheet].forEach((d) => { if (d.open) d.close(); });
+  openZen('sleep');
+  $('#zen-title').focus();
+});
 $('#zen-back').addEventListener('click', () => showZenScreen('home'));
 $('#zen-close').addEventListener('click', () => zenDialog.close());
 zenDialog.addEventListener('close', () => {
   document.documentElement.classList.remove('locked');
+  ui.sleep = null; // (con Escape también se sale del modo dormir)
+  zenDialog.classList.remove('sleep-mode');
   const result = zenRun ? finishZen(false) : null;
   if (result && result.saved) toast(`Sesión guardada: ${plural(Math.max(1, Math.round(result.seconds / 60)), 'minuto', 'minutos')}`);
   render(); // Hoy puede haber cambiado (un hábito marcado, la tarjeta de Zen)
@@ -5071,15 +5850,13 @@ zenBody.addEventListener('click', (e) => {
     const [key, raw] = zenChoice.split(':');
     const value = typeof DEFAULT_ZEN_SETTINGS[key] === 'number' ? Number(raw) : raw;
     setZenSetting(key, value);
-    // Cambiar de sonido mientras suena: se oye el nuevo al momento.
-    if (key === 'sound' && zenRunning('sounds') && !zenRun.pausedAt) {
-      if (zenRun.player) zenRun.player.stop();
-      zenRun.player = startSound(value, state.zen.settings.volume);
-    }
     renderZen();
     zenBody.querySelector(`[data-zen-choice="${zenChoice}"]`)?.focus();
   } else if (target.hasAttribute('data-zen-start')) {
-    ({ breath: startBreath, meditation: startMeditation, sounds: startSounds, grounding: startGrounding })[ui.zenScreen]();
+    ({
+      breath: () => startBreath(), meditation: startMeditation, sounds: startSounds, grounding: startGrounding,
+      scan: () => startGuided('scan'), pmr: () => startGuided('pmr'), sleep: startSleep,
+    })[ui.zenScreen]();
     zenBody.querySelector('#zen-controls button')?.focus();
   } else if (target.hasAttribute('data-zen-pause')) {
     toggleZenPause();
@@ -5090,6 +5867,33 @@ zenBody.addEventListener('click', (e) => {
     ui.zenResult = null;
     renderZen();
     zenBody.querySelector('[data-zen-start]')?.focus();
+  } else if (target.dataset.mixToggle) {
+    const id = target.dataset.mixToggle;
+    toggleMixSound(id);
+    renderZen();
+    zenBody.querySelector(`[data-mix-toggle="${id}"]`)?.focus();
+    $('#zen-live').textContent = `${ZEN_SOUNDS[id]}: ${Object.hasOwn(state.zen.settings.mix, id) ? 'en la mezcla' : 'fuera de la mezcla'}`;
+  } else if (target.dataset.intentionRate) {
+    const [date, id] = target.dataset.intentionRate.split(':');
+    rateIntention(date, id);
+    renderZen();
+    zenBody.querySelector(`[data-intention-rate="${target.dataset.intentionRate}"]`)?.focus();
+    const now = (state.zen.intentions[date] || {}).result;
+    $('#zen-live').textContent = now ? `Marcado: ${INTENTION_RESULTS[now]}` : 'Sin marcar';
+  } else if (target.dataset.emotionPeriod) {
+    ui.emotionPeriod = target.dataset.emotionPeriod;
+    renderZen();
+    zenBody.querySelector(`[data-emotion-period="${ui.emotionPeriod}"]`)?.focus();
+  } else if (target.hasAttribute('data-sleep-exit')) {
+    leaveSleep();
+  } else if (target.hasAttribute('data-dump-release')) {
+    releaseDump();
+  } else if (target.hasAttribute('data-calm-leave') || target.hasAttribute('data-calm-yes')) {
+    leaveCalm();
+  } else if (target.hasAttribute('data-calm-more')) {
+    calmGrounding();
+  } else if (target.hasAttribute('data-calm-again') || target.hasAttribute('data-calm-start')) {
+    startCalm(ui.calm ? ui.calm.from : 'zen');
   } else if (target.hasAttribute('data-zen-found')) {
     groundingFound();
   } else if (target.hasAttribute('data-zen-more')) {
@@ -5132,8 +5936,21 @@ zenBody.addEventListener('click', (e) => {
 zenBody.addEventListener('input', (e) => {
   const { gratitude } = e.target.dataset;
   if (gratitude !== undefined) setGratitude(ui.today, Number(gratitude), e.target.value);
-  else if (e.target.hasAttribute('data-zen-note')) ui.zenDraft.note = e.target.value;
-  else if (e.target.hasAttribute('data-zen-volume') && zenRun && zenRun.player) zenRun.player.setVolume(Number(e.target.value));
+  else if (e.target.hasAttribute('data-intention')) {
+    // Se guarda al escribir (sin volver a pintar, para no perder el foco); «¿Cómo ha ido?» aparece si hay intención.
+    setIntention(ui.today, e.target.value);
+    const box = zenBody.querySelector('#int-today-box');
+    if (box) box.hidden = !state.zen.intentions[ui.today];
+  } else if (e.target.hasAttribute('data-dump')) {
+    // Solo en memoria (sin save): así no se pierde si la pantalla se vuelve a pintar, y nunca llega a guardarse.
+    ui.dumpDraft = e.target.value.slice(0, DUMP_MAX);
+    ui.dumpReleased = false;
+    setText('#dump-count', `${ui.dumpDraft.length}/${fmtNumber.format(DUMP_MAX)}`);
+    setText('#dump-done', '');
+    const release = zenBody.querySelector('[data-dump-release]');
+    if (release) release.disabled = !ui.dumpDraft.trim();
+  } else if (e.target.hasAttribute('data-zen-note')) ui.zenDraft.note = e.target.value;
+  else if (e.target.dataset.mixVolume) setMixVolume(e.target.dataset.mixVolume, Number(e.target.value), { keep: false }); // se oye al momento
 });
 
 zenBody.addEventListener('change', (e) => {
@@ -5144,8 +5961,8 @@ zenBody.addEventListener('change', (e) => {
       : Number(e.target.value);
     setZenSetting(key, value);
     if (e.target.type === 'checkbox') haptic();
-  } else if (e.target.hasAttribute('data-zen-volume')) {
-    setZenSetting('volume', Number(e.target.value));
+  } else if (e.target.dataset.mixVolume) {
+    setMixVolume(e.target.dataset.mixVolume, Number(e.target.value)); // y se guarda al soltar
   }
 });
 
@@ -5785,6 +6602,7 @@ $('#storage-persist').addEventListener('click', async () => {
 
 // Borrar todo lo de Bonsái en este dispositivo (se puede deshacer unos segundos desde el aviso).
 function eraseAllData() {
+  ui.dumpDraft = ''; // lo que se estuviera escribiendo en «Vaciar la cabeza» (solo estaba en memoria)
   const fresh = emptyState();
   fresh.challengesSince = weekStartOf(ui.today);
   fresh.lastSummary = weekStartOf(ui.today);
@@ -5859,7 +6677,11 @@ const INFO = {
       faqItem('¿Qué hace el modo vacaciones?', 'Desde Ajustes, pausa a la vez todos tus hábitos activos, con fecha de vuelta si quieres. Usa la pausa de siempre, así que las rachas no se rompen. Al volver (ese día, o al tocar «He vuelto») se reanudan solos los que pausó; los que ya estaban en pausa siguen igual.'),
       faqItem('¿Qué son las rutinas?', 'Grupos de hábitos, como «Mañana» o «Noche», para verlos juntos en Hoy. Solo ordenan: no dan XP ni marcan nada por ti. Los packs para empezar, al tocar +, crean varios hábitos y su rutina de una vez, sin duplicar los que ya tienes.'),
       faqItem('¿Qué guarda Salud?', 'Las medidas que elijas: peso, cintura, pulso en reposo, tensión arterial, sueño, grasa corporal, temperatura y pasos, con fecha y nota. Es privado y va aparte: no da XP ni cuenta para rachas, y Bonsái no interpreta tus medidas ni da consejos médicos. Se abre desde su tarjeta en Hoy, que puedes ocultar aquí, en Ajustes.'),
-      faqItem('¿Qué es Zen?', 'Un rincón para la calma, desde la tarjeta de Hoy: respiración guiada, meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1, además de gratitud y emociones. No da XP ni rachas; si quieres, al terminar una práctica marca el hábito que elijas (en los de minutos, como Meditar, suma lo practicado). Cuenta cada práctica de un minuto o más.'),
+      faqItem('¿Qué es Zen?', 'Un rincón para la calma, desde la tarjeta de Hoy. Para practicar: «Necesito calma», respiración guiada (caja, 4-7-8, tranquila y suspiro), meditación con campana, sonidos que puedes mezclar, el 5-4-3-2-1, escaneo corporal, relajación muscular y el modo dormir. Para escribir: gratitud, emociones (con su resumen por semana y por mes), vaciar la cabeza y la intención del día. No da XP ni rachas; si quieres, al terminar una práctica marca el hábito que elijas (en los de minutos, como Meditar, suma lo practicado). Cuenta cada práctica de un minuto o más. Todo funciona sin conexión: los sonidos se generan en el móvil.'),
+      faqItem('¿Qué hace «Necesito calma»?', 'Con un solo toque, en la tarjeta de Zen de Hoy o arriba del todo en Zen, empieza un minuto de respiración lenta, sin elegir nada. Al terminar te pregunta si estás mejor: «Sí» te devuelve a donde estabas y «Todavía no» sigue con el 5-4-3-2-1. Siempre puedes salir con «Salir».'),
+      faqItem('¿Cómo funciona el modo dormir?', 'Empieza con cuatro respiraciones 4-7-8 y tu mezcla de sonidos. Después la pantalla se queda casi a oscuras y el sonido baja poco a poco hasta apagarse a los 15, 30, 45 o 60 minutos. Mientras suena, la pantalla se mantiene encendida si el navegador lo permite. Un toque en la pantalla sale. También se llega desde el pack «Dormir mejor» y desde el sueño de Salud.'),
+      faqItem('¿Se guarda lo que escribo en «Vaciar la cabeza»?', 'No. Lo que escribes solo está en la pantalla mientras la tienes abierta, y «Soltarlo» lo borra sin guardarlo en ningún sitio: ni en este móvil ni en las copias.'),
+      faqItem('¿Qué es la intención del día?', 'Una frase corta para el día, como «hoy quiero ir con calma», que escribes en Zen. Se ve en Hoy ese día y, desde las 18:00, puedes marcar cómo fue: sí, a medias o no. No da XP, y si no la usas no aparece nada. Las de otros días se ven en Zen.'),
       faqItem('¿Puedo sacar mis datos o compartir mis rachas?', 'En Ajustes, «Historial de hábitos en CSV» crea una hoja de cálculo con cada día que tiene una marca, una cantidad, una recaída o una nota (en los de límite, los días que te pasaste van como recaída). Desde la ficha de un hábito puedes compartir tu racha como imagen, y desde Progreso, tus logros. Las imágenes nunca llevan datos de Salud ni del diario.'),
       faqItem('¿Hay accesos directos?', 'En Android, con Bonsái instalado desde Chrome, mantén pulsado su icono: aparecen Zen, Registrar salud y Nuevo hábito. En iPhone, Safari no los ofrece.'),
       faqItem('¿Dónde se guardan mis datos? ¿Se sincronizan?', 'Solo en este dispositivo: no hay cuenta ni servidor, así que no se sincronizan solos. Para pasarlos a otro móvil, exporta una copia y luego impórtala allí.'),
@@ -5869,6 +6691,17 @@ const INFO = {
   news: () => ({
     title: 'Novedades',
     body: `<h3 class="news-title">Versión ${APP_VERSION}</h3>
+      <ul class="news-list">
+        <li>«Necesito calma»: un toque en Hoy o en Zen y empieza un minuto de respiración lenta. Si todavía no estás mejor, sigue con el 5-4-3-2-1.</li>
+        <li>Una respiración nueva, el suspiro fisiológico: dos inhalaciones seguidas y una exhalación larga.</li>
+        <li>Escaneo corporal y relajación muscular progresiva, guiados paso a paso con una campana suave.</li>
+        <li>Mezclador de sonidos: varios a la vez, cada uno con su volumen, y dos nuevos, viento y fuego. Se recuerda tu mezcla.</li>
+        <li>Modo dormir: respiración 4-7-8 y tus sonidos, que se apagan poco a poco, con la pantalla casi a oscuras.</li>
+        <li>Vaciar la cabeza: escribe lo que te ronda y suéltalo, sin que se guarde en ningún sitio.</li>
+        <li>Tus emociones en el tiempo: lo que más apuntas, la intensidad media y cómo cambia, por semana y por mes.</li>
+        <li>Intención del día: una frase para el día que ves en Hoy y, por la noche, cómo fue.</li>
+      </ul>
+      <h3 class="news-title">Versión 0.9 beta</h3>
       <ul class="news-list">
         <li>Hábitos con límite, como «como mucho 2 cafés» o «1 h de redes»: apuntas lo que llevas, una barra te avisa al llegar al máximo y el día solo cuenta como recaída si te pasas. Al crear o editar un hábito de dejar algo, en «Cómo lo mides», o con «Limitar el café» y «Limitar las redes».</li>
         <li>Una nota en cada hábito y día («cómo fue», «por qué no pude»), desde Hoy o tocando un día en el Historial.</li>
@@ -7042,6 +7875,7 @@ function openPack(id) {
   const { items, routine, canRoutine } = packPlan(pack);
   $('#pack-title').textContent = pack.name;
   $('#pack-desc').textContent = pack.desc;
+  $('#pack-sleep-link').hidden = pack.id !== 'sleep';
   $('#pack-habits').innerHTML = items.map(({ type, existing }) => `<label class="check-row">
       <span class="emoji" aria-hidden="true">${type.emoji}</span>
       <span class="check-text"><b>${escapeHTML(type.name)}</b><span>${existing
@@ -7441,6 +8275,7 @@ function backupCounts(data) {
     zen: data.zen.sessions.length,
     gratitude: Object.keys(data.zen.gratitude).length,
     emotions: data.zen.emotions.length,
+    intentions: Object.keys(data.zen.intentions).length,
   };
 }
 
@@ -7452,10 +8287,11 @@ function backupItems(c, { health = true } = {}) {
     c.diary ?`Diario: ${plural(c.diary, 'día', 'días')} con ánimo o nota` : '',
     c.routines ? plural(c.routines, 'rutina', 'rutinas') : '',
     health && c.health ? `Salud: ${plural(c.health, 'registro', 'registros')}` : '',
-    c.zen || c.gratitude || c.emotions ? `Zen: ${fmtList.format([
+    c.zen || c.gratitude || c.emotions || c.intentions ? `Zen: ${fmtList.format([
       c.zen ? plural(c.zen, 'sesión', 'sesiones') : '',
       c.gratitude ? `gratitud de ${plural(c.gratitude, 'día', 'días')}` : '',
       c.emotions ? plural(c.emotions, 'emoción', 'emociones') : '',
+      c.intentions ? plural(c.intentions, 'intención del día', 'intenciones del día') : '',
     ].filter(Boolean))}` : '',
     'Tu perfil y tu progreso',
   ].filter(Boolean);

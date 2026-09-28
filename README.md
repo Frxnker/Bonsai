@@ -2,7 +2,7 @@
 
 Tracker de hábitos para el móvil (iPhone o Android) que se instala como una app (PWA). Hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin cuenta: **tus datos se quedan en tu móvil** y **funciona sin conexión**.
 
-Versión actual: **0.9 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
+Versión actual: **0.10 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
 
 La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro de la app, en **Ajustes → Ayuda**.
 
@@ -18,7 +18,12 @@ La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro 
 - **Diario:** ánimo y nota de cada día, un resumen cada lunes, una revisión semanal y tendencias que solo describen lo que has registrado.
 - **Rutinas** («Mañana», «Noche»…) para ver tus hábitos agrupados.
 - **Salud:** tus medidas (peso, tensión, sueño, pasos…) con gráficas y estadísticas. Es privado y va aparte: no da XP, y la app no interpreta tus medidas ni da consejos médicos.
-- **Zen:** respiración guiada, meditación, sonidos, gratitud y emociones, sin XP.
+- **Zen**, sin XP ni rachas:
+  - **«Necesito calma»**: un toque (en Hoy o en Zen) y un minuto de respiración lenta; si aún no estás mejor, el 5-4-3-2-1.
+  - Respiración guiada (caja, 4-7-8, tranquila y suspiro fisiológico), meditación con campana, el 5-4-3-2-1, **escaneo corporal** y **relajación muscular progresiva**, guiados paso a paso.
+  - **Mezclador de sonidos** (lluvia, olas, viento, fuego y ruidos), varios a la vez con su volumen, y **modo dormir**: respiración 4-7-8 y tus sonidos, que se apagan poco a poco, con la pantalla casi a oscuras. Los sonidos se generan en el móvil, sin archivos de audio.
+  - Gratitud, emociones (con su resumen **por semana y por mes**), **vaciar la cabeza** (lo que escribes no se guarda) e **intención del día**, que se ve en Hoy y, por la noche, marcas cómo fue.
+  - Si quieres, al terminar una práctica se marca el hábito que elijas.
 - **Recordatorios** que se añaden al calendario del móvil y, en Android, **accesos directos** en el icono (Zen, Registrar salud, Nuevo hábito).
 - Mapas de calor de 12 meses, modo claro u oscuro, tamaño del texto ajustable y uso con teclado o lector de pantalla.
 
@@ -27,7 +32,7 @@ La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro 
 - Todo se guarda en el propio dispositivo (`localStorage`, clave `racha:v1`). No hay servidor, cuenta ni seguimiento.
 - **No hay sincronización:** cada dispositivo tiene sus datos. Para pasarlos a otro, exporta una copia e impórtala allí. El diseño pendiente de una sincronización real está en [`docs/sincronizacion.md`](docs/sincronizacion.md).
 - **Copia de seguridad**, en **Ajustes → Copia de seguridad**:
-  - **Exportar copia** guarda un archivo con tus hábitos (con sus notas), tu historial, el diario, las rutinas, Zen, el modo vacaciones, el temporizador en marcha, tus ajustes y, si quieres, Salud. En el iPhone, elige «Guardar en Archivos»; en Android, guárdala en Drive o en tus archivos. Lleva datos personales: guárdala en un sitio privado.
+  - **Exportar copia** guarda un archivo con tus hábitos (con sus notas), tu historial, el diario, las rutinas, Zen (prácticas, gratitud, emociones, intenciones del día y tu mezcla de sonidos; lo de «vaciar la cabeza» nunca se guarda), el modo vacaciones, el temporizador en marcha, tus ajustes y, si quieres, Salud. En el iPhone, elige «Guardar en Archivos»; en Android, guárdala en Drive o en tus archivos. Lleva datos personales: guárdala en un sitio privado.
   - **Importar copia** comprueba el archivo, te enseña qué trae y qué va a reemplazar, y guarda antes tus datos actuales para que puedas deshacerlo.
   - La app puede recordarte que hagas una copia cada cierto tiempo.
 - **Historial de hábitos en CSV**, también en Copia de seguridad: para abrirlo en una hoja de cálculo (no se puede importar y no lleva Salud ni el diario). En los de límite lleva la cantidad de cada día y marca como recaída los días en que te pasaste.
@@ -76,4 +81,4 @@ Pruebas, con [Node.js](https://nodejs.org) 20 o posterior y sin instalar nada:
 node --test "tests/*.test.mjs"
 ```
 
-Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos (también los de límite), las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud, Zen, las rutinas, los ajustes y las copias de seguridad. `tests/rules-fixture.mjs` genera datos variados y una «huella» de todas las cuentas: `tests/limit.test.mjs` comprueba que sale la misma que con la versión anterior a los hábitos con límite.
+Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos (también los de límite), las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud, Zen, las rutinas, los ajustes y las copias de seguridad, y cada parte de Zen (`tests/zen-*.test.mjs`). `tests/rules-fixture.mjs` genera datos variados y una «huella» de todas las cuentas de XP, rachas, protectores, retos y logros: `tests/limit.test.mjs` comprueba que sale la misma que con versiones anteriores.

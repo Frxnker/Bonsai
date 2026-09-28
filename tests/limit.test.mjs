@@ -303,9 +303,10 @@ test('cambiar el máximo recalcula los días apuntados; pasar de minutos a horas
 test('la ayuda lo explica y la caché sin conexión es nueva', async () => {
   const { readFileSync } = await import('node:fs');
   const app = loadApp();
-  assert.match(app.run(`INFO.news().body`), /Versión 0\.9 beta<\/h3>\s*<ul class="news-list">\s*<li>Hábitos con límite/);
+  assert.match(app.run(`INFO.news().body`), /Versión 0\.9 beta<\/h3>\s*<ul class="news-list">\s*<li>Hábitos con límite/, 'dentro de la 0.9 beta');
   assert.match(app.run(`INFO.faq().body`), /¿Qué es un hábito con límite\?/);
-  assert.match(readFileSync(new URL('../sw.js', import.meta.url), 'utf8'), /const CACHE = 'bonsai-v27';/);
+  // (Desde la 0,9 beta con límites, bonsai-v27; cada versión posterior la sube.)
+  assert.ok(Number(readFileSync(new URL('../sw.js', import.meta.url), 'utf8').match(/const CACHE = 'bonsai-v(\d+)';/)[1]) >= 27);
   assert.match(readFileSync(new URL('../README.md', import.meta.url), 'utf8'), /con límite/);
 });
 
@@ -328,13 +329,14 @@ test('el catálogo trae dos con límite (en «Dejar algo») y los packs siguen i
 });
 
 test('las reglas de los hábitos de siempre no cambian: mismas cuentas que antes de los de límite', async () => {
-  // Huellas calculadas con la versión anterior (0.9 beta sin los de límite, commit c61edca) y los mismos datos.
+  // Huellas calculadas con la versión anterior y los mismos datos: primero con la 0.9 beta sin los de límite
+  // (commit c61edca) y, desde que la huella deja fuera Zen, con la que ya los tenía (commit fed27b3). Cuadran las dos.
   const golden = [
-    [1, '2026-09-27T10:00:00', '671f9ebbf0d0ebad140b7ac931fe11b157d3ee50d8c9dd19a52c092c1fe0d335'],
-    [2, '2026-09-28T08:00:00', '154c28d38d2831f3ceb42ea82c8ddb1b06714183567b16c19f6dca40509a3677'],
-    [3, '2026-03-29T23:30:00', '0cc489e1af6e2369d27ae546e8f93d5cb5e4d9920330483fd7aa3cdb7f60f77c'],
-    [4, '2026-09-27T10:00:00', 'd0b66229e82e8ec5c1a2747436906968c04b6fd2cfa364c2fc184e6c5ab48f22'],
-    [5, '2026-01-01T09:00:00', '6e696c5743619c076dafbd74f94749b05fa2261a49b38be87bad14e34e97f9cc'],
+    [1, '2026-09-27T10:00:00', '91d5ce420887d27a8b2f43b8de2e6a9c0c5a53ef7a3f67b709df714903571e4b'],
+    [2, '2026-09-28T08:00:00', 'd6e8f30e9ec9803c394d3b8617463d2582765d607d7cafeaf90cd33108f02a8d'],
+    [3, '2026-03-29T23:30:00', '3f1e8c841cfb1684c28b28c806e091a7e4dca1171ade7d1263e998e49d6d31fb'],
+    [4, '2026-09-27T10:00:00', '980fa1ac029278924153a1a919df32fced662515e3e72f31c5272ce15767636e'],
+    [5, '2026-01-01T09:00:00', 'abf5c2e8f9daa275f32397fb3a1e9cafb274a31707aa27516584f2698f27d3b1'],
   ];
   for (const [seed, now, expected] of golden) {
     const app = loadApp({ stored: dataset(seed, now.slice(0, 10)), now });

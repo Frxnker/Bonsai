@@ -110,6 +110,13 @@
         <button type="button" class="text-btn" data-vacation-end>He vuelto</button>
       </div>
 
+      <!-- Intención del día: solo si la has escrito para este día (en Zen); por la noche, cómo fue -->
+      <section class="intention-card" id="intention-card" aria-labelledby="intention-card-title" hidden>
+        <p class="kicker" id="intention-card-title">Tu intención de hoy</p>
+        <p class="intention-text" id="intention-card-text"></p>
+        <div id="intention-card-rate"></div>
+      </section>
+
       <p class="coach" id="coach" hidden></p>
       <p class="sr-only" id="reorder-hint">Con teclado, Alt más flecha arriba o abajo cambia el orden.</p>
 
@@ -157,14 +164,22 @@
         <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
       </button>
 
-      <!-- Zen: la reflexión del día y la entrada a respirar, meditar, sonidos, gratitud y emociones -->
-      <button type="button" class="link-card" id="zen-card" hidden>
-        <span class="link-card-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 19c-4 0-7-2.4-8-5.8 2.5-.4 5.2.5 8 2.9 2.8-2.4 5.5-3.3 8-2.9-1 3.4-4 5.8-8 5.8z"/><path d="M12 16.1c-1.9-2.2-2.6-4.7-2-7.6 1 .4 1.6 1 2 1.6.4-.6 1-1.2 2-1.6.6 2.9-.1 5.4-2 7.6z"/></svg>
-        </span>
-        <span class="link-card-text"><b>Zen</b><span id="zen-card-quote"></span></span>
-        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
-      </button>
+      <!-- Zen: la reflexión del día y la entrada a respirar, meditar, sonidos, gratitud y emociones.
+           Debajo, «Necesito calma»: un minuto de respiración con un solo toque (es otro botón, no va dentro del primero). -->
+      <div class="zen-card" id="zen-card-box" hidden>
+        <button type="button" class="link-card" id="zen-card">
+          <span class="link-card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 19c-4 0-7-2.4-8-5.8 2.5-.4 5.2.5 8 2.9 2.8-2.4 5.5-3.3 8-2.9-1 3.4-4 5.8-8 5.8z"/><path d="M12 16.1c-1.9-2.2-2.6-4.7-2-7.6 1 .4 1.6 1 2 1.6.4-.6 1-1.2 2-1.6.6 2.9-.1 5.4-2 7.6z"/></svg>
+          </span>
+          <span class="link-card-text"><b>Zen</b><span id="zen-card-quote"></span></span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button type="button" class="calm-btn" data-calm="today" aria-describedby="calm-today-hint">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h10.5a3 3 0 1 0-3-3"/><path d="M3 15h14a3 3 0 1 1-3 3"/><path d="M3 12h6"/></svg>
+          Necesito calma
+        </button>
+        <span class="sr-only" id="calm-today-hint">Empieza al momento un minuto de respiración lenta.</span>
+      </div>
 
       <!-- Bienvenida (solo cuando no hay hábitos) -->
       <div class="welcome" id="welcome" hidden>
@@ -280,7 +295,7 @@
           <input type="checkbox" role="switch" data-pref="showJournal" aria-labelledby="pref-journal" aria-describedby="pref-journal-hint">
         </label>
         <label class="switch-row">
-          <span class="switch-text"><b id="pref-zen">Zen en Hoy</b><span id="pref-zen-hint">La tarjeta con la reflexión del día que abre respirar, meditar, sonidos, gratitud y emociones.</span></span>
+          <span class="switch-text"><b id="pref-zen">Zen en Hoy</b><span id="pref-zen-hint">La tarjeta con la reflexión del día y «Necesito calma», que abre respirar, meditar, sonidos, modo dormir, gratitud, emociones y más.</span></span>
           <input type="checkbox" role="switch" data-pref="showZen" aria-labelledby="pref-zen" aria-describedby="pref-zen-hint">
         </label>
         <label class="switch-row">
@@ -777,6 +792,8 @@
       <p class="kicker">Pack para empezar</p>
       <h2 id="pack-title"></h2>
       <p class="card-text" id="pack-desc"></p>
+      <!-- Solo en «Dormir mejor»: un enlace al modo dormir de Zen (no añade nada al pack) -->
+      <button type="button" class="link-btn pack-sleep-link" id="pack-sleep-link" data-open-sleep hidden>Prueba también el modo dormir de Zen</button>
       <fieldset class="check-list">
         <legend>Hábitos que se añaden</legend>
         <div id="pack-habits"></div>

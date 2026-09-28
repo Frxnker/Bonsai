@@ -137,7 +137,7 @@ test('las emociones admiten hasta 3 palabras conocidas y se pueden borrar', () =
   assert.equal(entry.intensity, 5);
   assert.equal(entry.note, 'tras el paseo');
   app.run(`addEmotion({ words: ['calma'], intensity: 2 })`);
-  assert.deepEqual(run(app, 'emotionSummary()'), [['calma', 2], ['alegría', 1], ['cansancio', 1]]);
+  assert.deepEqual(run(app, `emotionStats(emotionPeriods('month').at(-1)).top`), [['calma', 2], ['alegría', 1], ['cansancio', 1]]);
   app.run(`deleteEmotion('${entry.id}')`);
   assert.equal(app.run('state.zen.emotions.length'), 1);
 });

@@ -81,10 +81,12 @@ function withoutLimitField(value) {
 
 // Todo lo que sale de las reglas con esos datos, también tras marcar, restar, apuntar cantidades, recaer,
 // archivar y borrar. `run` ejecuta código en la app cargada (como app.run del arnés de pruebas).
+// Zen queda fuera: no cuenta para ninguna regla, y sus ajustes crecen con cada práctica nueva.
 export async function rulesFingerprint(run) {
   const get = (code) => JSON.parse(JSON.stringify(run(code)) ?? 'null');
+  const rulesState = '(({ zen, ...rest }) => rest)(state)';
   const out = {
-    boot: get('state'), // al abrir se gastan protectores solos
+    boot: get(rulesState), // al abrir se gastan protectores solos
     stats: get('computeStats()'),
     streaks: get('state.habits.map((h) => streakInfo(h))'),
     shields: get('shieldInfo()'),
@@ -110,7 +112,7 @@ export async function rulesFingerprint(run) {
   if (ids[1]) run(`deleteHabit(findHabit('${ids[1]}'))`);
   run('ui.day = ui.today');
   out.trail = trail;
-  out.after = [get('state'), get('computeStats()')];
+  out.after = [get(rulesState), get('computeStats()')];
   return withoutLimitField(out);
 }
 

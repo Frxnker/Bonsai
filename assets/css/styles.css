@@ -1842,6 +1842,53 @@ input[type="range"] {
 .link-card-text span { color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.35; }
 .link-card .chevron { width: 16px; height: 16px; color: var(--ink-2); stroke-width: 1.75; }
 
+/* Tarjeta de Zen en Hoy: la entrada a Zen y, debajo, «Necesito calma» (dos botones en una misma tarjeta) */
+.zen-card {
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+}
+.zen-card .link-card { margin: 0; border: 0; border-radius: 0; }
+.calm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--hair);
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+  font-size: calc(15px * var(--text));
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+.calm-btn svg { flex-shrink: 0; width: 20px; height: 20px; }
+.calm-btn:active { opacity: 0.7; }
+/* En Zen, arriba del todo y más grande */
+.calm-btn.big {
+  min-height: 64px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--sage);
+  color: var(--on-sage);
+  font-size: calc(18px * var(--text));
+}
+.hint.calm-hint { margin: 8px 0 16px; }
+
+/* «Necesito calma»: textos tranquilos y botones grandes */
+.calm-lead { margin: 4px 0 0; color: var(--ink-2); font-size: calc(16px * var(--text)); line-height: 1.45; text-align: center; }
+.calm-actions { display: grid; gap: 10px; margin-top: 20px; }
+.calm-actions .primary-btn,
+.calm-actions .secondary-btn { width: 100%; min-height: 56px; border-radius: 14px; font-size: calc(18px * var(--text)); }
+.calm-end { margin-top: 24px; text-align: center; }
+.calm-end h2 { margin: 16px 0 8px; font-family: var(--serif); font-size: calc(28px * var(--text)); font-weight: 500; line-height: 1.25; }
+.calm-end > p { margin: 0 0 6px; color: var(--ink-2); font-size: calc(16px * var(--text)); line-height: 1.45; }
+.calm-end .calm-small { margin-top: 12px; font-size: calc(14px * var(--text)); }
+
 /* Hoja de Zen */
 .sheet-slot { justify-self: start; }
 .sheet-head .zen-back { margin-left: -6px; }
@@ -1932,9 +1979,74 @@ input[type="range"] {
   transition-timing-function: ease-in-out;
 }
 .breath-circle.full { transform: scale(1); }
+.breath-circle.almost { transform: scale(0.85); } /* suspiro: la primera inhalación; «inhala otra vez» lo llena */
 @media (prefers-reduced-motion: reduce) {
   .breath-circle,
-  .breath-circle.full { transform: scale(0.7); }
+  .breath-circle.full,
+  .breath-circle.almost { transform: scale(0.7); }
+}
+/* Tipos de respiración: de dos en dos, para que quepan con cualquier tamaño de texto */
+.segmented.breaths { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Escaneo corporal y relajación muscular: el paso actual en grande y una barra con el avance */
+.guide-list { margin-top: 14px; color: var(--ink-2); font-size: calc(14px * var(--text)); }
+.guide-list summary { min-height: 44px; padding: 10px 0; color: var(--sage-ink); font-weight: 600; cursor: pointer; }
+.guide-list ol { margin: 0; padding-left: 22px; line-height: 1.6; }
+.guide-bar { height: 4px; overflow: hidden; border-radius: 2px; background: var(--track); }
+.guide-bar span { display: block; width: calc(var(--p, 0) * 100%); height: 100%; background: var(--sage); }
+.guide-count { margin: 14px 0 0; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; text-align: center; }
+.guide-title { margin: 6px 0 0; font-family: var(--serif); font-size: calc(30px * var(--text)); font-weight: 500; line-height: 1.2; text-align: center; }
+.guide-text { max-width: 30em; margin: 14px auto 0; font-size: calc(17px * var(--text)); line-height: 1.5; text-align: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .guide-bar span { transition: width 0.6s ease; }
+}
+
+/* Modo dormir: casi negro y mínimo, en cualquier tema. Todo es un botón para salir. Los grises son tenues, pero
+   siguen teniendo contraste suficiente sobre negro (6,4:1 el texto y 5,4:1 la pista). */
+.sheet.sleep-mode {
+  inset: 0;
+  max-width: none;
+  border-radius: 0;
+  background: #000;
+  color: #8a908b;
+}
+.sheet.sleep-mode::backdrop { background: #000; }
+.sheet.sleep-mode .sheet-head { display: none; }
+.sheet.sleep-mode .sheet-body { display: flex; padding: 0; }
+.sleep-exit {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  width: 100%;
+  min-height: 100%;
+  padding: calc(var(--safe-t) + 24px) 24px calc(var(--safe-b) + 24px);
+  color: #8a908b;
+  text-align: center;
+}
+.sleep-exit:focus-visible { outline: 2px solid #7d837e; outline-offset: -10px; }
+.sleep-inner { display: grid; justify-items: center; gap: 18px; }
+.sleep-exit .breath-stage { margin: 0; }
+.sleep-exit .breath-circle { border-color: #4a5a50; background: #0b0f0d; }
+.sleep-exit .zen-phase { color: #8a908b; }
+.sleep-moon svg { width: 44px; height: 44px; color: #7d837e; stroke-width: 1.25; }
+.sleep-title { font-family: var(--serif); font-size: calc(30px * var(--text)); }
+.sleep-text { max-width: 22em; font-size: calc(16px * var(--text)); line-height: 1.45; }
+.sleep-hint { margin-top: 24px; color: #7d837e; font-size: calc(14px * var(--text)); }
+.sleep-mix p { margin: 0; }
+.sleep-mix-names { margin-top: 4px !important; font-size: calc(17px * var(--text)); font-weight: 500; }
+.sleep-mix .link-btn { margin-top: 8px; }
+.pack-sleep-link { margin: -4px 0 8px; }
+.health-sleep-link { margin-top: 14px; }
+
+/* Vaciar la cabeza: al soltarlo, el texto sube un poco, se desenfoca y se desvanece (sin moverse si se pide
+   reducir movimiento: entonces se borra al momento) */
+.dump-box textarea { min-height: 220px; background: var(--card); }
+.dump-done { min-height: 1.4em; margin: 10px 0 0; color: var(--sage-ink); font-size: calc(15px * var(--text)); font-weight: 500; text-align: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .dump-box.letting-go textarea { animation: let-go 1.2s ease-in forwards; }
+}
+@keyframes let-go {
+  to { opacity: 0; filter: blur(6px); transform: translateY(-28px) scale(0.98); }
 }
 
 /* Meditación: el anillo se completa con el tiempo */
@@ -1955,6 +2067,43 @@ input[type="range"] {
 .zen-sound[aria-checked="true"] { border-color: var(--sage); background: var(--sage-soft); color: var(--sage-ink); }
 .zen-volume { display: grid; gap: 4px; margin-top: 18px; }
 .zen-volume span { padding-left: 4px; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; }
+/* Mezclador: cada sonido, con su botón (dentro o fuera de la mezcla) y su volumen */
+.mixer { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.mix-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(96px, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--card);
+}
+.mix-row.on { border-color: var(--sage); }
+.mix-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: calc(15px * var(--text));
+  font-weight: 500;
+  text-align: left;
+}
+.mix-check {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--hair-strong);
+  border-radius: 50%;
+}
+.mix-check svg { width: 14px; height: 14px; stroke-width: 2; }
+.mix-row.on .mix-check { border-color: var(--sage); background: var(--sage); color: var(--on-sage); }
+.mix-row input[type="range"] { margin: 0; }
+.mix-row input[type="range"]:disabled { opacity: 0.4; }
 
 /* 5-4-3-2-1 */
 .zen-steps { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
@@ -1997,9 +2146,31 @@ input[type="range"] {
 .zen-emotion-text { display: grid; gap: 1px; min-width: 0; }
 .zen-emotion-text b { font-size: calc(15px * var(--text)); font-weight: 500; }
 .zen-emotion-text span { overflow-wrap: anywhere; color: var(--ink-2); font-size: calc(13px * var(--text)); line-height: 1.35; }
-.segmented.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+/* Las cinco intensidades en una fila si caben; si no (pantalla estrecha o texto grande), pasan a otra fila */
+.segmented.five { grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.6em), 1fr)); }
 .segmented.five button { padding: 0 2px; font-size: calc(12px * var(--text)); }
 .zen-summary { margin-top: 16px; }
+
+/* Intención del día: en Hoy (solo si la escribiste) y su historial en Zen */
+.intention-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--card);
+}
+.intention-card .kicker { margin: 0; }
+.intention-text { margin: 4px 0 0; overflow-wrap: anywhere; font-family: var(--serif); font-size: calc(19px * var(--text)); line-height: 1.35; }
+.intention-ask { margin: 12px 0 0; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 500; }
+.intention-rate { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.intention-rate .tag[aria-pressed="true"] { border-color: var(--sage); background: var(--sage-soft); color: var(--sage-ink); }
+.zen-history.intentions > li { display: grid; gap: 4px; }
+.intention-past { overflow-wrap: anywhere; font-family: var(--serif); font-size: calc(16px * var(--text)); }
+.intention-result { color: var(--sage-ink); font-size: calc(13px * var(--text)); font-weight: 600; }
+.emotion-time .segmented { margin-bottom: 4px; }
+.emotion-time .card-text { margin-top: 12px; }
+/* Seis columnas: con texto grande, la fecha puede ocupar dos líneas para que quepan */
+.emotion-time .mb-label { line-height: 1.2; text-align: center; white-space: normal; }
 
 /* Al terminar una práctica */
 .zen-result { margin-top: 24px; text-align: center; }
