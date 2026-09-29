@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '0.11 beta';
+const APP_VERSION = '0.8 beta';
 const STORAGE_KEY = 'racha:v1';
 const BACKUP_APPS = ['bonsai', 'racha'];
 const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
