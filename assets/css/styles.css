@@ -2554,6 +2554,11 @@ html.reporting .tabbar { display: none !important; }
   line-height: 1.5;
   text-align: center;
 }
+/* Enlace al repositorio, debajo de la versión (relative: por su texto .sr-only) */
+.repo-link {
+  position: relative;
+  text-decoration: none;
+}
 
 /* ---------- Barra de pestañas: de lado a lado, translúcida ---------- */
 .tabbar {
