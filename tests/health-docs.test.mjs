@@ -1,4 +1,4 @@
-// Salud · fase final: versión 0.11 beta, caché nueva, Novedades, preguntas frecuentes y README.
+// Salud · fase final: versión (se queda en la 0.8 beta), caché nueva, Novedades, preguntas frecuentes y README.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -7,22 +7,25 @@ import { loadApp } from './harness.mjs';
 const ROOT = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, ROOT), 'utf8');
 
-test('versión 0.11 beta y caché nueva, con todos sus archivos (no hay archivos nuevos)', () => {
+test('versión 0.8 beta y caché nueva, con todos sus archivos (no hay archivos nuevos)', () => {
   const app = loadApp();
-  assert.equal(app.run('APP_VERSION'), '0.11 beta');
+  assert.equal(app.run('APP_VERSION'), '0.8 beta');
   const sw = read('sw.js');
-  assert.match(sw, /const CACHE = 'bonsai-v29';/);
+  assert.match(sw, /const CACHE = 'bonsai-v30';/);
   const assets = [...sw.matchAll(/'\.\/([^']*)'/g)].map((m) => m[1]).filter(Boolean);
   assets.forEach((path) => assert.ok(existsSync(new URL(path, ROOT)), `${path} existe`));
   assert.deepEqual([...new Set(assets.filter((p) => /\.(html|css|js|json)$/.test(p)))].sort(), ['assets/css/styles.css', 'assets/js/app.js', 'index.html', 'manifest.json']);
-  assert.match(read('README.md'), /Versión actual: \*\*0\.11 beta\*\*/);
+  assert.match(read('README.md'), /Versión actual: \*\*0\.8 beta\*\*/);
 });
 
-test('Novedades de la 0.11 beta: todo lo nuevo de Salud', () => {
+test('Novedades de la 0.8 beta: una sola versión, por grupos, con todo lo nuevo de Salud', () => {
   const app = loadApp();
   const news = app.run('INFO.news().body');
-  const now = news.slice(0, news.indexOf('Versión 0.10 beta'));
-  assert.match(now, /Versión 0\.11 beta/);
+  assert.match(news, /^<h3 class="news-title">Versión 0\.8 beta<\/h3>/);
+  assert.equal(news.match(/Versión 0\.8 beta/g).length, 1, 'la 0.8 sale una sola vez');
+  assert.ok(!/Versión 0\.(9|1\d) beta/.test(news), 'ninguna versión por encima de la actual');
+  assert.deepEqual([...news.matchAll(/<h4 class="news-group">([^<]*)<\/h4>/g)].map((m) => m[1]), ['Hábitos', 'Zen', 'Salud']);
+  const now = news.slice(news.indexOf('>Salud</h4>'), news.indexOf('Versión 0.7 beta'));
   ['resumen de cada medida', '7, 30 y 90 días', 'Un objetivo en cada medida', 'sin juicios', 'Relación con tus hábitos', 'no una causa',
     'Informe para el médico', 'PDF', 'glucosa', 'oxígeno en sangre', 'estado de ánimo', 'energía', 'dolor', 'Tus propias medidas: hasta 5',
     'La hora de cada registro, opcional'].forEach((w) => assert.ok(now.includes(w), w));

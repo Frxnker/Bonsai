@@ -7742,27 +7742,7 @@ const INFO = {
   news: () => ({
     title: 'Novedades',
     body: `<h3 class="news-title">Versión ${APP_VERSION}</h3>
-      <ul class="news-list">
-        <li>Salud, con un resumen de cada medida: los últimos 7, 30 y 90 días, con la media, el mínimo, el máximo, cuántos registros hay y el cambio respecto a los días justo antes.</li>
-        <li>Un objetivo en cada medida, si quieres: subir o bajar hasta un valor, o quedarte en un rango. Se ve como una línea en la gráfica y te dice cuánto te falta y cuántas veces estuviste dentro, sin juicios.</li>
-        <li>Relación con tus hábitos: compara una medida los días que hiciste cada hábito con los días que no. Es una coincidencia en tus datos, no una causa.</li>
-        <li>Informe para el médico: eliges las medidas y el periodo, y lo imprimes o lo guardas en PDF, con el resumen, las gráficas y todos los registros.</li>
-        <li>Medidas nuevas: glucosa (en mg/dL o mmol/L), oxígeno en sangre, estado de ánimo, energía y dolor.</li>
-        <li>Tus propias medidas: hasta 5, con el nombre, la unidad, los decimales y la gráfica que quieras, desde «Elegir medidas y unidades».</li>
-        <li>La hora de cada registro, opcional. Sale en la lista, en el CSV y en el informe.</li>
-      </ul>
-      <h3 class="news-title">Versión 0.10 beta</h3>
-      <ul class="news-list">
-        <li>«Necesito calma»: un toque en Hoy o en Zen y empieza un minuto de respiración lenta. Si todavía no estás mejor, sigue con el 5-4-3-2-1.</li>
-        <li>Una respiración nueva, el suspiro fisiológico: dos inhalaciones seguidas y una exhalación larga.</li>
-        <li>Escaneo corporal y relajación muscular progresiva, guiados paso a paso con una campana suave.</li>
-        <li>Mezclador de sonidos: varios a la vez, cada uno con su volumen, y dos nuevos, viento y fuego. Se recuerda tu mezcla.</li>
-        <li>Modo dormir: respiración 4-7-8 y tus sonidos, que se apagan poco a poco, con la pantalla casi a oscuras.</li>
-        <li>Vaciar la cabeza: escribe lo que te ronda y suéltalo, sin que se guarde en ningún sitio.</li>
-        <li>Tus emociones en el tiempo: lo que más apuntas, la intensidad media y cómo cambia, por semana y por mes.</li>
-        <li>Intención del día: una frase para el día que ves en Hoy y, por la noche, cómo fue.</li>
-      </ul>
-      <h3 class="news-title">Versión 0.9 beta</h3>
+      <h4 class="news-group">Hábitos</h4>
       <ul class="news-list">
         <li>Hábitos con límite, como «como mucho 2 cafés» o «1 h de redes»: apuntas lo que llevas, una barra te avisa al llegar al máximo y el día solo cuenta como recaída si te pasas. Al crear o editar un hábito de dejar algo, en «Cómo lo mides», o con «Limitar el café» y «Limitar las redes».</li>
         <li>Una nota en cada hábito y día («cómo fue», «por qué no pude»), desde Hoy o tocando un día en el Historial.</li>
@@ -7771,18 +7751,36 @@ const INFO = {
         <li>Modo vacaciones, en Ajustes: pausa todos tus hábitos a la vez sin romper las rachas.</li>
         <li>Un bonsái que crece contigo, de Semilla a Maestro, en Progreso y en Hoy.</li>
         <li>Packs para empezar, como «Dormir mejor» o «Mañana tranquila».</li>
-        <li>Tu historial de hábitos en CSV, y compartir una racha o un logro como imagen.</li>
-        <li>En Android, accesos directos al mantener pulsado el icono: Zen, Registrar salud y Nuevo hábito.</li>
-      </ul>
-      <h3 class="news-title">Versión 0.8 beta</h3>
-      <ul class="news-list">
-        <li>Zen, desde una tarjeta en Hoy: respiración guiada (caja, 4-7-8 y tranquila), meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1.</li>
-        <li>Gratitud y emociones, con su historial, y una reflexión distinta cada día.</li>
-        <li>Al terminar una práctica, puede marcarse el hábito que elijas, como Meditar.</li>
-        <li>Salud se abre ahora desde una tarjeta en Hoy, como Zen, y la barra se queda con 4 pestañas.</li>
         <li>Casi 100 tipos de hábito, también los básicos (hacer las comidas, lavarse los dientes, ducharse…), por grupos y con buscador.</li>
         <li>Los hábitos de sí o no se pueden hacer varias veces al día: cada toque suma 1.</li>
         <li>«Por semana» llega ahora hasta 7 veces.</li>
+        <li>Tu historial de hábitos en CSV, y compartir una racha o un logro como imagen.</li>
+        <li>En Android, accesos directos al mantener pulsado el icono: Zen, Registrar salud y Nuevo hábito.</li>
+      </ul>
+      <h4 class="news-group">Zen</h4>
+      <ul class="news-list">
+        <li>Zen, desde una tarjeta en Hoy: respiración guiada (caja, 4-7-8 y tranquila), meditación con campana, sonidos para relajarte y el ejercicio 5-4-3-2-1.</li>
+        <li>«Necesito calma»: un toque en Hoy o en Zen y empieza un minuto de respiración lenta. Si todavía no estás mejor, sigue con el 5-4-3-2-1.</li>
+        <li>Una respiración nueva, el suspiro fisiológico: dos inhalaciones seguidas y una exhalación larga.</li>
+        <li>Escaneo corporal y relajación muscular progresiva, guiados paso a paso con una campana suave.</li>
+        <li>Mezclador de sonidos: varios a la vez, cada uno con su volumen, y dos nuevos, viento y fuego. Se recuerda tu mezcla.</li>
+        <li>Modo dormir: respiración 4-7-8 y tus sonidos, que se apagan poco a poco, con la pantalla casi a oscuras.</li>
+        <li>Vaciar la cabeza: escribe lo que te ronda y suéltalo, sin que se guarde en ningún sitio.</li>
+        <li>Gratitud y emociones, con su historial, y una reflexión distinta cada día.</li>
+        <li>Tus emociones en el tiempo: lo que más apuntas, la intensidad media y cómo cambia, por semana y por mes.</li>
+        <li>Intención del día: una frase para el día que ves en Hoy y, por la noche, cómo fue.</li>
+        <li>Al terminar una práctica, puede marcarse el hábito que elijas, como Meditar.</li>
+      </ul>
+      <h4 class="news-group">Salud</h4>
+      <ul class="news-list">
+        <li>Salud se abre ahora desde una tarjeta en Hoy, como Zen, y la barra se queda con 4 pestañas.</li>
+        <li>Salud, con un resumen de cada medida: los últimos 7, 30 y 90 días, con la media, el mínimo, el máximo, cuántos registros hay y el cambio respecto a los días justo antes.</li>
+        <li>Un objetivo en cada medida, si quieres: subir o bajar hasta un valor, o quedarte en un rango. Se ve como una línea en la gráfica y te dice cuánto te falta y cuántas veces estuviste dentro, sin juicios.</li>
+        <li>Relación con tus hábitos: compara una medida los días que hiciste cada hábito con los días que no. Es una coincidencia en tus datos, no una causa.</li>
+        <li>Informe para el médico: eliges las medidas y el periodo, y lo imprimes o lo guardas en PDF, con el resumen, las gráficas y todos los registros.</li>
+        <li>Medidas nuevas: glucosa (en mg/dL o mmol/L), oxígeno en sangre, estado de ánimo, energía y dolor.</li>
+        <li>Tus propias medidas: hasta 5, con el nombre, la unidad, los decimales y la gráfica que quieras, desde «Elegir medidas y unidades».</li>
+        <li>La hora de cada registro, opcional. Sale en la lista, en el CSV y en el informe.</li>
       </ul>
       <h3 class="news-title">Versión 0.7 beta</h3>
       <ul class="news-list">

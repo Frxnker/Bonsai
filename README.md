@@ -2,7 +2,7 @@
 
 Tracker de hábitos para el móvil (iPhone o Android) que se instala como una app (PWA). Hecho con HTML, CSS y JavaScript, sin frameworks, sin servidor y sin cuenta: **tus datos se quedan en tu móvil** y **funciona sin conexión**.
 
-Versión actual: **0.11 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
+Versión actual: **0.8 beta**. Antes se llamaba Racha: los datos y las copias de entonces siguen valiendo.
 
 La ayuda completa (cómo se usa, preguntas frecuentes y novedades) está dentro de la app, en **Ajustes → Ayuda**.
 
@@ -87,3 +87,9 @@ node --test "tests/*.test.mjs"
 ```
 
 Cargan `assets/js/app.js` tal cual, con una fecha fija, y comprueban las reglas de XP y rachas, la compatibilidad con copias antiguas, los hábitos (también los de límite), las notas, la ficha, el temporizador, el modo vacaciones, los packs, el bonsái, las exportaciones, Salud (con su resumen, los objetivos, la relación con los hábitos, el informe y las medidas nuevas: `tests/health-*.test.mjs`), Zen, las rutinas, los ajustes y las copias de seguridad, y cada parte de Zen (`tests/zen-*.test.mjs`). `tests/rules-fixture.mjs` genera datos variados y una «huella» de todas las cuentas de XP, rachas, protectores, retos y logros (sin Zen ni Salud, que no cuentan para ellas): `tests/limit.test.mjs` comprueba que sale la misma que con versiones anteriores.
+
+## Derechos de autor
+
+© 2026 Frxnker. Todos los derechos reservados.
+
+Bonsái (su código, su diseño, sus textos y sus iconos) es una obra original de Frxnker. Puedes usar e instalar la app publicada, pero no es software libre: no se permite copiarla, modificarla, redistribuirla ni publicarla en otro sitio, total o parcialmente, sin permiso previo por escrito de Frxnker.

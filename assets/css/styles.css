@@ -3035,6 +3035,7 @@ html.reporting .tabbar { display: none !important; }
 .faq[open] summary svg { transform: rotate(90deg); }
 .faq p { margin: 0 0 12px; color: var(--ink-2); font-size: calc(14px * var(--text)); line-height: 1.5; }
 .news-title { margin: 0 0 6px; font-size: calc(15px * var(--text)); font-weight: 600; }
+.news-group { margin: 0 0 4px; color: var(--ink-2); font-size: calc(13px * var(--text)); font-weight: 600; }
 .news-list {
   margin: 0 0 18px;
   padding-left: 20px;

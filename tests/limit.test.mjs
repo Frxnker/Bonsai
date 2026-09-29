@@ -303,7 +303,7 @@ test('cambiar el máximo recalcula los días apuntados; pasar de minutos a horas
 test('la ayuda lo explica y la caché sin conexión es nueva', async () => {
   const { readFileSync } = await import('node:fs');
   const app = loadApp();
-  assert.match(app.run(`INFO.news().body`), /Versión 0\.9 beta<\/h3>\s*<ul class="news-list">\s*<li>Hábitos con límite/, 'dentro de la 0.9 beta');
+  assert.match(app.run(`INFO.news().body`), /Versión 0\.8 beta<\/h3>\s*<h4 class="news-group">Hábitos<\/h4>\s*<ul class="news-list">\s*<li>Hábitos con límite/, 'lo primero de la versión actual');
   assert.match(app.run(`INFO.faq().body`), /¿Qué es un hábito con límite\?/);
   // (Desde la 0,9 beta con límites, bonsai-v27; cada versión posterior la sube.)
   assert.ok(Number(readFileSync(new URL('../sw.js', import.meta.url), 'utf8').match(/const CACHE = 'bonsai-v(\d+)';/)[1]) >= 27);

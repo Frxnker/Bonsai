@@ -7,7 +7,7 @@ import { loadApp } from './harness.mjs';
 const ROOT = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, ROOT), 'utf8');
 
-// (La versión y la caché de cada versión nueva se comprueban en su propia prueba: la 0.11, en health-docs.)
+// (La versión y la caché de cada versión nueva se comprueban en su propia prueba: la actual, en health-docs.)
 test('la caché sin conexión tiene todos sus archivos (sin audios: los sonidos se generan)', () => {
   const sw = read('sw.js');
   assert.ok(Number(sw.match(/const CACHE = 'bonsai-v(\d+)';/)[1]) >= 28, 'desde la 0.10 beta, bonsai-v28 o posterior');
@@ -16,11 +16,11 @@ test('la caché sin conexión tiene todos sus archivos (sin audios: los sonidos 
   assert.ok(!assets.some((p) => /\.(mp3|ogg|wav|m4a)$/.test(p)), 'los sonidos se generan: no hay audios');
 });
 
-test('Novedades de la 0.10 beta: todo lo nuevo de Zen', () => {
+test('Novedades de la 0.8 beta: todo lo nuevo de Zen, en su grupo', () => {
   const app = loadApp();
   const news = app.run('INFO.news().body');
-  const now = news.slice(news.indexOf('Versión 0.10 beta'), news.indexOf('Versión 0.9 beta'));
-  assert.match(now, /Versión 0\.10 beta/);
+  const now = news.slice(news.indexOf('>Zen</h4>'), news.indexOf('>Salud</h4>'));
+  assert.ok(news.indexOf('>Zen</h4>') > 0 && now.length > 0, 'el grupo Zen está antes que Salud');
   ['Necesito calma', 'suspiro fisiológico', 'Escaneo corporal', 'relajación muscular', 'Mezclador de sonidos', 'viento y fuego',
     'Modo dormir', 'Vaciar la cabeza', 'Tus emociones en el tiempo', 'Intención del día'].forEach((w) => assert.ok(now.includes(w), w));
 });
